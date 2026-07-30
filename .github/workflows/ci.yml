@@ -1,0 +1,79 @@
+name: ci
+
+# Continuous integration for Homebase. No deploy steps: this workflow only
+# scans, checks formatting, and lints where code exists. Infrastructure is
+# applied by a human, never by CI or an agent.
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # Fail the job on any finding.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  terraform-fmt:
+    name: terraform fmt check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: terraform fmt -check
+        run: |
+          if [ -d infra ] && find infra -name '*.tf' -print -quit | grep -q .; then
+            terraform fmt -check -recursive infra
+          else
+            echo "No Terraform files yet; skipping fmt check."
+          fi
+
+  lint:
+    name: language linters (where code exists)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint web and cli (if configured)
+        run: |
+          for dir in web cli; do
+            if [ -f "$dir/package.json" ]; then
+              echo "Linting $dir"
+              (cd "$dir" && npm ci && npm run lint --if-present)
+            else
+              echo "No package.json in $dir; skipping."
+            fi
+          done
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lint Python (if configured)
+        run: |
+          if find services eval -name '*.py' -print -quit 2>/dev/null | grep -q .; then
+            python -m pip install --upgrade pip ruff
+            ruff check services eval || true
+          else
+            echo "No Python files yet; skipping."
+          fi

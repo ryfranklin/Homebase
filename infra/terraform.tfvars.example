@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# Example Terraform variable values for Homebase.
+#
+# Copy this to `infra/terraform.tfvars` (which is GIT-IGNORED) and replace the
+# placeholders with your real inputs. The real terraform.tfvars is never
+# committed. Every value below is a FAKE placeholder.
+#
+# Secret values (OAuth client secrets, tokens) do NOT belong here. Store them
+# in AWS Secrets Manager or SSM Parameter Store and reference them by name.
+# ---------------------------------------------------------------------------
+
+# AWS region to deploy into.
+aws_region = "<YOUR_AWS_REGION>"
+
+# Short project or environment name used to prefix resource names.
+project_name = "homebase"
+environment  = "dev"
+
+# Custom domain for the web GUI (leave as an example.invalid placeholder until set).
+web_domain = "app.example.invalid"
+
+# Cognito hosted UI domain prefix (must be globally unique; example only).
+cognito_domain_prefix = "homebase-example"
+
+# Google federation OAuth client id (public identifier; secret goes in Secrets Manager).
+google_oauth_client_id = "<YOUR_GOOGLE_OAUTH_CLIENT_ID>"
+
+# Name of the Secrets Manager secret holding the Google OAuth client secret.
+google_oauth_secret_name = "homebase/google-oauth-client-secret"
+
+# Bedrock model id used by the agent runtime.
+bedrock_model_id = "anthropic.claude-placeholder-model-id"
+
+# Tags applied to all resources.
+tags = {
+  Project = "homebase"
+  Owner   = "<YOUR_NAME_OR_TEAM>"
+}

@@ -1,0 +1,59 @@
+# Pre-commit hooks for Homebase.
+# Install: pipx install pre-commit && pre-commit install
+# Run on everything: pre-commit run --all-files
+#
+# These hooks are a safety net for a PUBLIC repository. Do not weaken them.
+
+repos:
+  # Secret scanning. Fails the commit on any detected secret.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # General hygiene.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Terraform formatting.
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.92.1
+    hooks:
+      - id: terraform_fmt
+
+  # Block committing files whose names match secret or credential patterns.
+  # Mirrors the .gitignore secret patterns as a hard stop at commit time.
+  - repo: local
+    hooks:
+      - id: block-secret-files
+        name: block secret and credential files
+        entry: >-
+          Refusing to commit a file matching a secret or credential pattern.
+          Move the value into AWS Secrets Manager or SSM, or add an *.example
+          placeholder instead.
+        language: fail
+        files: >-
+          (?x)(
+            (^|/)\.env($|\.)(?!example)
+            |\.tfvars$
+            |\.tfvars\.json$
+            |\.tfstate($|\.)
+            |\.pem$
+            |\.key$
+            |\.p12$
+            |\.pfx$
+            |(^|/)\.aws/
+            |(^|/)credentials$
+            |secret
+          )
+        exclude: >-
+          (?x)(
+            \.tfvars\.example$
+            |\.env\.example$
+            |secrets\.example\.
+          )
