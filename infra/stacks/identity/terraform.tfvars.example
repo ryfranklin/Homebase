@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Globally unique hosted UI domain prefix. Yields:
+#   https://<prefix>.auth.<region>.amazoncognito.com
+hosted_ui_domain_prefix = "<YOUR_HOSTED_UI_PREFIX>"
+
+# SPA OAuth callback and logout URLs. Placeholders only.
+callback_urls = ["https://app.example.invalid/auth/callback"]
+logout_urls   = ["https://app.example.invalid/"]
+
+# --- Google federation ---
+enable_google_federation = true
+
+# Low sensitivity, but still kept out of the public repo via this git-ignored file.
+google_client_id = "<YOUR_GOOGLE_OAUTH_CLIENT_ID>"
+
+# Preferred: read the client secret from Secrets Manager by name.
+google_client_secret_source = "secrets_manager"
+google_client_secret_name   = "homebase/google-oauth-client-secret"
+
+# Alternative (NOT preferred): supply the secret directly here. Only if you set
+# google_client_secret_source = "variable". Never commit a real secret.
+# google_client_secret = "<YOUR_GOOGLE_OAUTH_CLIENT_SECRET>"
