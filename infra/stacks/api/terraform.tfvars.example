@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Browser origin allowed by CORS. Set to your CloudFront/app URL in P8.
+spa_origin = "https://app.example.invalid"
+
+# Function URL auth. NONE = in-function Cognito JWT check is the gate (default,
+# streaming-safe for POST bodies). AWS_IAM = CloudFront OAC signing path.
+function_url_auth_type = "NONE"
+
+lambda_memory_mb       = 512
+lambda_timeout_seconds = 300

@@ -1,0 +1,13 @@
+{
+  "name": "homebase-bff",
+  "version": "0.1.0",
+  "description": "Streaming Lambda BFF: validates Cognito JWTs and streams the AgentCore response via a Lambda Function URL (SSE).",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
