@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Suffix that makes the derived bucket name globally unique. Yields:
+#   <project_name>-<environment>-corpus-<bucket_suffix>
+bucket_suffix = "<YOUR_UNIQUE_SUFFIX>"
+
+# Lifecycle policy tuning (optional; defaults are sensible).
+noncurrent_version_expiration_days = 90
+abort_incomplete_multipart_days    = 7
