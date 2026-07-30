@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region = "<YOUR_AWS_REGION>"
+
+# Must be globally unique across all of S3. Pick your own; do not reuse this.
+state_bucket_name = "<YOUR_GLOBALLY_UNIQUE_STATE_BUCKET_NAME>"
+
+lock_table_name = "homebase-tf-locks"
+
+project_name = "homebase"
+environment  = "global"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
