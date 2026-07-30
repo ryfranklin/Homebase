@@ -27,12 +27,22 @@ base lives.
 - Optionally prunes objects that no longer exist locally (`--prune`).
 - Bucket-default KMS encryption applies; the tool references no key id.
 
-## Trigger contract (interface only, wired in P5)
+## Trigger contract and the real Bedrock trigger (P5)
 
-After a sync that changed the corpus, the caller is expected to start a Bedrock Knowledge Base
-ingestion job. `trigger.py` defines that contract (`IngestionTrigger`, `IngestionTriggerRequest`,
-`IngestionTriggerResponse`) and ships a `NullIngestionTrigger` that records the request and calls no
-AWS service. P5 provides the real Bedrock-backed implementation of the same protocol.
+After a sync that changed the corpus, the caller starts a Bedrock Knowledge Base ingestion job.
+`trigger.py` defines the contract (`IngestionTrigger`, `IngestionTriggerRequest`,
+`IngestionTriggerResponse`) with a `NullIngestionTrigger` default. `bedrock_trigger.py` is the real
+implementation (`BedrockIngestionTrigger`): it calls `start_ingestion_job` on a `bedrock-agent`
+client. It is:
+
+- Idempotent: `make_client_token` derives a deterministic token from the changed object keys, so
+  retrying the same sync reuses the token and Bedrock does not start a duplicate job.
+- Fail-loud: a failed start raises `IngestionJobError` (the CLI exits non-zero) rather than silently
+  succeeding on a broken ingestion.
+
+The CLI wires it automatically: when `--knowledge-base-id` and `--data-source-id` (or `$HOMEBASE_KB_ID`
+and `$HOMEBASE_KB_DATA_SOURCE_ID`) are set and the corpus changed, it starts a job. Resolve those ids
+from SSM: `/homebase/<env>/retrieval/knowledge_base_id` and `.../data_source_id`.
 
 ## Usage
 

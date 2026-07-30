@@ -11,12 +11,15 @@ import argparse
 import os
 import sys
 
+from .bedrock_trigger import BedrockIngestionTrigger, make_client_token
 from .sync import sync_directory
-from .trigger import should_trigger
+from .trigger import IngestionTriggerRequest, should_trigger
 
 SOURCE_ENV = "HOMEBASE_CORPUS_SOURCE_DIR"
 BUCKET_ENV = "HOMEBASE_CORPUS_BUCKET"
 PREFIX_ENV = "HOMEBASE_CORPUS_KEY_PREFIX"
+KB_ID_ENV = "HOMEBASE_KB_ID"
+DATA_SOURCE_ID_ENV = "HOMEBASE_KB_DATA_SOURCE_ID"
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -43,6 +46,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--prune",
         action="store_true",
         help="Delete objects under the prefix that no longer exist locally.",
+    )
+    parser.add_argument(
+        "--knowledge-base-id",
+        default=os.environ.get(KB_ID_ENV),
+        help=f"Bedrock Knowledge Base id. Defaults to ${KB_ID_ENV}. When set with "
+        "--data-source-id, a changed corpus starts an ingestion job.",
+    )
+    parser.add_argument(
+        "--data-source-id",
+        default=os.environ.get(DATA_SOURCE_ID_ENV),
+        help=f"Bedrock data source id. Defaults to ${DATA_SOURCE_ID_ENV}.",
     )
     parser.add_argument(
         "--region",
@@ -82,8 +96,29 @@ def main(argv=None) -> int:
     )
 
     if should_trigger(result):
-        # P5 wires the real Bedrock trigger here. For now, just report.
-        print("corpus changed: a knowledge base ingestion job should be started (wired in P5)")
+        if args.knowledge_base_id and args.data_source_id:
+            bedrock = (
+                boto3.client("bedrock-agent", region_name=args.region)
+                if args.region
+                else boto3.client("bedrock-agent")
+            )
+            changed = result.uploaded + result.pruned
+            request = IngestionTriggerRequest(
+                knowledge_base_id=args.knowledge_base_id,
+                data_source_id=args.data_source_id,
+                changed_count=len(changed),
+                description="homebase corpus sync",
+                client_token=make_client_token(changed),
+            )
+            # A failure raises IngestionJobError and exits non-zero, rather than
+            # silently succeeding on a broken ingestion.
+            response = BedrockIngestionTrigger(bedrock).start(request)
+            print(f"started ingestion job {response.job_id} (status={response.detail})")
+        else:
+            print(
+                "corpus changed: set --knowledge-base-id and --data-source-id "
+                f"(or ${KB_ID_ENV} / ${DATA_SOURCE_ID_ENV}) to start a KB ingestion job"
+            )
 
     return 0
 

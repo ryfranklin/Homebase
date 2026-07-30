@@ -1,0 +1,77 @@
+{
+  "_comment": "SYNTHETIC fixtures for offline retrieval eval. Invented content about a fictional 'Acme Robotics' handbook. No real personal corpus, ever. Live evaluation against the real corpus runs on your machine post-deploy and is not committed. base_ranking / reranked_ranking are illustrative rankings a retriever would produce, so the harness is deterministic offline.",
+  "cases": [
+    {
+      "id": "c1",
+      "question": "How do I rotate the encryption key for the parts database?",
+      "expected_sources": ["ops/key-rotation.md"],
+      "offline": {
+        "base_ranking": ["ops/backups.md", "ops/key-rotation.md", "ops/networking.md", "hr/onboarding.md", "ops/logging.md"],
+        "reranked_ranking": ["ops/key-rotation.md", "ops/backups.md", "ops/logging.md", "ops/networking.md", "hr/onboarding.md"]
+      }
+    },
+    {
+      "id": "c2",
+      "question": "What is the warranty period for the Acme R-200 arm?",
+      "expected_sources": ["products/r200-warranty.md"],
+      "offline": {
+        "base_ranking": ["products/r200-overview.md", "products/r100-warranty.md", "products/r200-warranty.md", "sales/pricing.md", "products/r200-specs.md"],
+        "reranked_ranking": ["products/r200-warranty.md", "products/r200-overview.md", "products/r200-specs.md", "products/r100-warranty.md", "sales/pricing.md"]
+      }
+    },
+    {
+      "id": "c3",
+      "question": "Where are the calibration steps for the vision sensor?",
+      "expected_sources": ["guides/vision-calibration.md"],
+      "offline": {
+        "base_ranking": ["guides/vision-calibration.md", "guides/gripper-calibration.md", "guides/safety.md", "products/r200-specs.md", "ops/logging.md"],
+        "reranked_ranking": ["guides/vision-calibration.md", "guides/gripper-calibration.md", "products/r200-specs.md", "guides/safety.md", "ops/logging.md"]
+      }
+    },
+    {
+      "id": "c4",
+      "question": "What is the parental leave policy?",
+      "expected_sources": ["hr/leave-policy.md"],
+      "offline": {
+        "base_ranking": ["hr/onboarding.md", "hr/benefits.md", "hr/conduct.md", "hr/leave-policy.md", "hr/payroll.md"],
+        "reranked_ranking": ["hr/leave-policy.md", "hr/benefits.md", "hr/onboarding.md", "hr/payroll.md", "hr/conduct.md"]
+      }
+    },
+    {
+      "id": "c5",
+      "question": "How is the nightly backup verified?",
+      "expected_sources": ["ops/backups.md"],
+      "offline": {
+        "base_ranking": ["ops/backups.md", "ops/logging.md", "ops/key-rotation.md", "ops/networking.md", "guides/safety.md"],
+        "reranked_ranking": ["ops/backups.md", "ops/logging.md", "ops/networking.md", "ops/key-rotation.md", "guides/safety.md"]
+      }
+    },
+    {
+      "id": "c6",
+      "question": "Which ports must be open between the controller and the arm?",
+      "expected_sources": ["ops/networking.md"],
+      "offline": {
+        "base_ranking": ["ops/logging.md", "guides/safety.md", "products/r200-specs.md", "ops/backups.md", "ops/networking.md"],
+        "reranked_ranking": ["ops/networking.md", "products/r200-specs.md", "ops/logging.md", "guides/safety.md", "ops/backups.md"]
+      }
+    },
+    {
+      "id": "c7",
+      "question": "What are the lockout tagout requirements before maintenance?",
+      "expected_sources": ["guides/safety.md"],
+      "offline": {
+        "base_ranking": ["guides/gripper-calibration.md", "guides/safety.md", "hr/conduct.md", "ops/networking.md", "products/r200-overview.md"],
+        "reranked_ranking": ["guides/safety.md", "guides/gripper-calibration.md", "ops/networking.md", "hr/conduct.md", "products/r200-overview.md"]
+      }
+    },
+    {
+      "id": "c8",
+      "question": "How do I file an expense reimbursement?",
+      "expected_sources": ["hr/payroll.md"],
+      "offline": {
+        "base_ranking": ["hr/benefits.md", "hr/onboarding.md", "sales/pricing.md", "hr/conduct.md", "hr/leave-policy.md"],
+        "reranked_ranking": ["hr/benefits.md", "hr/payroll.md", "hr/onboarding.md", "hr/conduct.md", "sales/pricing.md"]
+      }
+    }
+  ]
+}

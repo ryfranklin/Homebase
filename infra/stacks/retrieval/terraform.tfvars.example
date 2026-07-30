@@ -1,0 +1,25 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Embeddings. Swap Titan vs Cohere by changing the id and matching the dimension.
+embedding_model_id  = "amazon.titan-embed-text-v2:0"
+embedding_dimension = 1024
+
+# Rerank (query-time). Swap Amazon vs Cohere without code changes.
+rerank_model_id = "amazon.rerank-v1:0"
+
+# S3 Vectors is semantic-only. Leave SEMANTIC unless you move to the OpenSearch
+# Serverless fallback (ADR-002), which supports HYBRID.
+default_search_type = "SEMANTIC"
+
+# Chunking for ingestion.
+chunk_max_tokens         = 512
+chunk_overlap_percentage = 20
