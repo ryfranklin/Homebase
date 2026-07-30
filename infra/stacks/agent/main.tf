@@ -1,0 +1,397 @@
+data "aws_partition" "current" {}
+data "aws_caller_identity" "current" {}
+
+# Non-secret identifiers published by the retrieval stack (P5). Read at
+# plan/apply time; validate does not call AWS.
+data "aws_ssm_parameter" "knowledge_base_id" {
+  name = "/${var.project_name}/${var.environment}/retrieval/knowledge_base_id"
+}
+
+data "aws_ssm_parameter" "rerank_model_id" {
+  name = "/${var.project_name}/${var.environment}/retrieval/rerank_model_id"
+}
+
+locals {
+  common_tags = merge({
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Stack       = "agent"
+  }, var.tags)
+
+  name_prefix = "${var.project_name}-${var.environment}"
+  account_id  = data.aws_caller_identity.current.account_id
+  partition   = data.aws_partition.current.partition
+
+  knowledge_base_id  = data.aws_ssm_parameter.knowledge_base_id.value
+  knowledge_base_arn = "arn:${local.partition}:bedrock:${var.aws_region}:${local.account_id}:knowledge-base/${local.knowledge_base_id}"
+
+  rerank_model_id  = data.aws_ssm_parameter.rerank_model_id.value
+  rerank_model_arn = "arn:${local.partition}:bedrock:${var.aws_region}::foundation-model/${local.rerank_model_id}"
+  model_arn        = "arn:${local.partition}:bedrock:*::foundation-model/${var.model_id}"
+
+  container_uri = "${aws_ecr_repository.agent.repository_url}:${var.agent_image_tag}"
+
+  runtime_environment = {
+    HOMEBASE_KB_ID              = local.knowledge_base_id
+    HOMEBASE_MODEL_ID           = var.model_id
+    HOMEBASE_RERANK_MODEL_ARN   = local.rerank_model_arn
+    HOMEBASE_MEMORY_ID          = aws_bedrockagentcore_memory.this.id
+    AGENT_OBSERVABILITY_ENABLED = "true"
+    OTEL_PYTHON_DISTRO          = "aws_distro"
+    OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+    OTEL_RESOURCE_ATTRIBUTES    = "service.name=${local.name_prefix}-agent"
+  }
+}
+
+# Customer managed key for memory and agent logs.
+module "agent_kms" {
+  source = "../../modules/kms"
+
+  alias       = "${local.name_prefix}-agent"
+  description = "Homebase ${var.environment} agent plane key (memory, logs)"
+  service_principals = [
+    "logs.amazonaws.com",
+    "bedrock-agentcore.amazonaws.com",
+  ]
+  tags = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# ECR repository for the agent container image. Build from services/agent and
+# push here, then the runtime references this repo by tag.
+# ---------------------------------------------------------------------------
+resource "aws_ecr_repository" "agent" {
+  name                 = "${local.name_prefix}-agent"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+    kms_key         = module.agent_kms.key_arn
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "agent" {
+  name              = "/${var.project_name}/${var.environment}/agent"
+  retention_in_days = 30
+  kms_key_id        = module.agent_kms.key_arn
+  tags              = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# AgentCore Memory: short-term session events, plus an optional long-term
+# extraction strategy. Encrypted with the agent key. Tenant identity is carried
+# by the agent at write time (actor id namespaced by tenant).
+# ---------------------------------------------------------------------------
+resource "aws_bedrockagentcore_memory" "this" {
+  name                  = replace("${local.name_prefix}_memory", "-", "_")
+  event_expiry_duration = var.memory_event_expiry_days
+  encryption_key_arn    = module.agent_kms.key_arn
+  description           = "Homebase ${var.environment} agent memory"
+  tags                  = local.common_tags
+}
+
+# Role the memory service assumes to run model-backed extraction strategies.
+data "aws_iam_policy_document" "memory_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["bedrock-agentcore.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role" "memory" {
+  count              = var.enable_long_term_memory ? 1 : 0
+  name               = "${local.name_prefix}-memory-role"
+  assume_role_policy = data.aws_iam_policy_document.memory_trust.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "memory" {
+  count = var.enable_long_term_memory ? 1 : 0
+
+  statement {
+    sid       = "InvokeStrategyModel"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
+    resources = [local.model_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "memory" {
+  count  = var.enable_long_term_memory ? 1 : 0
+  name   = "${local.name_prefix}-memory-policy"
+  role   = aws_iam_role.memory[0].id
+  policy = data.aws_iam_policy_document.memory[0].json
+}
+
+resource "aws_bedrockagentcore_memory_strategy" "long_term" {
+  count = var.enable_long_term_memory ? 1 : 0
+
+  memory_id                 = aws_bedrockagentcore_memory.this.id
+  name                      = replace("${local.name_prefix}_long_term", "-", "_")
+  type                      = var.long_term_memory_strategy_type
+  memory_execution_role_arn = aws_iam_role.memory[0].arn
+  namespace_templates       = var.long_term_memory_namespaces
+  description               = "Long-term extraction for Homebase agent memory"
+}
+
+# ---------------------------------------------------------------------------
+# AgentCore Runtime execution role: least privilege. Bedrock model invoke, KB
+# retrieve, rerank, and AgentCore Memory only. No S3 access, no broad Bedrock.
+# The resource "*" entries below are the AWS-required ones (X-Ray, ECR auth
+# token, scoped metric publishing).
+# ---------------------------------------------------------------------------
+data "aws_iam_policy_document" "runtime_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["bedrock-agentcore.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:*"]
+    }
+  }
+}
+
+resource "aws_iam_role" "runtime" {
+  name               = "${local.name_prefix}-agent-runtime-role"
+  assume_role_policy = data.aws_iam_policy_document.runtime_trust.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "runtime" {
+  statement {
+    sid       = "InvokeModel"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = concat([local.model_arn], var.additional_model_arns)
+  }
+
+  statement {
+    sid       = "RetrieveFromKnowledgeBase"
+    effect    = "Allow"
+    actions   = ["bedrock:Retrieve"]
+    resources = [local.knowledge_base_arn]
+  }
+
+  statement {
+    sid       = "Rerank"
+    effect    = "Allow"
+    actions   = ["bedrock:Rerank", "bedrock:InvokeModel"]
+    resources = [local.rerank_model_arn]
+  }
+
+  statement {
+    sid    = "AgentCoreMemory"
+    effect = "Allow"
+    actions = [
+      "bedrock-agentcore:CreateEvent",
+      "bedrock-agentcore:GetEvent",
+      "bedrock-agentcore:ListEvents",
+      "bedrock-agentcore:ListSessions",
+      "bedrock-agentcore:RetrieveMemoryRecords",
+      "bedrock-agentcore:GetMemoryRecord",
+    ]
+    resources = [
+      aws_bedrockagentcore_memory.this.arn,
+      "${aws_bedrockagentcore_memory.this.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "WorkloadIdentity"
+    effect = "Allow"
+    actions = [
+      "bedrock-agentcore:GetWorkloadAccessToken",
+      "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
+      "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
+    ]
+    resources = [
+      "arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:workload-identity-directory/default",
+      "arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:workload-identity-directory/default/workload-identity/*",
+    ]
+  }
+
+  statement {
+    sid    = "Logs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogStreams",
+      "logs:DescribeLogGroups",
+    ]
+    resources = [
+      "arn:${local.partition}:logs:${var.aws_region}:${local.account_id}:log-group:/aws/bedrock-agentcore/runtimes/*",
+      aws_cloudwatch_log_group.agent.arn,
+      "${aws_cloudwatch_log_group.agent.arn}:*",
+    ]
+  }
+
+  # X-Ray trace publishing. AWS requires resource "*" for these actions.
+  statement {
+    sid       = "XRayTracing"
+    effect    = "Allow"
+    actions   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords", "xray:GetSamplingRules", "xray:GetSamplingTargets"]
+    resources = ["*"]
+  }
+
+  # Metric publishing, restricted to the AgentCore namespace by condition.
+  statement {
+    sid       = "PublishMetrics"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["bedrock-agentcore"]
+    }
+  }
+
+  statement {
+    sid       = "PullAgentImage"
+    effect    = "Allow"
+    actions   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+    resources = [aws_ecr_repository.agent.arn]
+  }
+
+  # ECR auth token. AWS requires resource "*" for this action.
+  statement {
+    sid       = "EcrAuthToken"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "UseAgentKey"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [module.agent_kms.key_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "runtime" {
+  name   = "${local.name_prefix}-agent-runtime-policy"
+  role   = aws_iam_role.runtime.id
+  policy = data.aws_iam_policy_document.runtime.json
+}
+
+# ---------------------------------------------------------------------------
+# AgentCore Runtime.
+# ---------------------------------------------------------------------------
+resource "aws_bedrockagentcore_agent_runtime" "this" {
+  agent_runtime_name = replace("${local.name_prefix}_agent", "-", "_")
+  role_arn           = aws_iam_role.runtime.arn
+
+  agent_runtime_artifact {
+    container_configuration {
+      container_uri = local.container_uri
+    }
+  }
+
+  network_configuration {
+    network_mode = var.runtime_network_mode
+  }
+
+  protocol_configuration {
+    server_protocol = var.runtime_server_protocol
+  }
+
+  environment_variables = local.runtime_environment
+
+  tags = local.common_tags
+
+  depends_on = [aws_iam_role_policy.runtime]
+}
+
+# ---------------------------------------------------------------------------
+# Observability: CloudWatch Logs resource policy that lets X-Ray deliver trace
+# spans (a prerequisite for CloudWatch Transaction Search / GenAI Observability).
+#
+# NOTE: enabling Transaction Search also requires setting the X-Ray trace
+# segment destination to CloudWatch Logs, which has no first-class Terraform
+# resource. Do that once by hand (documented in README).
+# ---------------------------------------------------------------------------
+data "aws_iam_policy_document" "xray_to_logs" {
+  count = var.enable_transaction_search_log_policy ? 1 : 0
+
+  statement {
+    sid    = "AllowXRayToPutSpans"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["xray.amazonaws.com"]
+    }
+
+    actions   = ["logs:PutLogEvents", "logs:CreateLogStream"]
+    resources = ["arn:${local.partition}:logs:${var.aws_region}:${local.account_id}:log-group:aws/spans:*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_resource_policy" "xray_to_logs" {
+  count           = var.enable_transaction_search_log_policy ? 1 : 0
+  policy_name     = "${local.name_prefix}-xray-to-logs"
+  policy_document = data.aws_iam_policy_document.xray_to_logs[0].json
+}
+
+# ---------------------------------------------------------------------------
+# Non-secret identifiers exported to SSM for the BFF (P7).
+# ---------------------------------------------------------------------------
+resource "aws_ssm_parameter" "agent_runtime_arn" {
+  name  = "/${var.project_name}/${var.environment}/agent/runtime_arn"
+  type  = "String"
+  value = aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "agent_memory_id" {
+  name  = "/${var.project_name}/${var.environment}/agent/memory_id"
+  type  = "String"
+  value = aws_bedrockagentcore_memory.this.id
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "agent_ecr_repository_url" {
+  name  = "/${var.project_name}/${var.environment}/agent/ecr_repository_url"
+  type  = "String"
+  value = aws_ecr_repository.agent.repository_url
+  tags  = local.common_tags
+}

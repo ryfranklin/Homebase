@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Model id (swap Opus vs Sonnet here, no code change). Use a real Claude model id
+# or inference profile id for your region.
+model_id = "<YOUR_CLAUDE_MODEL_ID>"
+
+# Optional extra model / inference-profile ARNs the agent may invoke.
+additional_model_arns = []
+
+# Container image tag (built from services/agent and pushed to the ECR repo this
+# stack creates).
+agent_image_tag = "latest"
+
+# Memory
+memory_event_expiry_days       = 30
+enable_long_term_memory        = true
+long_term_memory_strategy_type = "SEMANTIC"
+
+# Observability
+enable_transaction_search_log_policy = true
