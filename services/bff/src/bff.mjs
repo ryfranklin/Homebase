@@ -70,10 +70,19 @@ export async function handleRequest(event, respond, deps) {
   // Origin protection: when a shared secret is configured, the request must
   // carry the matching header that CloudFront injects. This refuses direct
   // hits on the Function URL that bypass CloudFront and the WAF.
-  if (config.originSharedSecret) {
+  //
+  // Multiple acceptable values are supported so a Secrets Manager ROTATION works:
+  // during the window both the current and pending secret are accepted, so
+  // CloudFront's header update and the secret promotion need not be atomic.
+  const acceptableSecrets = [
+    ...(config.originSharedSecret ? [config.originSharedSecret] : []),
+    ...(config.originSharedSecrets || []),
+  ].filter(Boolean);
+  if (acceptableSecrets.length > 0) {
     const headers = event.headers || {};
     const provided = headers[ORIGIN_SECRET_HEADER] ?? headers["X-Origin-Secret"] ?? "";
-    if (!constantTimeEqual(provided, config.originSharedSecret)) {
+    const ok = acceptableSecrets.some((secret) => constantTimeEqual(provided, secret));
+    if (!ok) {
       return writeError(respond, cors, 403, "forbidden_origin", "missing or invalid origin header");
     }
   }

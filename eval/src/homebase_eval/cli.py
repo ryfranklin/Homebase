@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 
+from .gate import evaluate_gate
 from .models import load_cases
 from .retrievers import FixtureRetriever
 from .runner import format_scorecard, score
@@ -31,6 +32,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=["offline", "live"],
         default="offline",
         help="offline scores committed fixtures; live queries a deployed KB.",
+    )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="Regression gate: exit non-zero if fixture quality drops below the committed floor. Offline only.",
     )
     # Live-only options.
     parser.add_argument("--knowledge-base-id", default=os.environ.get("HOMEBASE_KB_ID"))
@@ -68,6 +74,21 @@ def _build_retriever(args):
 def main(argv=None) -> int:
     args = build_arg_parser().parse_args(argv)
     cases = load_cases(args.cases)
+
+    if args.gate:
+        # Offline regression gate against fixtures. Never touches AWS.
+        result = evaluate_gate(cases, FixtureRetriever(), args.k)
+        print(format_scorecard(result.scorecard))
+        if result.passed:
+            print("\nGATE: PASS (retrieval-code regression gate, offline fixtures)")
+            return 0
+        print("\nGATE: FAIL")
+        for reason in result.reasons:
+            print(f"  - {reason}")
+        print("This gate guards retrieval-code regressions on fixtures, not absolute")
+        print("quality on your corpus (that is the separate live ADR-002 eval).")
+        return 1
+
     retriever = _build_retriever(args)
     scorecard = score(cases, retriever, args.k, mode=args.mode)
     print(format_scorecard(scorecard))

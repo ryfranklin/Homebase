@@ -58,7 +58,19 @@ variable "price_class" {
 # WAF.
 # ---------------------------------------------------------------------------
 variable "waf_rate_limit" {
-  description = "Rate-based rule limit: requests per 5-minute window per IP before blocking."
+  description = "Rate-based rule limit: requests per 5-minute window per IP before blocking. Kept generous so a phone behind carrier-grade NAT and the single-request SSE stream are not throttled."
   type        = number
-  default     = 2000
+  default     = 3000
+}
+
+variable "waf_geo_allowed_countries" {
+  description = "Optional ISO country allowlist. When non-empty, requests from other countries are blocked. Empty (default) applies no geo constraint."
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_common_rules_count_only" {
+  description = "Names of AWSManagedRulesCommonRuleSet rules to set to COUNT instead of BLOCK, to avoid false positives on legitimate mobile use or chat POST bodies (for example SizeRestrictions_BODY). Tune as needed."
+  type        = list(string)
+  default     = []
 }

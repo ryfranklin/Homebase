@@ -13,6 +13,24 @@ resource "aws_sns_topic" "budget_alerts" {
   tags              = local.common_tags
 }
 
+# Published so the monitoring stack (P12) wires its cost/uptime alarms to THIS
+# topic, not a new orphan topic.
+resource "aws_ssm_parameter" "budget_sns_topic_arn" {
+  name  = "/${var.project_name}/${var.environment}/foundation/budget_sns_topic_arn"
+  type  = "String"
+  value = aws_sns_topic.budget_alerts.arn
+  tags  = local.common_tags
+}
+
+# The topic is KMS-encrypted; a Lambda publisher needs this key. Published for the
+# monitoring stack.
+resource "aws_ssm_parameter" "kms_key_arn" {
+  name  = "/${var.project_name}/${var.environment}/foundation/kms_key_arn"
+  type  = "String"
+  value = module.kms.key_arn
+  tags  = local.common_tags
+}
+
 # Allow the AWS Budgets service to publish to the topic, scoped to this account.
 data "aws_iam_policy_document" "budget_sns" {
   statement {

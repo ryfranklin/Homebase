@@ -11,9 +11,22 @@ import { loadConfig } from "./config.mjs";
 import { invokeAgentRuntimeStream, makeAgentClient } from "./agent.mjs";
 import { JwksCache } from "./jwks.mjs";
 import { verifyJwt } from "./jwt.mjs";
+import { cachedOriginSecrets } from "./secrets.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
+
+// When the rotating origin secret ARN is configured, load its current/pending
+// values from Secrets Manager (cached) so rotation needs no redeploy.
+let originSecretsLoader = null;
+if (config.originSecretArn) {
+  const { SecretsManagerClient, GetSecretValueCommand } = await import("@aws-sdk/client-secrets-manager");
+  const sm = new SecretsManagerClient({ region: config.region });
+  const client = {
+    getSecretValue: (args) => sm.send(new GetSecretValueCommand(args)),
+  };
+  originSecretsLoader = cachedOriginSecrets(client, config.originSecretArn);
+}
 
 let agentClientPromise;
 function agentClient() {
@@ -47,5 +60,12 @@ function respondFactory(responseStream) {
 }
 
 export const handler = awslambda.streamifyResponse(async (event, responseStream) => {
-  await handleRequest(event, respondFactory(responseStream), { verifyToken, config, agentStream });
+  const requestConfig = originSecretsLoader
+    ? { ...config, originSharedSecrets: await originSecretsLoader() }
+    : config;
+  await handleRequest(event, respondFactory(responseStream), {
+    verifyToken,
+    config: requestConfig,
+    agentStream,
+  });
 });

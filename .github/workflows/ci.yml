@@ -71,9 +71,49 @@ jobs:
 
       - name: Lint Python (if configured)
         run: |
-          if find services eval -name '*.py' -print -quit 2>/dev/null | grep -q .; then
+          if find services eval cli -name '*.py' -print -quit 2>/dev/null | grep -q .; then
             python -m pip install --upgrade pip ruff
-            ruff check services eval || true
+            ruff check services eval cli || true
           else
             echo "No Python files yet; skipping."
           fi
+
+  tests:
+    name: unit tests (offline, no cloud credentials)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Python unit tests
+        run: |
+          for pkg in services/ingestion services/agent services/connectors cli eval; do
+            if [ -d "$pkg/tests" ]; then
+              echo "== $pkg =="
+              (cd "$pkg" && python -m unittest discover -s tests)
+            fi
+          done
+      - name: BFF unit tests
+        run: |
+          if [ -f services/bff/package.json ]; then (cd services/bff && node --test); fi
+
+  eval-gate:
+    name: retrieval eval gate (offline regression gate)
+    runs-on: ubuntu-latest
+    # This gate runs OFFLINE against committed synthetic fixtures with NO cloud
+    # credentials. It guards regressions in the retrieval CODE, not absolute
+    # quality on the real corpus (that is the separate live ADR-002 eval). See
+    # docs/eval-gate.md. It must never be given AWS credentials or secrets.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the retrieval regression gate
+        run: |
+          cd eval
+          PYTHONPATH=src python -m homebase_eval.cli --gate --k 3

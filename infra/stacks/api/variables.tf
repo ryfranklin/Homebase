@@ -60,3 +60,9 @@ variable "lambda_timeout_seconds" {
   type        = number
   default     = 300
 }
+
+variable "origin_secret_rotation_days" {
+  description = "How often Secrets Manager rotates the CloudFront origin shared secret."
+  type        = number
+  default     = 30
+}

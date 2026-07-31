@@ -83,6 +83,123 @@ resource "aws_ssm_parameter" "origin_secret_arn" {
 }
 
 # ---------------------------------------------------------------------------
+# Rotation for the origin shared secret (a rotatable, generated credential). The
+# rotation Lambda updates both Secrets Manager and the CloudFront custom header,
+# and the BFF accepts current+pending during the window, so rotation is
+# automatic. (Connector OAuth tokens are NOT rotated this way: AgentCore Identity
+# refreshes them. See docs/secrets.md.)
+# ---------------------------------------------------------------------------
+data "archive_file" "rotation" {
+  type        = "zip"
+  source_dir  = "${path.module}/rotation"
+  output_path = "${path.module}/build/rotation.zip"
+}
+
+data "aws_iam_policy_document" "rotation_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "rotation" {
+  name               = "${local.name_prefix}-origin-rotation-role"
+  assume_role_policy = data.aws_iam_policy_document.rotation_trust.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "rotation" {
+  statement {
+    sid    = "RotateSecret"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:UpdateSecretVersionStage",
+    ]
+    resources = ["${aws_secretsmanager_secret.origin_secret.arn}*"]
+  }
+
+  statement {
+    sid       = "ReadWebPointers"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/${var.environment}/web/*"]
+  }
+
+  # Update the CloudFront custom header. GetDistributionConfig/UpdateDistribution
+  # require resource "*" (AWS requirement); scope by tag/condition is not
+  # available for these actions.
+  statement {
+    sid       = "UpdateCloudFrontHeader"
+    effect    = "Allow"
+    actions   = ["cloudfront:GetDistributionConfig", "cloudfront:UpdateDistribution"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "UseKey"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [module.api_kms.key_arn]
+  }
+
+  statement {
+    sid       = "Logs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "rotation" {
+  name   = "${local.name_prefix}-origin-rotation-policy"
+  role   = aws_iam_role.rotation.id
+  policy = data.aws_iam_policy_document.rotation.json
+}
+
+resource "aws_lambda_function" "rotation" {
+  function_name    = "${local.name_prefix}-origin-rotation"
+  role             = aws_iam_role.rotation.arn
+  runtime          = "python3.12"
+  handler          = "rotate_origin_secret.handler"
+  filename         = data.archive_file.rotation.output_path
+  source_code_hash = data.archive_file.rotation.output_base64sha256
+  timeout          = 60
+
+  environment {
+    variables = {
+      PROJECT     = var.project_name
+      ENVIRONMENT = var.environment
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_lambda_permission" "rotation" {
+  statement_id  = "AllowSecretsManager"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.rotation.function_name
+  principal     = "secretsmanager.amazonaws.com"
+}
+
+resource "aws_secretsmanager_secret_rotation" "origin_secret" {
+  secret_id           = aws_secretsmanager_secret.origin_secret.id
+  rotation_lambda_arn = aws_lambda_function.rotation.arn
+
+  rotation_rules {
+    automatically_after_days = var.origin_secret_rotation_days
+  }
+
+  depends_on = [aws_lambda_permission.rotation]
+}
+
+# ---------------------------------------------------------------------------
 # Least-privilege execution role: invoke the AgentCore runtime and write logs.
 # No S3, no broad Bedrock.
 # ---------------------------------------------------------------------------
@@ -123,6 +240,21 @@ data "aws_iam_policy_document" "bff" {
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.bff.arn}:*"]
   }
+
+  # Read the rotating origin secret at runtime (current and pending).
+  statement {
+    sid       = "ReadOriginSecret"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["${aws_secretsmanager_secret.origin_secret.arn}*"]
+  }
+
+  statement {
+    sid       = "DecryptOriginSecret"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [module.api_kms.key_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "bff" {
@@ -148,11 +280,13 @@ resource "aws_lambda_function" "bff" {
 
   environment {
     variables = {
-      HOMEBASE_ISSUER               = local.issuer_url
-      HOMEBASE_AUDIENCE             = local.app_client_id
-      HOMEBASE_AGENT_RUNTIME_ARN    = local.agent_runtime_arn
-      HOMEBASE_ALLOWED_ORIGIN       = var.spa_origin
-      HOMEBASE_ORIGIN_SHARED_SECRET = random_password.origin_secret.result
+      HOMEBASE_ISSUER            = local.issuer_url
+      HOMEBASE_AUDIENCE          = local.app_client_id
+      HOMEBASE_AGENT_RUNTIME_ARN = local.agent_runtime_arn
+      HOMEBASE_ALLOWED_ORIGIN    = var.spa_origin
+      # The BFF reads the origin secret from Secrets Manager at runtime (current
+      # and pending during rotation), so the secret rotates without a redeploy.
+      HOMEBASE_ORIGIN_SECRET_ARN = aws_secretsmanager_secret.origin_secret.arn
     }
   }
 

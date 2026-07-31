@@ -98,6 +98,33 @@ resource "aws_wafv2_web_acl" "this" {
     allow {}
   }
 
+  # Optional geo allowlist: block anything NOT in the allowed countries. Stays
+  # off by default (empty list), so it never surprises legitimate travel/roaming.
+  dynamic "rule" {
+    for_each = length(var.waf_geo_allowed_countries) > 0 ? [1] : []
+    content {
+      name     = "GeoAllowlist"
+      priority = 0
+      action {
+        block {}
+      }
+      statement {
+        not_statement {
+          statement {
+            geo_match_statement {
+              country_codes = var.waf_geo_allowed_countries
+            }
+          }
+        }
+      }
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${local.name_prefix}-geo"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
   rule {
     name     = "AWSCommonRules"
     priority = 1
@@ -108,6 +135,18 @@ resource "aws_wafv2_web_acl" "this" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
+
+        # Set selected rules to COUNT so mobile use and small chat POST bodies are
+        # not blocked (for example SizeRestrictions_BODY). Empty by default.
+        dynamic "rule_action_override" {
+          for_each = var.waf_common_rules_count_only
+          content {
+            name = rule_action_override.value
+            action_to_use {
+              count {}
+            }
+          }
+        }
       }
     }
     visibility_config {
@@ -317,5 +356,23 @@ resource "aws_ssm_parameter" "distribution_domain" {
   name  = "/${var.project_name}/${var.environment}/web/distribution_domain"
   type  = "String"
   value = aws_cloudfront_distribution.this.domain_name
+  tags  = local.common_tags
+}
+
+# Published so the origin-secret rotation Lambda (P12, api stack) can update this
+# distribution's shared-secret header when it rotates.
+resource "aws_ssm_parameter" "distribution_id" {
+  name  = "/${var.project_name}/${var.environment}/web/distribution_id"
+  type  = "String"
+  value = aws_cloudfront_distribution.this.id
+  tags  = local.common_tags
+}
+
+# The origin id whose custom header carries the shared secret (the rotation
+# Lambda targets this origin).
+resource "aws_ssm_parameter" "bff_origin_id" {
+  name  = "/${var.project_name}/${var.environment}/web/bff_origin_id"
+  type  = "String"
+  value = local.bff_origin_id
   tags  = local.common_tags
 }

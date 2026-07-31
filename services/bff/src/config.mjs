@@ -16,8 +16,11 @@ export function loadConfig(env = process.env) {
     // Shared secret that CloudFront injects on origin requests. When set, the
     // handler requires the matching X-Origin-Secret header, so a request that
     // reaches the Function URL directly (bypassing CloudFront and the WAF) is
-    // refused. The value comes from Secrets Manager via the API stack, never a
-    // literal. Optional so local/dev and the unit tests run without it.
+    // refused. Optional so local/dev and the unit tests run without it.
     originSharedSecret: env.HOMEBASE_ORIGIN_SHARED_SECRET || null,
+    // ARN of the rotating origin secret in Secrets Manager. When set, the handler
+    // loads the current (and pending, during rotation) values at runtime, so the
+    // secret can be rotated without a redeploy.
+    originSecretArn: env.HOMEBASE_ORIGIN_SECRET_ARN || null,
   };
 }

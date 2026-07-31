@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Bedrock usage thresholds (spend proxy; $ budgeting is AWS Budgets in P2).
+bedrock_invocations_threshold   = 5000
+bedrock_output_tokens_threshold = 5000000
+
+# Workstation uptime alert. Empty instance id disables it.
+workstation_instance_id            = "<YOUR_WORKSTATION_INSTANCE_ID>"
+workstation_uptime_threshold_hours = 12
+uptime_check_schedule              = "rate(1 hour)"
+
+# Optional: CloudFront distribution id (from the web stack) for the dashboard.
+cloudfront_distribution_id = "<YOUR_CLOUDFRONT_DISTRIBUTION_ID>"

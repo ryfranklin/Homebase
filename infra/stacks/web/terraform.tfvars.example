@@ -19,4 +19,9 @@ acm_certificate_arn = ""
 domain_names        = []
 
 price_class    = "PriceClass_100"
-waf_rate_limit = 2000
+waf_rate_limit = 3000
+
+# Optional WAF tuning. Empty geo list = no geo constraint. Count-only rules avoid
+# false positives on mobile use / chat POST bodies.
+waf_geo_allowed_countries   = []
+waf_common_rules_count_only = []
