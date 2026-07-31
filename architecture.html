@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Homebase — Architecture</title>
+    <!--
+      Self-contained by design: inline CSS and vanilla JS only. No build step, no
+      CDN, no external fonts, no network fetches. Open it with the network
+      disabled and it renders fully. All identifiers are placeholders; this is a
+      public-repo document with no real account, domain, pool id, or workspace.
+    -->
+    <style>
+      :root {
+        --bg: #0a0e13;
+        --panel: #121924;
+        --panel-2: #18212e;
+        --line: #26303f;
+        --text: #dce6f0;
+        --muted: #8095a8;
+        --accent: #4c8dff;
+        --green: #43d18b;
+        --amber: #f2b84b;
+        --red: #ff6b6b;
+        --violet: #b28bff;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 70% -10%, #12203a 0%, var(--bg) 55%);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+      header.top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+      .brand { font-size: 1.5rem; font-weight: 750; letter-spacing: 0.2px; }
+      .brand .dot { color: var(--accent); }
+      .tag {
+        font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+        border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+      }
+      .lede { color: var(--muted); margin: 10px 0 22px; max-width: 76ch; }
+      nav.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+      nav.tabs button {
+        font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
+        background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+        padding: 8px 14px; cursor: pointer; transition: 0.15s;
+      }
+      nav.tabs button:hover { color: var(--text); border-color: #37455a; }
+      nav.tabs button[aria-selected="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 700; }
+      section.view { display: none; }
+      section.view.active { display: block; }
+      h2 { font-size: 1.05rem; margin: 6px 0 4px; }
+      .sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 18px; }
+
+      .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+      .col { flex: 1 1 260px; }
+      .card {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+        padding: 14px 16px; height: 100%;
+      }
+      .card h3 { margin: 0 0 6px; font-size: 0.92rem; display: flex; align-items: center; gap: 8px; }
+      .card p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+      .pill { font-family: var(--mono); font-size: 0.66rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+      .pill.read { color: var(--green); border-color: #244a38; }
+      .pill.gate { color: var(--amber); border-color: #4a3d1f; }
+      .pill.deny { color: var(--red); border-color: #4a2626; }
+      .pill.core { color: var(--accent); border-color: #24395e; }
+
+      .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+      .node {
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+        padding: 10px 12px; min-width: 120px; font-size: 0.82rem;
+      }
+      .node .k { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); display: block; }
+      .arrow { color: var(--muted); font-family: var(--mono); font-size: 1rem; }
+      .arrow.stream { color: var(--accent); }
+
+      .layers { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .layer {
+        display: flex; align-items: center; gap: 12px;
+        border: 1px solid var(--line); border-left: 3px solid var(--accent);
+        border-radius: 8px; padding: 10px 14px; background: var(--panel);
+      }
+      .layer .n { font-family: var(--mono); color: var(--accent); font-size: 0.8rem; width: 22px; }
+      .layer .t { font-weight: 650; font-size: 0.9rem; }
+      .layer .d { color: var(--muted); font-size: 0.82rem; }
+      .layer.ssh { border-left-color: var(--violet); }
+      .layer.ssh .n { color: var(--violet); }
+
+      .note {
+        margin-top: 16px; border: 1px dashed var(--line); border-radius: 10px;
+        padding: 12px 14px; color: var(--muted); font-size: 0.84rem; background: rgba(76,141,255,0.04);
+      }
+      .note b { color: var(--text); }
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
+      code { font-family: var(--mono); font-size: 0.82em; color: var(--accent); }
+      footer { color: var(--muted); font-size: 0.78rem; margin-top: 40px; border-top: 1px solid var(--line); padding-top: 14px; }
+      .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 0; font-size: 0.75rem; color: var(--muted); }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+      @media (max-width: 640px) { .flow { gap: 6px; } .arrow { display: none; } .node { min-width: 0; flex: 1 1 44%; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <span class="brand">Home<span class="dot">·</span>base</span>
+        <span class="tag">personal AI pipeline</span>
+        <span class="tag">AWS · Anthropic-native</span>
+        <span class="tag">single-tenant seed, multi-tenant ready</span>
+      </header>
+      <p class="lede">
+        An authenticated web GUI plus an SSH plane over a private knowledge base. Two ways in, one
+        agent core. Retrieval is semantic with reranking; connectors are live and write-gated; the
+        perimeter is layered. Every value shown here is a placeholder.
+      </p>
+
+      <nav class="tabs" id="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-view="context">system context</button>
+        <button role="tab" aria-selected="false" data-view="retrieval">retrieval</button>
+        <button role="tab" aria-selected="false" data-view="security">security perimeter</button>
+        <button role="tab" aria-selected="false" data-view="connectors">connectors</button>
+      </nav>
+
+      <!-- ============ SYSTEM CONTEXT ============ -->
+      <section class="view active" id="context" role="tabpanel">
+        <h2>System context and the two access planes</h2>
+        <p class="sub">The GUI door and the SSH door both reach the same agent runtime. Nothing shares long-lived keys.</p>
+
+        <div class="row">
+          <div class="col">
+            <div class="card">
+              <h3>GUI plane <span class="pill core">web</span></h3>
+              <p>React SPA on CloudFront (WAF). Cognito + Google login (PKCE, no secret). Streams from a Lambda BFF over a Function URL (SSE).</p>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <h3>Thin chat CLI <span class="pill core">ssh-side</span></h3>
+              <p>Containerized terminal client on Fargate, reached only via ECS Exec over SSM. No repo access, no long-lived credentials. Invokes the agent via its task role.</p>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <h3>Workstation <span class="pill core">ssh-side</span></h3>
+              <p>Isolated EC2 dev/ops box, SSM-only (no key pair, no inbound, no public IP), encrypted volumes, scoped non-admin role, auto-stop when idle.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="note">
+          <div class="flow">
+            <div class="node"><span class="k">gui door</span>SPA + CloudFront/WAF</div>
+            <span class="arrow stream">→ SSE →</span>
+            <div class="node"><span class="k">bff</span>Function URL (stream)</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">core</span>AgentCore Runtime<br />(Claude on Bedrock)</div>
+            <span class="arrow">↕</span>
+            <div class="node"><span class="k">ssh door</span>chat CLI · workstation</div>
+          </div>
+          <div class="flow">
+            <div class="node"><span class="k">core reaches</span>Retrieval + Memory + Connectors</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">retrieval</span>Bedrock KB · S3 Vectors</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">connectors</span>AgentCore Gateway + Identity</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime. Cited answers only; a no-source path says so rather than guessing. AgentCore Memory (short + long term), OTEL observability to CloudWatch.</p></div>
+          <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
+          <div class="card"><h3>Infrastructure</h3><p>Terraform across twelve stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring.</p></div>
+        </div>
+      </section>
+
+      <!-- ============ RETRIEVAL ============ -->
+      <section class="view" id="retrieval" role="tabpanel">
+        <h2>Retrieval: semantic + rerank on S3 Vectors</h2>
+        <p class="sub">Not hybrid. S3 Vectors is semantic-only; the compensation ladder carries exact-term queries.</p>
+
+        <div class="flow">
+          <div class="node"><span class="k">source</span>Markdown corpus<br />(private S3, KMS)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">ingest</span>Bedrock KB sync<br />(chunk + embed)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">store</span>Amazon S3 Vectors<br />(semantic index)</div>
+        </div>
+        <div class="flow">
+          <div class="node"><span class="k">query</span>over-retrieve wide<br />dense candidate set</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">rerank</span>Bedrock Rerank<br />(query-time)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">filter</span>tag / folder / recency<br />(folder client-side)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">answer</span>cited passages</div>
+        </div>
+
+        <div class="note">
+          <b>Factual note.</b> Hybrid (dense + keyword) search is <b>not</b> available on Amazon S3
+          Vectors: it is semantic-only, and rerank is a query-time step independent of the store. The
+          compensation ladder (over-retrieve, then Bedrock Rerank, plus metadata filters) carries
+          exact-term and scoped queries on a semantic index.
+        </div>
+
+        <div class="grid2">
+          <div class="card"><h3>The gated hybrid seam <span class="pill gate">ADR-002</span></h3><p>If hybrid becomes a hard requirement, the fallback is Amazon OpenSearch Serverless (which supports HYBRID and richer filters). It is a marked, variable-gated seam in the retrieval stack, chosen on evidence from the eval harness, not built by default.</p></div>
+          <div class="card"><h3>The eval decides <span class="pill core">evidence</span></h3><p>A retrieval eval harness scores hit rate and MRR with rerank off vs on. A CI regression gate guards the retrieval code on synthetic fixtures; absolute quality on the real corpus is the separate live eval that decides the ADR-002 question.</p></div>
+        </div>
+      </section>
+
+      <!-- ============ SECURITY ============ -->
+      <section class="view" id="security" role="tabpanel">
+        <h2>Layered security perimeter</h2>
+        <p class="sub">Two doors, two distinct authorization models.</p>
+
+        <h3 style="margin-top:14px">GUI door — defense in depth</h3>
+        <div class="layers">
+          <div class="layer"><span class="n">1</span><span><span class="t">CloudFront + WAF</span> <span class="d">— managed rule groups, rate limiting, optional geo allowlist. Private S3 origin via OAC (no public bucket).</span></span></div>
+          <div class="layer"><span class="n">2</span><span><span class="t">Origin shared-secret header</span> <span class="d">— CloudFront injects <code>X-Origin-Secret</code>; the BFF refuses requests without it, so direct-to-origin calls that bypass the WAF are dropped. Rotated via Secrets Manager.</span></span></div>
+          <div class="layer"><span class="n">3</span><span><span class="t">In-function Cognito JWT</span> <span class="d">— the BFF validates RS256 against the pool JWKS (issuer, audience, expiry), no API Gateway authorizer.</span></span></div>
+          <div class="layer"><span class="n">4</span><span><span class="t">Per-user and per-tenant scoping</span> <span class="d">— identity is taken from the token (<code>sub</code>, <code>custom:tenant_id</code>); a request naming another tenant or user is rejected, not honored.</span></span></div>
+        </div>
+
+        <h3 style="margin-top:18px">SSH door — the IAM / SSM boundary</h3>
+        <div class="layers">
+          <div class="layer ssh"><span class="n">A</span><span><span class="t">No network path in</span> <span class="d">— no key pair, no inbound ports, no public IP. Reachability is exclusively SSM (Session Manager / ECS Exec), auditable and KMS-encrypted.</span></span></div>
+          <div class="layer ssh"><span class="n">B</span><span><span class="t">Least-privilege roles</span> <span class="d">— the chat CLI task role can invoke only the agent runtime. The workstation instance role is NOT admin; broad actions come from assuming task-specific roles for short-lived credentials.</span></span></div>
+          <div class="layer ssh"><span class="n">C</span><span><span class="t">No long-lived keys on disk</span> <span class="d">— credentials come from the instance/task role and short-lived assume-role. Dotfiles secrets are pulled from Secrets Manager at session start, never baked in.</span></span></div>
+        </div>
+
+        <div class="note">
+          Every environment-specific or secret value is an input (Terraform variable, env var, Secrets
+          Manager, or SSM Parameter Store), never a literal. Terraform is never auto-applied by an
+          agent; a human runs apply.
+        </div>
+      </section>
+
+      <!-- ============ CONNECTORS ============ -->
+      <section class="view" id="connectors" role="tabpanel">
+        <h2>Connectors: live, read-first, write-gated, never indexed</h2>
+        <p class="sub">Six integrations through AgentCore Gateway + Identity. Homebase authenticates each independently.</p>
+
+        <div class="grid2">
+          <div class="card"><h3>Gmail <span class="pill read">read-first</span></h3><p>Search messages (read). Send is a gated write.</p></div>
+          <div class="card"><h3>Google Calendar <span class="pill read">read-first</span></h3><p>List events (read). Create event is a gated write.</p></div>
+          <div class="card"><h3>Google Drive <span class="pill read">read-first</span></h3><p>Search files (read). Modify file is a gated write.</p></div>
+          <div class="card"><h3>Slack <span class="pill read">read-first</span></h3><p>Read messages (read). Post is a gated write. A dedicated Homebase app, own scopes.</p></div>
+          <div class="card"><h3>QuickBooks <span class="pill read">read-first</span></h3><p>Read reports (read). Create invoice is a gated write.</p></div>
+          <div class="card"><h3>Atlassian <span class="pill read">read-first</span></h3><p>Search issues (read). Create issue is a gated write.</p></div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <div class="col"><div class="card"><h3>Write gate <span class="pill gate">confirm</span></h3><p>Any write (send, post, create, modify) returns a confirmation contract instead of executing. Only a re-invocation with the matching token proceeds. The gate lives at the tool layer, so the GUI and the SSH CLI both inherit it.</p></div></div>
+          <div class="col"><div class="card"><h3>Identity <span class="pill core">per-tenant</span></h3><p>OAuth credentials live in AgentCore Identity, namespaced per tenant (<code>&lt;tenant&gt;/&lt;connector&gt;</code>). No tokens, client ids, or workspace ids in code. Independent auth, no borrowed tokens.</p></div></div>
+          <div class="col"><div class="card"><h3>Never indexed <span class="pill deny">ADR-004</span></h3><p>Connector data is fetched live per query and is never written into the corpus / S3 Vectors store. There is no connector-to-corpus ingestion path.</p></div></div>
+        </div>
+      </section>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--accent)"></span> agent / core path</span>
+        <span><span class="swatch" style="background:var(--green)"></span> read (default)</span>
+        <span><span class="swatch" style="background:var(--amber)"></span> gated write / seam</span>
+        <span><span class="swatch" style="background:var(--violet)"></span> SSH / IAM-SSM boundary</span>
+        <span><span class="swatch" style="background:var(--red)"></span> never-indexed boundary</span>
+      </div>
+
+      <footer>
+        Homebase architecture. Self-contained: inline CSS and vanilla JS, no external assets. All
+        identifiers are placeholders. See the repository README and <code>docs/</code> for detail.
+      </footer>
+    </div>
+
+    <script>
+      // Vanilla JS tab switching. No external scripts, no network.
+      (function () {
+        var tabs = document.getElementById("tabs");
+        var buttons = tabs.querySelectorAll("button");
+        function select(view) {
+          buttons.forEach(function (b) {
+            var on = b.getAttribute("data-view") === view;
+            b.setAttribute("aria-selected", on ? "true" : "false");
+          });
+          document.querySelectorAll("section.view").forEach(function (s) {
+            s.classList.toggle("active", s.id === view);
+          });
+          if (history.replaceState) history.replaceState(null, "", "#" + view);
+        }
+        tabs.addEventListener("click", function (e) {
+          var btn = e.target.closest("button[data-view]");
+          if (btn) select(btn.getAttribute("data-view"));
+        });
+        var initial = (location.hash || "#context").slice(1);
+        if (document.getElementById(initial)) select(initial);
+      })();
+    </script>
+  </body>
+</html>
