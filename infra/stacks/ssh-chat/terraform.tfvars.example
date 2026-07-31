@@ -1,0 +1,25 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# From the foundation stack (P2) outputs. The private subnets must have the VPC
+# endpoints the task needs (ssm, ssmmessages, ec2messages, ecr, logs,
+# bedrock-agentcore) since there is no NAT.
+vpc_id             = "<YOUR_VPC_ID>"
+private_subnet_ids = ["<YOUR_PRIVATE_SUBNET_ID_1>", "<YOUR_PRIVATE_SUBNET_ID_2>"]
+
+# Identity the CLI task presents to the agent (you, for now).
+cli_user_id   = "<YOUR_USER_ID>"
+cli_tenant_id = "<YOUR_TENANT_ID>"
+
+image_tag     = "latest"
+task_cpu      = 256
+task_memory   = 512
+desired_count = 1
