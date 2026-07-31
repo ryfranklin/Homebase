@@ -46,9 +46,10 @@ function makeRespond() {
   return respond;
 }
 
-function makeEvent({ token, body, method = "POST" } = {}) {
+function makeEvent({ token, body, method = "POST", originSecret } = {}) {
   const headers = {};
   if (token) headers.authorization = `Bearer ${token}`;
+  if (originSecret !== undefined) headers["x-origin-secret"] = originSecret;
   return {
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -70,10 +71,14 @@ function claims(overrides = {}) {
   };
 }
 
-async function run({ token, body, method } = {}) {
+async function run({ token, body, method, originSecret, cfg } = {}) {
   const respond = makeRespond();
   const agentStream = makeAgentStream();
-  await handleRequest(makeEvent({ token, body, method }), respond, { verifyToken, config, agentStream });
+  await handleRequest(makeEvent({ token, body, method, originSecret }), respond, {
+    verifyToken,
+    config: cfg ?? config,
+    agentStream,
+  });
   return { respond, agentStream, rec: respond.calls[0] };
 }
 
@@ -143,4 +148,34 @@ test("OPTIONS preflight -> 204 with CORS", async () => {
   const { rec } = await run({ method: "OPTIONS" });
   assert.equal(rec.statusCode, 204);
   assert.equal(rec.headers["Access-Control-Allow-Origin"], ALLOWED_ORIGIN);
+});
+
+// Origin protection (shared secret injected by CloudFront).
+const secretConfig = { ...config, originSharedSecret: "s3cr3t-from-secrets-manager" };
+
+test("with origin secret configured, missing header -> 403 (WAF-bypass refused)", async () => {
+  const token = signJwt(claims(), key);
+  const { rec, agentStream } = await run({ token, body: { input: "x" }, cfg: secretConfig });
+  assert.equal(rec.statusCode, 403);
+  assert.match(rec.chunks.join(""), /forbidden_origin/);
+  assert.equal(agentStream.calls.length, 0);
+});
+
+test("with origin secret configured, wrong header -> 403", async () => {
+  const token = signJwt(claims(), key);
+  const { rec } = await run({ token, body: { input: "x" }, originSecret: "wrong", cfg: secretConfig });
+  assert.equal(rec.statusCode, 403);
+  assert.match(rec.chunks.join(""), /forbidden_origin/);
+});
+
+test("with origin secret configured, correct header -> streams", async () => {
+  const token = signJwt(claims(), key);
+  const { rec } = await run({
+    token,
+    body: { input: "x" },
+    originSecret: "s3cr3t-from-secrets-manager",
+    cfg: secretConfig,
+  });
+  assert.equal(rec.statusCode, 200);
+  assert.match(rec.chunks.join(""), /"type":"done"/);
 });

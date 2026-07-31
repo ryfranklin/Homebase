@@ -52,6 +52,37 @@ data "archive_file" "bff" {
 }
 
 # ---------------------------------------------------------------------------
+# Origin shared secret. CloudFront (P8) injects this as a custom header on origin
+# requests; the BFF requires it, so a direct hit on the Function URL that bypasses
+# CloudFront and the WAF is refused. The value is generated here and stored in
+# Secrets Manager; it is never a literal in the repo. The web stack reads it from
+# Secrets Manager (by the ARN exported to SSM below) for the CloudFront header.
+# ---------------------------------------------------------------------------
+resource "random_password" "origin_secret" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "origin_secret" {
+  name        = "${local.name_prefix}/origin-shared-secret"
+  description = "Shared secret CloudFront injects on BFF origin requests"
+  kms_key_id  = module.api_kms.key_arn
+  tags        = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "origin_secret" {
+  secret_id     = aws_secretsmanager_secret.origin_secret.id
+  secret_string = random_password.origin_secret.result
+}
+
+resource "aws_ssm_parameter" "origin_secret_arn" {
+  name  = "/${var.project_name}/${var.environment}/api/origin_secret_arn"
+  type  = "String"
+  value = aws_secretsmanager_secret.origin_secret.arn
+  tags  = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
 # Least-privilege execution role: invoke the AgentCore runtime and write logs.
 # No S3, no broad Bedrock.
 # ---------------------------------------------------------------------------
@@ -117,10 +148,11 @@ resource "aws_lambda_function" "bff" {
 
   environment {
     variables = {
-      HOMEBASE_ISSUER            = local.issuer_url
-      HOMEBASE_AUDIENCE          = local.app_client_id
-      HOMEBASE_AGENT_RUNTIME_ARN = local.agent_runtime_arn
-      HOMEBASE_ALLOWED_ORIGIN    = var.spa_origin
+      HOMEBASE_ISSUER               = local.issuer_url
+      HOMEBASE_AUDIENCE             = local.app_client_id
+      HOMEBASE_AGENT_RUNTIME_ARN    = local.agent_runtime_arn
+      HOMEBASE_ALLOWED_ORIGIN       = var.spa_origin
+      HOMEBASE_ORIGIN_SHARED_SECRET = random_password.origin_secret.result
     }
   }
 

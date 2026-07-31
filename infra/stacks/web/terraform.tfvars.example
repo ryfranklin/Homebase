@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Suffix that makes the static bucket name globally unique.
+bucket_suffix = "<YOUR_UNIQUE_SUFFIX>"
+
+# Custom domain (optional). Leave the cert ARN empty to use the default
+# CloudFront certificate and *.cloudfront.net domain. The ACM cert must be in
+# us-east-1.
+acm_certificate_arn = ""
+domain_names        = []
+
+price_class    = "PriceClass_100"
+waf_rate_limit = 2000

@@ -7,9 +7,19 @@
 //   ALWAYS the one in the verified token; if the request body names a different
 //   tenant, the request is rejected (cross-tenant attempt), never honored.
 
+import { timingSafeEqual } from "node:crypto";
+
 import { SSE_HEADERS, sseEvent } from "./sse.mjs";
 
 const TENANT_CLAIM = "custom:tenant_id";
+const ORIGIN_SECRET_HEADER = "x-origin-secret";
+
+function constantTimeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 function corsHeaders(allowedOrigin) {
   return {
@@ -55,6 +65,17 @@ export async function handleRequest(event, respond, deps) {
     const writer = respond(204, cors);
     writer.end();
     return;
+  }
+
+  // Origin protection: when a shared secret is configured, the request must
+  // carry the matching header that CloudFront injects. This refuses direct
+  // hits on the Function URL that bypass CloudFront and the WAF.
+  if (config.originSharedSecret) {
+    const headers = event.headers || {};
+    const provided = headers[ORIGIN_SECRET_HEADER] ?? headers["X-Origin-Secret"] ?? "";
+    if (!constantTimeEqual(provided, config.originSharedSecret)) {
+      return writeError(respond, cors, 403, "forbidden_origin", "missing or invalid origin header");
+    }
   }
 
   const token = extractBearer(event);
