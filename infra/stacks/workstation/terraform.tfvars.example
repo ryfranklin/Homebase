@@ -1,0 +1,41 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# From the foundation stack (P2). This stack adds the VPC's internet gateway and
+# egress path.
+vpc_id = "<YOUR_VPC_ID>"
+
+az_index                = 0
+workstation_subnet_cidr = "10.0.20.0/24"
+public_subnet_cidr      = "10.0.21.0/24"
+
+# Egress: the stoppable NAT instance (cheaper) by default; nat_gateway is managed
+# but always-on and pricier.
+nat_egress_type   = "nat_instance"
+nat_instance_type = "t4g.nano"
+
+# Instance and storage.
+instance_type    = "t4g.medium"
+root_volume_size = 30
+home_volume_size = 50
+workstation_user = "ec2-user"
+
+# Dotfiles + secrets. The real repo URL and secret live outside the repo.
+dotfiles_repo_url    = "<YOUR_DOTFILES_GIT_URL>"
+dotfiles_secret_name = "homebase/workstation/shell-secrets"
+
+# Task-specific roles the instance may assume for short-lived credentials.
+# Broad operations go through these, not standing instance permissions.
+assumable_role_arns = []
+
+# Auto-stop: scheduled (also stops the NAT instance), activity, or none.
+auto_stop_mode = "scheduled"
+stop_schedule  = "cron(0 3 * * ? *)"

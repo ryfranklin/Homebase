@@ -1,0 +1,82 @@
+#!/bin/bash
+# Workstation bootstrap (cloud-init user-data).
+#
+# Installs the dev toolchain and wires the shell environment. It contains NO real
+# repo URL, account, or secret: the dotfiles repo URL and the shell-secret name
+# are read from SSM parameters at boot, and the secret itself is pulled from
+# Secrets Manager at SESSION START using the instance role. No long-lived key is
+# ever written to disk.
+#
+# Note on templating: this file is rendered by Terraform's templatefile(). Only
+# ${aws_region}, ${project_name}, ${environment}, ${workstation_user}, and
+# ${home_device} are Terraform values; all shell variables use $VAR (no braces)
+# so they pass through untouched.
+set -euo pipefail
+exec > >(tee /var/log/homebase-bootstrap.log) 2>&1
+
+REGION="${aws_region}"
+PROJECT="${project_name}"
+ENVIRONMENT="${environment}"
+WS_USER="${workstation_user}"
+HOME_DEVICE="${home_device}"
+
+# --- toolchain: git, docker, python, node, aws cli ---
+dnf install -y git docker python3 python3-pip unzip tar gzip
+systemctl enable --now docker
+usermod -aG docker "$WS_USER" || true
+dnf install -y nodejs20 || dnf install -y nodejs || true
+
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
+  (cd /tmp && unzip -q awscliv2.zip && ./aws/install)
+fi
+
+# --- persistent, encrypted home volume mounted at /workspace ---
+mkdir -p /workspace
+DEV=""
+for d in /dev/nvme1n1 "$HOME_DEVICE" /dev/xvdf; do
+  if [ -b "$d" ]; then DEV="$d"; break; fi
+done
+if [ -n "$DEV" ]; then
+  if ! blkid "$DEV" >/dev/null 2>&1; then mkfs.ext4 -L homebase-home "$DEV"; fi
+  grep -q "/workspace" /etc/fstab || echo "LABEL=homebase-home /workspace ext4 defaults,nofail 0 2" >> /etc/fstab
+  mount -a || true
+  chown "$WS_USER":"$WS_USER" /workspace || true
+fi
+
+# --- session bootstrap: dotfiles + secrets pulled at login, never baked ---
+cat > /etc/profile.d/homebase-session.sh <<'PROFILE'
+# Runs at each login. Clones dotfiles and materializes the machine-local shell
+# secret (the ~/.zshrc.local pattern) using the instance role. It NEVER writes an
+# access key; credentials come from the instance role and short-lived role
+# assumption only.
+homebase_session_bootstrap() {
+  local region prefix url secret_name
+  region="__REGION__"
+  prefix="/__PROJECT__/__ENVIRONMENT__/workstation"
+
+  url="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_repo_url" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+  if [ "$url" != "unset" ] && [ -n "$url" ] && [ ! -d "$HOME/.dotfiles" ]; then
+    git clone "$url" "$HOME/.dotfiles" 2>/dev/null && \
+      { [ -x "$HOME/.dotfiles/install.sh" ] && "$HOME/.dotfiles/install.sh" || true; }
+  fi
+
+  secret_name="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_secret_name" --query Parameter.Value --output text 2>/dev/null || echo)"
+  if [ -n "$secret_name" ] && [ "$secret_name" != "unset" ]; then
+    if aws secretsmanager get-secret-value --region "$region" --secret-id "$secret_name" \
+        --query SecretString --output text 2>/dev/null > "$HOME/.zshrc.local.tmp"; then
+      mv "$HOME/.zshrc.local.tmp" "$HOME/.zshrc.local"
+      chmod 600 "$HOME/.zshrc.local"
+    else
+      rm -f "$HOME/.zshrc.local.tmp"
+    fi
+  fi
+}
+homebase_session_bootstrap
+PROFILE
+
+# Bake only non-secret pointers (region/project/env) into the profile script.
+sed -i "s|__REGION__|$REGION|g; s|__PROJECT__|$PROJECT|g; s|__ENVIRONMENT__|$ENVIRONMENT|g" /etc/profile.d/homebase-session.sh
+chmod 644 /etc/profile.d/homebase-session.sh
+
+echo "homebase workstation bootstrap complete"
