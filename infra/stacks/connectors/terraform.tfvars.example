@@ -1,0 +1,34 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+# Client ids and secrets come from the by-hand OAuth setup in docs/connectors.md.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Google (backs Gmail, Calendar, Drive). A NEW connector client, separate from
+# the Cognito federation client.
+google_client_id     = "<YOUR_GOOGLE_CONNECTOR_CLIENT_ID>"
+google_client_secret = "<YOUR_GOOGLE_CONNECTOR_CLIENT_SECRET>"
+
+# Slack: Homebase's OWN dedicated app in your workspace.
+slack_client_id     = "<YOUR_HOMEBASE_SLACK_APP_CLIENT_ID>"
+slack_client_secret = "<YOUR_HOMEBASE_SLACK_APP_CLIENT_SECRET>"
+
+# QuickBooks (Intuit).
+quickbooks_client_id     = "<YOUR_QUICKBOOKS_CLIENT_ID>"
+quickbooks_client_secret = "<YOUR_QUICKBOOKS_CLIENT_SECRET>"
+quickbooks_discovery_url = "<YOUR_QUICKBOOKS_OIDC_DISCOVERY_URL>"
+
+# Atlassian (Jira / Confluence).
+atlassian_client_id     = "<YOUR_ATLASSIAN_CLIENT_ID>"
+atlassian_client_secret = "<YOUR_ATLASSIAN_CLIENT_SECRET>"
+atlassian_discovery_url = "<YOUR_ATLASSIAN_OIDC_DISCOVERY_URL>"
+
+# Shim Lambda ARNs (once deployed from services/connectors). Omit to use derived
+# placeholders for planning.
+connector_shim_lambda_arns = {}
