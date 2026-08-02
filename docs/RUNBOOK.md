@@ -16,21 +16,23 @@ Ground rules (from CLAUDE.md):
 
 ---
 
-## 0. One-time prerequisite: the bedrock-agentcore VPC endpoint
+## 0. The bedrock-agentcore VPC endpoint (now a foundation default)
 
 The foundation VPC (P2) is private-only with no NAT, so private-subnet compute reaches AWS through
 interface endpoints. Four things call the AgentCore data plane and need a `bedrock-agentcore`
-interface endpoint that is NOT yet a foundation default:
+interface endpoint (service name `com.amazonaws.<region>.bedrock-agentcore`, which covers all data
+plane primitives including Runtime `InvokeAgentRuntime`):
 
 - the agent runtime and connectors Gateway, and
 - the chat CLI (Fargate, private subnet) and the workstation (EC2, private subnet) that invoke
   `InvokeAgentRuntime`.
 
-**Before applying agent, ssh-chat, workstation, or connectors**, add `bedrock-agentcore` to the
-foundation VPC module's `interface_endpoints` (alongside `ssm`, `ssmmessages`, `ec2messages`,
-`ecr.api`, `ecr.dkr`, `logs`, `bedrock-runtime`, `bedrock-agent-runtime`) and re-apply foundation.
-This is the single most likely cause of a confusing apply failure if skipped, because a private-subnet
-`InvokeAgentRuntime` call will hang/time out with no obvious cause.
+This endpoint is now baked into the VPC module's `interface_endpoints` default (alongside `ssm`,
+`ssmmessages`, `ec2messages`, `ecr.api`, `ecr.dkr`, `logs`, `bedrock-runtime`, `bedrock-agent-runtime`),
+so **no manual pre-apply step is required**: applying foundation creates it automatically. If you
+started foundation on an older module revision that lacked it, a plain `terraform apply` of foundation
+adds the endpoint. Omitting it is the single most likely cause of a confusing apply failure, because a
+private-subnet `InvokeAgentRuntime` call will hang/time out with no obvious cause.
 
 > The BFF Lambda (api) invokes the runtime too, but it is not VPC-attached, so it uses public AWS
 > endpoints and does not need the VPC endpoint.
@@ -45,7 +47,7 @@ outputs it consumes (via SSM parameters, or Terraform variables sourced from a p
 | # | Stack | Depends on / why | Consumes |
 | --- | --- | --- | --- |
 | 0 | **bootstrap** | Already applied. Creates the S3 state bucket + DynamoDB lock table that every other stack uses as its backend. | (local state) |
-| 1 | **foundation** | First: the VPC, KMS, and budget SNS everything else builds on. Add the `bedrock-agentcore` endpoint here (section 0). | — |
+| 1 | **foundation** | First: the VPC, KMS, and budget SNS everything else builds on. Creates the `bedrock-agentcore` endpoint automatically (module default, section 0). | — |
 | 2 | **identity** | Cognito pool that api and connectors authorize against. Independent of foundation resources but sequenced early. | Google OAuth client secret (Secrets Manager, by hand) |
 | 3 | **storage** | The corpus bucket the knowledge base ingests from. | — |
 | 4 | **retrieval** | The Bedrock KB on S3 Vectors reads the corpus bucket. | SSM: `storage/corpus_bucket_name`, `storage/corpus_kms_key_arn` |

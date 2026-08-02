@@ -37,6 +37,7 @@ variable "interface_endpoints" {
     "logs",
     "bedrock-runtime",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
   ]
 }
 
