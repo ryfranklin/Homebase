@@ -12,13 +12,17 @@ locals {
   corpus_bucket_name = "${local.name_prefix}-corpus-${var.bucket_suffix}"
 }
 
-# Customer managed key for the corpus at rest.
+# Customer managed key for the corpus at rest. This same CMK also encrypts the
+# S3 Vectors bucket/index in the retrieval stack (P4). S3 Vectors performs
+# indexing asynchronously under its own service principal, which acts outside a
+# request context, so the KEY POLICY (not just IAM) must grant it use of the key.
 module "corpus_kms" {
   source = "../../modules/kms"
 
-  alias       = "${local.name_prefix}-corpus"
-  description = "Encrypts the Homebase source corpus bucket"
-  tags        = local.common_tags
+  alias              = "${local.name_prefix}-corpus"
+  description        = "Encrypts the Homebase source corpus bucket and the S3 Vectors index"
+  service_principals = ["indexing.s3vectors.amazonaws.com"]
+  tags               = local.common_tags
 }
 
 # ---------------------------------------------------------------------------
