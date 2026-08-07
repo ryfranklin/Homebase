@@ -235,6 +235,13 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  # Pin the CPU architecture explicitly (Fargate defaults to X86_64 otherwise).
+  # The CLI image must be built for the matching platform.
+  runtime_platform {
+    cpu_architecture        = var.task_cpu_architecture
+    operating_system_family = "LINUX"
+  }
+
   container_definitions = jsonencode([
     {
       name      = "cli"

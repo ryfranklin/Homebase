@@ -23,3 +23,6 @@ image_tag     = "latest"
 task_cpu      = 256
 task_memory   = 512
 desired_count = 1
+
+# CPU architecture (ARM64 default; build the image for linux/arm64 to match).
+task_cpu_architecture = "ARM64"

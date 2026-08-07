@@ -81,3 +81,17 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
+
+# CPU architecture is pinned explicitly (Fargate otherwise defaults to X86_64).
+# ARM64 (Graviton) is cheaper and lets the image build natively on Apple Silicon;
+# build the CLI image for linux/arm64 to match.
+variable "task_cpu_architecture" {
+  description = "Fargate CPU architecture for the CLI task: ARM64 (default) or X86_64. The CLI image must be built for the matching platform (linux/arm64 or linux/amd64)."
+  type        = string
+  default     = "ARM64"
+
+  validation {
+    condition     = contains(["ARM64", "X86_64"], var.task_cpu_architecture)
+    error_message = "task_cpu_architecture must be ARM64 or X86_64."
+  }
+}

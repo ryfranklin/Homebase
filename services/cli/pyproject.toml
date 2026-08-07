@@ -1,0 +1,16 @@
+[project]
+name = "homebase-cli"
+version = "0.1.0"
+description = "Homebase thin chat CLI: talks to the AgentCore agent runtime over InvokeAgentRuntime."
+requires-python = ">=3.11"
+dependencies = ["boto3>=1.34"]
+
+[project.scripts]
+homebase-cli = "homebase_cli.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
