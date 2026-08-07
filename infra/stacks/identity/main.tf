@@ -69,7 +69,7 @@ resource "aws_cognito_user_pool" "this" {
   # the Pre-Sign-Up Lambda rejects accounts whose email is not on the list, on
   # both the native and Google federation paths. See allowlist.tf.
   dynamic "lambda_config" {
-    for_each = length(var.allowed_signup_emails) > 0 ? [1] : []
+    for_each = var.enable_signup_allowlist ? [1] : []
     content {
       pre_sign_up = aws_lambda_function.presignup[0].arn
     }

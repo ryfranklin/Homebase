@@ -32,8 +32,11 @@ google_client_secret_name   = "homebase/google-oauth-client-secret"
 # google_client_secret = "<YOUR_GOOGLE_OAUTH_CLIENT_SECRET>"
 
 # --- Sign-up allow-list ---
-# When non-empty, a Pre-Sign-Up Lambda rejects any account (native OR Google
-# federation) whose email is not listed, closing open self-signup. Empty = no
-# gate. Include every email you sign in with (your Google login and any native
-# email). Real emails go in the git-ignored tfvars, never here.
-allowed_signup_emails = ["you@example.invalid"]
+# Enable the Pre-Sign-Up gate (rejects any native or Google sign-up whose email
+# is not allow-listed). The allow-list itself is NOT stored here: it is a by-hand
+# SSM SecureString (KMS-encrypted), referenced only by name. Before relying on
+# the gate, create it (comma-separated, every address you sign in with):
+#   aws ssm put-parameter --type SecureString \
+#     --name /homebase/<env>/identity/allowed-signup-emails \
+#     --value "you@example.com" --region <region>
+enable_signup_allowlist = false

@@ -14,7 +14,7 @@ It stores its state remotely in the bootstrap S3 bucket and lock table.
 - SSM `String` parameters for the non-secret identifiers (pool id, app client id, issuer, hosted UI
   domain) so later stacks and the BFF can read them. Nothing secret is written to SSM.
 - An optional sign-up allow-list gate: a Pre-Sign-Up Lambda that restricts who can create an account
-  (see below). Created only when `allowed_signup_emails` is non-empty.
+  (see below). Created only when `enable_signup_allowlist = true`.
 
 ## Sign-up allow-list (interim access gate)
 
@@ -23,27 +23,37 @@ a native email/password account, and Google federation auto-provisions an accoun
 on first sign-in. Since the BFF authorizes on any valid token from this pool, open sign-up means open
 access to the agent (and, once ingested, the knowledge base).
 
-The allow-list closes that. Set `allowed_signup_emails` (in the git-ignored `terraform.tfvars`) to the
-addresses permitted to hold an account:
-
-```hcl
-allowed_signup_emails = ["you@example.com"]
-```
-
-When the list is non-empty, `allowlist.tf` creates a **Pre-Sign-Up Lambda** (`presignup/allowlist.py`)
-and wires it to the pool via `lambda_config.pre_sign_up`. Cognito invokes it before creating any
-account, so it gates **both** paths:
+The allow-list closes that. Set `enable_signup_allowlist = true` (in the git-ignored
+`terraform.tfvars`). When enabled, `allowlist.tf` creates a **Pre-Sign-Up Lambda**
+(`presignup/allowlist.py`) and wires it to the pool via `lambda_config.pre_sign_up`. Cognito invokes it
+before creating any account, so it gates **both** paths:
 
 - native self sign-up (`PreSignUp_SignUp`), and
 - first-time Google federation (`PreSignUp_ExternalProvider`).
 
 Any email not on the list is rejected with an "invite-only" message. Existing accounts are unaffected
-(the trigger fires only at account creation). When `allowed_signup_emails` is empty (the default), no
-trigger is created and the pool stays open — so this is opt-in by data.
+(the trigger fires only at account creation). When `enable_signup_allowlist` is false (the default), no
+trigger is created and the pool stays open.
 
-The list is PII and is supplied only via the git-ignored tfvars, never committed; the Lambda reads it
-from an `ALLOWED_EMAILS` environment variable. Include **every** address you sign in with (your Google
-login and any native email), or that sign-in path will be refused.
+### The allow-list value is a by-hand SecureString, never in Terraform
+
+The list of allowed emails is PII, so it is **not** stored in Terraform state, plans, or tfvars, and
+never in this repo. It lives only in a **by-hand SSM Parameter Store SecureString** (KMS-encrypted).
+Terraform references it by **name only** (in the Lambda env var `ALLOWED_EMAILS_PARAM` and in a scoped
+`ssm:GetParameter` + via-SSM `kms:Decrypt` policy); the Lambda reads and decrypts it at runtime.
+
+Create or update it out-of-band (comma-separated, **every** address you sign in with — your Google
+login and any native email):
+
+```bash
+aws ssm put-parameter --type SecureString --overwrite \
+  --name /homebase/<env>/identity/allowed-signup-emails \
+  --value "you@example.com,other@example.com" --region <region>
+```
+
+The Lambda **fails closed**: if the parameter is missing or unreadable, every sign-up is denied. So
+create the parameter before relying on the gate (existing accounts, including yours, are unaffected
+either way).
 
 **Evolution.** This is a deliberately simple gate for the single-tenant seed: a flat email allow-list,
 enforced at sign-up. As Homebase grows toward the multi-tenant platform, this is expected to be

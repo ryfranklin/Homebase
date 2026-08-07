@@ -103,14 +103,15 @@ variable "google_authorize_scopes" {
 }
 
 # ---------------------------------------------------------------------------
-# Sign-up allow-list. When non-empty, a Pre-Sign-Up Lambda rejects any account
-# (native sign-up OR first-time Google federation) whose email is not listed,
-# closing open self-signup. Empty (default) attaches no trigger: anyone who
-# reaches the hosted UI can register. Real emails are supplied via the
-# git-ignored tfvars, never a committed literal (they are PII).
+# Sign-up allow-list gate. When true, a Pre-Sign-Up Lambda rejects any account
+# (native sign-up OR first-time Google federation) whose email is not on the
+# allow-list, closing open self-signup. The allow-list VALUE is not stored here
+# or anywhere in Terraform: it is a by-hand SSM SecureString (KMS-encrypted) at
+# /<project>/<env>/identity/allowed-signup-emails, which the Lambda reads and
+# decrypts at runtime. false (default) attaches no trigger (open self-signup).
 # ---------------------------------------------------------------------------
-variable "allowed_signup_emails" {
-  description = "Emails permitted to create an account. Non-empty enables the Pre-Sign-Up allow-list gate (native + federated). Supplied via git-ignored tfvars; never committed."
-  type        = list(string)
-  default     = []
+variable "enable_signup_allowlist" {
+  description = "Enable the Pre-Sign-Up allow-list gate (native + federated). The allow-list itself is a by-hand SSM SecureString referenced by name; its value never enters Terraform state, plans, or tfvars."
+  type        = bool
+  default     = false
 }
