@@ -30,3 +30,10 @@ google_client_secret_name   = "homebase/google-oauth-client-secret"
 # Alternative (NOT preferred): supply the secret directly here. Only if you set
 # google_client_secret_source = "variable". Never commit a real secret.
 # google_client_secret = "<YOUR_GOOGLE_OAUTH_CLIENT_SECRET>"
+
+# --- Sign-up allow-list ---
+# When non-empty, a Pre-Sign-Up Lambda rejects any account (native OR Google
+# federation) whose email is not listed, closing open self-signup. Empty = no
+# gate. Include every email you sign in with (your Google login and any native
+# email). Real emails go in the git-ignored tfvars, never here.
+allowed_signup_emails = ["you@example.invalid"]

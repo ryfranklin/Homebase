@@ -101,3 +101,16 @@ variable "google_authorize_scopes" {
   type        = string
   default     = "openid email profile"
 }
+
+# ---------------------------------------------------------------------------
+# Sign-up allow-list. When non-empty, a Pre-Sign-Up Lambda rejects any account
+# (native sign-up OR first-time Google federation) whose email is not listed,
+# closing open self-signup. Empty (default) attaches no trigger: anyone who
+# reaches the hosted UI can register. Real emails are supplied via the
+# git-ignored tfvars, never a committed literal (they are PII).
+# ---------------------------------------------------------------------------
+variable "allowed_signup_emails" {
+  description = "Emails permitted to create an account. Non-empty enables the Pre-Sign-Up allow-list gate (native + federated). Supplied via git-ignored tfvars; never committed."
+  type        = list(string)
+  default     = []
+}
