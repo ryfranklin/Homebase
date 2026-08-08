@@ -42,9 +42,9 @@ data "aws_iam_policy_document" "shim" {
     ]
   }
 
-  # Step 1 of the token flow: get the per-user workload identity token. These act
-  # on the workload-identity resource (the WORKLOAD_NAME the shim presents), NOT
-  # the credential provider.
+  # Step 1 of the token flow: get the per-user workload identity token. These
+  # workload-token actions do NOT support resource-level scoping (an exact-ARN
+  # grant is not honored), so AWS requires resource "*".
   statement {
     sid    = "GetWorkloadToken"
     effect = "Allow"
@@ -53,9 +53,7 @@ data "aws_iam_policy_document" "shim" {
       "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
       "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
     ]
-    resources = [
-      "arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:workload-identity-directory/default/workload-identity/${local.name_prefix}-connectors",
-    ]
+    resources = ["*"]
   }
 
   statement {
