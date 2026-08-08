@@ -128,6 +128,11 @@ resource "aws_bedrockagentcore_gateway" "this" {
   }
 
   tags = local.common_tags
+
+  # The gateway references only the role ARN, not the role policy, so without this
+  # the CreateGateway (which encrypts with the KMS key) can race ahead of the KMS
+  # grant attaching/propagating and fail with kms:GenerateDataKey denied.
+  depends_on = [aws_iam_role_policy.gateway]
 }
 
 # ---------------------------------------------------------------------------
