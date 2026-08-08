@@ -21,6 +21,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Ship the versioned system prompt as package data so it is installed alongside
+# the code (found in the container's site-packages, not just the repo tree).
+[tool.setuptools.package-data]
+homebase_agent = ["prompts/*.md"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

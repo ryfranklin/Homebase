@@ -28,7 +28,23 @@ locals {
 
   rerank_model_id  = data.aws_ssm_parameter.rerank_model_id.value
   rerank_model_arn = "arn:${local.partition}:bedrock:${var.aws_region}::foundation-model/${local.rerank_model_id}"
-  model_arn        = "arn:${local.partition}:bedrock:*::foundation-model/${var.model_id}"
+
+  # Current Claude models on Bedrock (for example Sonnet 4.6) are invoked through
+  # a cross-region inference profile (us./eu./apac./global. prefix), NOT the bare
+  # on-demand foundation-model id: a direct on-demand Converse returns
+  # ValidationException. When model_id is a profile, IAM must allow InvokeModel on
+  # BOTH the inference-profile ARN and the underlying foundation-model ARNs the
+  # profile routes to (across its regions), so both are listed here. When model_id
+  # is a plain foundation-model id, the single foundation-model ARN is used.
+  is_inference_profile = length(regexall("^(us|eu|apac|global)[.]", var.model_id)) > 0
+  base_model_id        = replace(var.model_id, "/^(us|eu|apac|global)[.]/", "")
+
+  model_invoke_arns = local.is_inference_profile ? [
+    "arn:${local.partition}:bedrock:${var.aws_region}:${local.account_id}:inference-profile/${var.model_id}",
+    "arn:${local.partition}:bedrock:*::foundation-model/${local.base_model_id}",
+    ] : [
+    "arn:${local.partition}:bedrock:*::foundation-model/${var.model_id}",
+  ]
 
   container_uri = "${aws_ecr_repository.agent.repository_url}:${var.agent_image_tag}"
 
@@ -129,7 +145,7 @@ data "aws_iam_policy_document" "memory" {
     sid       = "InvokeStrategyModel"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel"]
-    resources = [local.model_arn]
+    resources = local.model_invoke_arns
   }
 }
 
@@ -191,7 +207,7 @@ data "aws_iam_policy_document" "runtime" {
     sid       = "InvokeModel"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = concat([local.model_arn], var.additional_model_arns)
+    resources = concat(local.model_invoke_arns, var.additional_model_arns)
   }
 
   statement {

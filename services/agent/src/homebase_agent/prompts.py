@@ -1,11 +1,18 @@
-"""Load the versioned system prompt from prompts/system_prompt.md."""
+"""Load the versioned system prompt.
+
+The prompt ships as package data (homebase_agent/prompts/system_prompt.md), so it
+resolves relative to this module and is found whether the package is run from
+source (PYTHONPATH=src) or pip-installed into site-packages (the container). It
+must NOT be resolved relative to the repo layout, or the installed image can't
+find it.
+"""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system_prompt.md"
+_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system_prompt.md"
 _VERSION_RE = re.compile(r"<!--\s*Version:\s*(\d+)\s*-->", re.IGNORECASE)
 
 

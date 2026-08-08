@@ -9,9 +9,13 @@ tags = {
   Owner = "<YOUR_NAME_OR_TEAM>"
 }
 
-# Model id (swap Opus vs Sonnet here, no code change). Use a real Claude model id
-# or inference profile id for your region.
-model_id = "<YOUR_CLAUDE_MODEL_ID>"
+# Model id the agent invokes via Converse. Current Claude models on Bedrock
+# require a cross-region INFERENCE PROFILE id (us./eu./apac./global. prefix), e.g.
+# us.anthropic.claude-sonnet-4-6; the bare on-demand foundation-model id returns
+# ValidationException. Verify with:
+#   aws bedrock list-inference-profiles --query "inferenceProfileSummaries[].inferenceProfileId"
+# The stack's IAM covers both the profile ARN and its underlying foundation-model ARNs.
+model_id = "<YOUR_CLAUDE_INFERENCE_PROFILE_ID>"
 
 # Optional extra model / inference-profile ARNs the agent may invoke.
 additional_model_arns = []

@@ -18,8 +18,9 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY src ./src
-COPY prompts ./prompts
 
+# The system prompt ships as package data under src/homebase_agent/prompts, so it
+# is installed with the package; no separate COPY of a repo-level prompts/ dir.
 RUN pip install --no-cache-dir '.[live]' aws-opentelemetry-distro>=0.10.0
 
 EXPOSE 8080
