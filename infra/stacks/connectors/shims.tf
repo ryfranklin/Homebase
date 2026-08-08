@@ -29,19 +29,32 @@ resource "aws_iam_role" "shim" {
 }
 
 data "aws_iam_policy_document" "shim" {
-  # Resolve the per-tenant connector OAuth token from AgentCore Identity, scoped
-  # to this stack's credential providers only.
+  # Step 2 of the token flow: exchange a workload identity token for the
+  # connector's OAuth token, scoped to this stack's credential providers.
   statement {
-    sid    = "GetConnectorToken"
-    effect = "Allow"
-    actions = [
-      "bedrock-agentcore:GetResourceOauth2Token",
-      "bedrock-agentcore:GetWorkloadAccessToken",
-    ]
+    sid     = "GetConnectorToken"
+    effect  = "Allow"
+    actions = ["bedrock-agentcore:GetResourceOauth2Token"]
     resources = [
       aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn,
       aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn,
       aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn,
+    ]
+  }
+
+  # Step 1 of the token flow: get the per-user workload identity token. These act
+  # on the workload-identity resource (the WORKLOAD_NAME the shim presents), NOT
+  # the credential provider.
+  statement {
+    sid    = "GetWorkloadToken"
+    effect = "Allow"
+    actions = [
+      "bedrock-agentcore:GetWorkloadAccessToken",
+      "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
+      "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
+    ]
+    resources = [
+      "arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:workload-identity-directory/default/workload-identity/${local.name_prefix}-connectors",
     ]
   }
 
