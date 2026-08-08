@@ -56,9 +56,45 @@ The seam for hybrid is explicit:
   rerank, and richer metadata filters). Because the S3 Vectors storage arguments are ForceNew, treat
   the vector store choice as a replacement-level decision.
 
+## Live eval result and the decision (2026-08-08)
+
+First live run against the real corpus (273 docs ingested into the S3 Vectors KB) using a private
+22-case question -> expected-source set spanning all corpus areas (architecture ADRs, SQL Server
+incidents/tickets, data-engineering, AWS/MWAA). Rerank model: `cohere.rerank-v3-5:0` (the model
+available in us-east-1; `amazon.rerank-v1:0` is not). Metric: does the expected doc appear in the
+top-k retrieved sources.
+
+| k | base hit_rate (semantic-only) | reranked hit_rate | rerank lift |
+| --- | --- | --- | --- |
+| 1 | 0.727 | 0.955 | +0.227 |
+| 3 | 0.955 | 1.000 | +0.045 |
+| 5 | 1.000 | 1.000 | +0.000 |
+
+MRR (all k): base 0.842 -> reranked 0.977 (+0.135).
+
+**Decision: STAY on S3 Vectors (semantic + query-time rerank). The OpenSearch Serverless seam is NOT
+triggered.** Reranked `hit_rate@5` = 1.000 and `hit_rate@3` = 1.000, far above the 0.85 acceptance
+target; the smoke test confirmed Bedrock Rerank works on the S3 Vectors KB in-region. Rerank clearly
+earns its extra call: it lifts top-1 accuracy from 0.727 to 0.955 (+0.227) and MRR by +0.135, i.e. it
+reliably pulls the right document to rank 1 where semantic-only ranks it a little lower. No systematic
+exact-term/keyword miss was observed that hybrid would be needed to fix.
+
+Caveat (honest): the 22 cases were authored from doc titles/front matter, so they lean
+semantic-friendly and do not maximally stress the semantic-only keyword weakness the fallback guards
+against. The decision is well-supported by this evidence, but the set can be hardened with adversarial
+exact-term cases (bare ticket ids, server hostnames, stored-proc names) and re-run before treating it
+as final. The cases file is private and lives outside the repo; it is never committed.
+
 ## How the evidence gets refreshed
 
 The eval harness (`eval/`) is how we decide, on data, whether S3 Vectors semantic plus rerank clears
 the quality bar. It reports hit rate and MRR with rerank off versus on, so rerank lift is visible
 and rerank has to earn its extra call. If semantic plus rerank on the real corpus underperforms,
-that result triggers the ADR-002 fallback to OpenSearch Serverless.
+that result triggers the ADR-002 fallback to OpenSearch Serverless. Re-run:
+
+```bash
+cd eval && python3 -m venv ~/.venvs/homebase-eval && ~/.venvs/homebase-eval/bin/pip install -e '.[live]'
+export AWS_REGION=us-east-1 HOMEBASE_KB_ID=<retrieval/knowledge_base_id>
+export HOMEBASE_RERANK_MODEL_ARN=arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0
+PYTHONPATH=src ~/.venvs/homebase-eval/bin/python -m homebase_eval.cli --mode live --k 5 --cases <your-private-cases.json>
+```
