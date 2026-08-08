@@ -101,7 +101,9 @@ resource "aws_iam_role_policy" "gateway" {
 # AgentCore Gateway (MCP), authorized by the same Cognito JWT the front doors use.
 # ---------------------------------------------------------------------------
 resource "aws_bedrockagentcore_gateway" "this" {
-  name            = replace("${local.name_prefix}_connectors", "-", "_")
+  # Gateway names must match ^([0-9a-zA-Z][-]?){1,100}$ (hyphens, NOT underscores;
+  # this is the opposite of the AgentCore runtime/memory naming).
+  name            = "${local.name_prefix}-connectors"
   role_arn        = aws_iam_role.gateway.arn
   protocol_type   = "MCP"
   authorizer_type = "CUSTOM_JWT"
@@ -135,7 +137,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "google" {
 
   oauth2_provider_config {
     google_oauth2_provider_config {
-      client_id                     = var.google_client_id
+      client_id_wo                  = var.google_client_id
       client_secret_wo              = var.google_client_secret
       client_credentials_wo_version = var.google_secret_version
     }
@@ -150,7 +152,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "slack" {
 
   oauth2_provider_config {
     slack_oauth2_provider_config {
-      client_id                     = var.slack_client_id
+      client_id_wo                  = var.slack_client_id
       client_secret_wo              = var.slack_client_secret
       client_credentials_wo_version = var.slack_secret_version
     }
@@ -165,7 +167,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "quickbooks" {
 
   oauth2_provider_config {
     custom_oauth2_provider_config {
-      client_id                     = var.quickbooks_client_id
+      client_id_wo                  = var.quickbooks_client_id
       client_secret_wo              = var.quickbooks_client_secret
       client_credentials_wo_version = var.quickbooks_secret_version
 
@@ -184,7 +186,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "atlassian" {
 
   oauth2_provider_config {
     custom_oauth2_provider_config {
-      client_id                     = var.atlassian_client_id
+      client_id_wo                  = var.atlassian_client_id
       client_secret_wo              = var.atlassian_client_secret
       client_credentials_wo_version = var.atlassian_secret_version
 
