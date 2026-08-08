@@ -82,6 +82,17 @@ data "aws_iam_policy_document" "gateway" {
     actions   = ["lambda:InvokeFunction"]
     resources = ["arn:${local.partition}:lambda:${var.aws_region}:${local.account_id}:function:${local.name_prefix}-connector-*"]
   }
+
+  # The Gateway encrypts its data with the connectors KMS key, so its execution
+  # role needs identity-based key use (the key policy's service-principal grant is
+  # not enough for the assumed role). Without this, CreateGateway fails with
+  # "not authorized to perform kms:GenerateDataKey".
+  statement {
+    sid       = "UseGatewayKey"
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"]
+    resources = [module.connectors_kms.key_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "gateway" {
