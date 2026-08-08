@@ -97,9 +97,18 @@ def _qbo_create_invoice(params, token):
 
 
 def _jira_search(params, token):
+    # The classic /rest/api/3/search was removed (HTTP 410) in May 2025; use the
+    # enhanced /rest/api/3/search/jql. It returns only issue ids unless `fields` is
+    # given, so default to *navigable (the common navigable fields).
     cloud = urllib.parse.quote(params["cloudId"])
-    qs = urllib.parse.urlencode({"jql": params.get("jql", ""), "maxResults": params.get("maxResults", 25)})
-    return "GET", f"https://api.atlassian.com/ex/jira/{cloud}/rest/api/3/search?{qs}", _bearer(token), None
+    qs = urllib.parse.urlencode(
+        {
+            "jql": params.get("jql", ""),
+            "maxResults": params.get("maxResults", 25),
+            "fields": params.get("fields", "*navigable"),
+        }
+    )
+    return "GET", f"https://api.atlassian.com/ex/jira/{cloud}/rest/api/3/search/jql?{qs}", _bearer(token), None
 
 
 def _jira_create(params, token):
