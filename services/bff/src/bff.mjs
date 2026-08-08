@@ -106,7 +106,11 @@ export async function handleRequest(event, respond, deps) {
   }
 
   const userId = claims.sub;
-  const tenantId = claims[TENANT_CLAIM];
+  // Prefer the verified tenant claim; fall back to the deployment's default tenant
+  // (the single-tenant seed) when the token carries none. The connector shim applies
+  // the same default, so the tenant used here matches the one the connector token
+  // vault is keyed by.
+  const tenantId = claims[TENANT_CLAIM] || config.defaultTenant;
   if (!userId || !tenantId) {
     // Cannot scope the request without both identities.
     return writeError(respond, cors, 403, "missing_identity_claims", "token lacks user or tenant");
@@ -134,7 +138,9 @@ export async function handleRequest(event, respond, deps) {
     }
     try {
       await deps.completeConnectorAuth({ userId: tenantId, sessionUri });
-    } catch {
+      console.log(JSON.stringify({ event: "connector_finalize", ok: true, tenant: tenantId }));
+    } catch (err) {
+      console.error(JSON.stringify({ event: "connector_finalize", ok: false, tenant: tenantId, error: err?.name || "error" }));
       return writeError(respond, cors, 502, "connector_finalize_failed", "could not finalize connector authorization");
     }
     const writer = respond(200, { "Content-Type": "application/json", ...cors });

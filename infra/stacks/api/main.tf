@@ -296,6 +296,10 @@ resource "aws_lambda_function" "bff" {
       HOMEBASE_AUDIENCE          = local.app_client_id
       HOMEBASE_AGENT_RUNTIME_ARN = local.agent_runtime_arn
       HOMEBASE_ALLOWED_ORIGIN    = var.spa_origin
+      # Single-tenant seed default: the tenant used when a verified token carries no
+      # custom:tenant_id claim. Matches the connector shim so the BFF, agent, and
+      # connector token vault agree on the tenant.
+      HOMEBASE_DEFAULT_TENANT = var.project_name
       # The BFF reads the origin secret from Secrets Manager at runtime (current
       # and pending during rotation), so the secret rotates without a redeploy.
       HOMEBASE_ORIGIN_SECRET_ARN = aws_secretsmanager_secret.origin_secret.arn

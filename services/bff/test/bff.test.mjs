@@ -194,13 +194,40 @@ test("wrong-tenant: body tenant differs from token claim -> 403, agent not calle
   assert.equal(agentStream.calls.length, 0);
 });
 
-test("token missing tenant claim -> 403", async () => {
+test("token missing tenant claim -> 403 (no default tenant configured)", async () => {
   const c = claims();
   delete c["custom:tenant_id"];
   const token = signJwt(c, key);
   const { rec } = await run({ token, body: { input: "x" } });
   assert.equal(rec.statusCode, 403);
   assert.match(rec.chunks.join(""), /missing_identity_claims/);
+});
+
+// Single-tenant seed: when a default tenant is configured, a token without the
+// tenant claim falls back to it (matching the connector shim), instead of 403.
+const seedConfig = { ...config, defaultTenant: "homebase" };
+
+test("missing tenant claim + default tenant -> streams with the default tenant", async () => {
+  const c = claims();
+  delete c["custom:tenant_id"];
+  const token = signJwt(c, key);
+  const { rec, agentStream } = await run({ token, body: { input: "x" }, cfg: seedConfig });
+  assert.equal(rec.statusCode, 200);
+  assert.equal(agentStream.calls[0].tenantId, "homebase");
+});
+
+test("connector complete + default tenant -> finalizes under the default tenant", async () => {
+  const c = claims();
+  delete c["custom:tenant_id"];
+  const token = signJwt(c, key);
+  const { rec, finalize } = await run({
+    token,
+    path: "/api/connectors/complete",
+    body: { session_id: "urn:sess:9" },
+    cfg: seedConfig,
+  });
+  assert.equal(rec.statusCode, 200);
+  assert.equal(finalize.calls[0].userId, "homebase");
 });
 
 test("cross-user attempt: body user differs from token -> 403", async () => {
