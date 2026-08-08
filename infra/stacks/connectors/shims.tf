@@ -94,9 +94,10 @@ resource "aws_lambda_function" "shim" {
       CONNECTOR_PROVIDER_ARN  = each.value.provider_arn
       CONNECTOR_PROVIDER_NAME = each.value.provider_name
       CONNECTOR_SCOPES        = join(",", each.value.scopes)
-      # The agent workload identity used for the on-behalf-of token flow. Defaults
-      # to the gateway name; confirm/correct at live verification.
-      WORKLOAD_NAME           = "${local.name_prefix}-connectors"
+      # The workload identity used for the on-behalf-of token flow. The Gateway
+      # auto-creates a workload identity named by its full id (name + suffix), so
+      # this is the gateway_id, NOT the gateway name.
+      WORKLOAD_NAME           = aws_bedrockagentcore_gateway.this.gateway_id
       HOMEBASE_DEFAULT_TENANT = var.project_name
     }
   }
