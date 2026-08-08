@@ -43,11 +43,14 @@ locals {
     # read scopes, because AgentCore vaults tokens by exact scope set (a subset
     # request restarts the 3LO flow). One consent then satisfies gmail/gcal/gdrive
     # and means a single weekly re-auth while the app is in Google Testing mode.
-    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
-    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
-    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
-    slack     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.slack.name, scopes = ["channels:history", "groups:history", "channels:read", "groups:read"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
-    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
+    gmail  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
+    gcal   = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
+    gdrive = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
+    slack  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.slack.name, scopes = ["channels:history", "groups:history", "channels:read", "groups:read"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
+    # offline_access is required for Atlassian (a CustomOauth2 provider) to issue a
+    # refresh token; without it AgentCore only gets a ~1h access token and the vault
+    # entry expires hourly. read:jira-work covers issue search.
+    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = ["read:jira-work", "offline_access"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
   }
 }
 
