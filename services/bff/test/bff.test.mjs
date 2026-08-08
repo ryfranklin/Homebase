@@ -46,14 +46,15 @@ function makeRespond() {
   return respond;
 }
 
-function makeEvent({ token, body, method = "POST", originSecret } = {}) {
+function makeEvent({ token, body, method = "POST", originSecret, path } = {}) {
   const headers = {};
   if (token) headers.authorization = `Bearer ${token}`;
   if (originSecret !== undefined) headers["x-origin-secret"] = originSecret;
   return {
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-    requestContext: { http: { method } },
+    rawPath: path,
+    requestContext: { http: { method, path } },
   };
 }
 
@@ -71,15 +72,26 @@ function claims(overrides = {}) {
   };
 }
 
-async function run({ token, body, method, originSecret, cfg } = {}) {
+function makeCompleteConnectorAuth() {
+  const calls = [];
+  const fn = async (args) => {
+    calls.push(args);
+  };
+  fn.calls = calls;
+  return fn;
+}
+
+async function run({ token, body, method, originSecret, cfg, path, completeConnectorAuth } = {}) {
   const respond = makeRespond();
   const agentStream = makeAgentStream();
-  await handleRequest(makeEvent({ token, body, method, originSecret }), respond, {
+  const finalize = completeConnectorAuth ?? makeCompleteConnectorAuth();
+  await handleRequest(makeEvent({ token, body, method, originSecret, path }), respond, {
     verifyToken,
     config: cfg ?? config,
     agentStream,
+    completeConnectorAuth: finalize,
   });
-  return { respond, agentStream, rec: respond.calls[0] };
+  return { respond, agentStream, finalize, rec: respond.calls[0] };
 }
 
 test("valid token streams SSE with tokens and a done event", async () => {
@@ -97,6 +109,60 @@ test("valid token streams SSE with tokens and a done event", async () => {
   // The agent was invoked with the identity taken from the token, not the body.
   assert.equal(agentStream.calls[0].userId, "user-1");
   assert.equal(agentStream.calls[0].tenantId, "tenant-1");
+});
+
+// Connector consent finalize (/api/connectors/complete).
+test("connector complete: finalizes with the token's tenant as the AgentCore userId", async () => {
+  const token = signJwt(claims({ sub: "user-1", "custom:tenant_id": "tenant-1" }), key);
+  const { rec, finalize, agentStream } = await run({
+    token,
+    path: "/api/connectors/complete",
+    body: { session_id: "urn:ietf:params:oauth:request_uri:abc" },
+  });
+  assert.equal(rec.statusCode, 200);
+  assert.equal(rec.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(rec.chunks.join("")), { ok: true });
+  // userId is the TENANT (matches the connector shim), taken from the token.
+  assert.deepEqual(finalize.calls[0], {
+    userId: "tenant-1",
+    sessionUri: "urn:ietf:params:oauth:request_uri:abc",
+  });
+  assert.equal(agentStream.calls.length, 0); // never streams the agent
+});
+
+test("connector complete: missing session_id -> 400", async () => {
+  const token = signJwt(claims(), key);
+  const { rec, finalize } = await run({ token, path: "/api/connectors/complete", body: {} });
+  assert.equal(rec.statusCode, 400);
+  assert.match(rec.chunks.join(""), /missing_session/);
+  assert.equal(finalize.calls.length, 0);
+});
+
+test("connector complete: requires a valid token (401 when missing)", async () => {
+  const { rec, finalize } = await run({
+    path: "/api/connectors/complete",
+    body: { session_id: "urn:x" },
+  });
+  assert.equal(rec.statusCode, 401);
+  assert.equal(finalize.calls.length, 0);
+});
+
+test("connector complete: SDK failure -> 502", async () => {
+  const token = signJwt(claims(), key);
+  const failing = Object.assign(
+    async () => {
+      throw new Error("boom");
+    },
+    { calls: [] },
+  );
+  const { rec } = await run({
+    token,
+    path: "/api/connectors/complete",
+    body: { session_id: "urn:x" },
+    completeConnectorAuth: failing,
+  });
+  assert.equal(rec.statusCode, 502);
+  assert.match(rec.chunks.join(""), /connector_finalize_failed/);
 });
 
 test("missing token -> 401", async () => {

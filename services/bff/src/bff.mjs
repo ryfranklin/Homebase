@@ -55,7 +55,8 @@ function writeError(respond, cors, status, code, message) {
 
 // handleRequest(event, respond, deps)
 //   respond(statusCode, headers) -> { write(chunk), end() }
-//   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable }
+//   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable,
+//            completeConnectorAuth({ userId, sessionUri }) -> Promise }
 export async function handleRequest(event, respond, deps) {
   const { config } = deps;
   const cors = corsHeaders(config.allowedOrigin);
@@ -66,6 +67,11 @@ export async function handleRequest(event, respond, deps) {
     writer.end();
     return;
   }
+
+  // Route by path. /api/connectors/complete finalizes a connector's 3LO consent
+  // (see the branch below); everything else is the agent chat stream.
+  const path = event.rawPath || event.requestContext?.http?.path || event.path || "";
+  const isConnectorComplete = path.endsWith("/connectors/complete");
 
   // Origin protection: when a shared secret is configured, the request must
   // carry the matching header that CloudFront injects. This refuses direct
@@ -113,6 +119,28 @@ export async function handleRequest(event, respond, deps) {
   }
   if (body.user_id && body.user_id !== userId) {
     return writeError(respond, cors, 403, "user_mismatch", "requested user does not match token");
+  }
+
+  // Connector consent finalize: after the user completes a connector's 3LO consent
+  // in the browser, AgentCore redirects back with ?session_id=<sessionUri>. The SPA
+  // POSTs that here so we call CompleteResourceTokenAuth, which promotes the OAuth
+  // token into the durable vault for headless reuse by the shim. The AgentCore
+  // userId is the TENANT id (matching what the connector shim uses when it mints a
+  // workload token), taken from the verified token, never the client body.
+  if (isConnectorComplete) {
+    const sessionUri = body.session_id;
+    if (!sessionUri) {
+      return writeError(respond, cors, 400, "missing_session", "session_id is required");
+    }
+    try {
+      await deps.completeConnectorAuth({ userId: tenantId, sessionUri });
+    } catch {
+      return writeError(respond, cors, 502, "connector_finalize_failed", "could not finalize connector authorization");
+    }
+    const writer = respond(200, { "Content-Type": "application/json", ...cors });
+    writer.write(JSON.stringify({ ok: true }));
+    writer.end();
+    return;
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;

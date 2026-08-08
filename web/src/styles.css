@@ -245,3 +245,35 @@ body {
     padding: 24px;
   }
 }
+
+/* Connector consent finalize banner (shown when the browser returns with a
+   session_id after a connector authorization). */
+.connector-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: #06101f;
+  background: var(--accent);
+}
+
+.connector-banner--error {
+  background: var(--danger);
+  color: var(--text);
+}
+
+.connector-banner button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}

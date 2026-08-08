@@ -9,6 +9,7 @@
 import { handleRequest } from "./bff.mjs";
 import { loadConfig } from "./config.mjs";
 import { invokeAgentRuntimeStream, makeAgentClient } from "./agent.mjs";
+import { makeIdentityClient } from "./identity.mjs";
 import { JwksCache } from "./jwks.mjs";
 import { verifyJwt } from "./jwt.mjs";
 import { cachedOriginSecrets } from "./secrets.mjs";
@@ -32,6 +33,17 @@ let agentClientPromise;
 function agentClient() {
   agentClientPromise ??= makeAgentClient(config.region);
   return agentClientPromise;
+}
+
+let identityClientPromise;
+function identityClient() {
+  identityClientPromise ??= makeIdentityClient(config.region);
+  return identityClientPromise;
+}
+
+async function completeConnectorAuth(args) {
+  const client = await identityClient();
+  return client.completeResourceTokenAuth(args);
 }
 
 async function verifyToken(token) {
@@ -67,5 +79,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     verifyToken,
     config: requestConfig,
     agentStream,
+    completeConnectorAuth,
   });
 });

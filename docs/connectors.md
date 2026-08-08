@@ -69,3 +69,23 @@ credentials. It does NOT reuse the Mission Control bot tokens or the Claude.ai S
 `terraform -chdir=infra/stacks/connectors apply` registers the Gateway, the credential providers, and
 the read-first targets. The write-confirmation gate is already enforced in code; enabling a write tool
 means adding its scope above and wiring the tool, and it stays gated regardless.
+
+## Consent and the finalize step (self-enrollment)
+
+Each connector needs a one-time per-tenant consent (3LO). The first time a tenant uses a connector, the
+shim returns `requires_authorization` with an `authorization_url`. The user opens it, grants access, and
+the browser is redirected back to the web GUI with `?session_id=<sessionUri>`.
+
+That return is not the end of the flow. AgentCore only holds the token against that session until the
+application confirms it with `CompleteResourceTokenAuth`; without that call the token is never promoted
+into the durable vault and every later request just restarts consent. The web SPA does this automatically:
+`useConnectorCallback` detects `?session_id=` on load and POSTs it to the BFF route
+`/api/connectors/complete`, which calls `CompleteResourceTokenAuth` with the caller's tenant as the
+AgentCore userId (the same identity the shim uses). After that the token is vaulted and reads work
+headlessly. The BFF role is granted `bedrock-agentcore:CompleteResourceTokenAuth` for this.
+
+Notes learned in live verification:
+- AgentCore vaults tokens by the EXACT scope set, so a connector must request the same scopes on every
+  call; the three Google connectors share one union scope set so a single consent covers all of them.
+- Atlassian needs `offline_access` for a refresh token, and Jira reads use `/rest/api/3/search/jql` (the
+  classic `/search` endpoint returns HTTP 410) with a bounded JQL (a `WHERE` restriction is required).

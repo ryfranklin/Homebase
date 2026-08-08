@@ -234,6 +234,18 @@ data "aws_iam_policy_document" "bff" {
     resources = [local.agent_runtime_arn, "${local.agent_runtime_arn}/*"]
   }
 
+  # Finalize a connector's 3LO consent: when the SPA posts back the session_id from
+  # the browser return, the BFF calls CompleteResourceTokenAuth to promote the
+  # OAuth token into the vault. Like the other AgentCore token-vault actions it is
+  # authorized against the workload-identity resource and does not honor a tighter
+  # resource scope, so it requires "*".
+  statement {
+    sid       = "CompleteConnectorAuth"
+    effect    = "Allow"
+    actions   = ["bedrock-agentcore:CompleteResourceTokenAuth"]
+    resources = ["*"]
+  }
+
   statement {
     sid       = "WriteLogs"
     effect    = "Allow"
