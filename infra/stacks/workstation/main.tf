@@ -219,12 +219,16 @@ data "aws_iam_policy_document" "workstation" {
     resources = ["arn:${local.partition}:ssm:${var.aws_region}:${local.account_id}:parameter/${var.project_name}/${var.environment}/workstation/*"]
   }
 
-  # Pull the machine-local shell secret at session start (scoped to this secret).
+  # Pull the machine-local shell secret at session start (scoped to this secret,
+  # plus the optional git-auth secret for cloning a private dotfiles repo).
   statement {
-    sid       = "ReadShellSecret"
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.dotfiles_secret_name}*"]
+    sid     = "ReadShellSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = concat(
+      ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.dotfiles_secret_name}*"],
+      var.dotfiles_auth_secret_name != "" ? ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.dotfiles_auth_secret_name}*"] : [],
+    )
   }
 
   # Decrypt the shell secret if it is encrypted with the workstation key.
@@ -272,6 +276,15 @@ resource "aws_ssm_parameter" "dotfiles_secret_name" {
   name  = "/${var.project_name}/${var.environment}/workstation/dotfiles_secret_name"
   type  = "String"
   value = var.dotfiles_secret_name
+  tags  = local.common_tags
+}
+
+# Pointer to the optional git-auth secret used to clone a private dotfiles repo.
+# "unset" when not configured; the bootstrap then does an unauthenticated clone.
+resource "aws_ssm_parameter" "dotfiles_auth_secret_name" {
+  name  = "/${var.project_name}/${var.environment}/workstation/dotfiles_auth_secret_name"
+  type  = "String"
+  value = var.dotfiles_auth_secret_name == "" ? "unset" : var.dotfiles_auth_secret_name
   tags  = local.common_tags
 }
 

@@ -22,15 +22,23 @@ public_subnet_cidr      = "10.0.21.0/24"
 nat_egress_type   = "nat_instance"
 nat_instance_type = "t4g.nano"
 
-# Instance and storage.
-instance_type    = "t4g.medium"
+# Instance and storage. Scale-down levers: lower instance_type and re-apply to
+# shrink compute (stop -> change type -> start; a stopped box costs only EBS).
+# NOTE: EBS volumes can GROW but not SHRINK, so pick root/home sizes you are happy
+# to keep; reducing them later requires rebuilding the volume.
+instance_type    = "t4g.medium" # e.g. t4g.small / t4g.micro to scale down
 root_volume_size = 30
 home_volume_size = 50
 workstation_user = "ec2-user"
 
-# Dotfiles + secrets. The real repo URL and secret live outside the repo.
+# Dotfiles + secrets. The real repo URL and secrets live outside the repo.
 dotfiles_repo_url    = "<YOUR_DOTFILES_GIT_URL>"
 dotfiles_secret_name = "homebase/workstation/shell-secrets"
+
+# Cloning a PRIVATE dotfiles repo: name of a by-hand Secrets Manager secret
+# holding a GitHub fine-grained PAT (read-only Contents on just that repo). Empty
+# = unauthenticated clone (public repos only). The token is never committed.
+dotfiles_auth_secret_name = "homebase/workstation/dotfiles-auth"
 
 # Task-specific roles the instance may assume for short-lived credentials.
 # Broad operations go through these, not standing instance permissions.

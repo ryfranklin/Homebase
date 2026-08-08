@@ -51,14 +51,41 @@ cat > /etc/profile.d/homebase-session.sh <<'PROFILE'
 # access key; credentials come from the instance role and short-lived role
 # assumption only.
 homebase_session_bootstrap() {
-  local region prefix url secret_name
+  local region prefix url secret_name auth_secret token askpass
   region="__REGION__"
   prefix="/__PROJECT__/__ENVIRONMENT__/workstation"
 
   url="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_repo_url" --query Parameter.Value --output text 2>/dev/null || echo unset)"
   if [ "$url" != "unset" ] && [ -n "$url" ] && [ ! -d "$HOME/.dotfiles" ]; then
-    git clone "$url" "$HOME/.dotfiles" 2>/dev/null && \
-      { [ -x "$HOME/.dotfiles/install.sh" ] && "$HOME/.dotfiles/install.sh" || true; }
+    # A private repo needs a credential. If a git-auth secret is configured, pull
+    # the token and clone via GIT_ASKPASS so the token is never in argv, on disk,
+    # or persisted in the cloned repo's remote URL. Otherwise clone unauthenticated
+    # (works only for a public repo).
+    auth_secret="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_auth_secret_name" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+    token=""
+    if [ -n "$auth_secret" ] && [ "$auth_secret" != "unset" ]; then
+      token="$(aws secretsmanager get-secret-value --region "$region" --secret-id "$auth_secret" --query SecretString --output text 2>/dev/null || echo)"
+    fi
+
+    if [ -n "$token" ]; then
+      # Write a tiny askpass helper (no secret in it; it just echoes an env var).
+      askpass="$(mktemp)"
+      echo '#!/bin/sh' > "$askpass"
+      echo 'exec echo "$HB_GIT_TOKEN"' >> "$askpass"
+      chmod 700 "$askpass"
+      # username x-access-token is GitHub's PAT convention (not secret); the token
+      # is supplied only via the env var the askpass helper echoes, so it never
+      # appears in argv, on disk, or in the cloned repo's stored remote URL.
+      HB_GIT_TOKEN="$token" GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+        git clone "https://x-access-token@$${url#https://}" "$HOME/.dotfiles" 2>/dev/null && \
+        { git -C "$HOME/.dotfiles" remote set-url origin "$url" 2>/dev/null || true; } && \
+        { [ -x "$HOME/.dotfiles/install.sh" ] && "$HOME/.dotfiles/install.sh" || true; }
+      rm -f "$askpass"
+      unset HB_GIT_TOKEN token
+    else
+      git clone "$url" "$HOME/.dotfiles" 2>/dev/null && \
+        { [ -x "$HOME/.dotfiles/install.sh" ] && "$HOME/.dotfiles/install.sh" || true; }
+    fi
   fi
 
   secret_name="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_secret_name" --query Parameter.Value --output text 2>/dev/null || echo)"

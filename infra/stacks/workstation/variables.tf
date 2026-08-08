@@ -115,6 +115,12 @@ variable "dotfiles_secret_name" {
   default     = "homebase/workstation/shell-secrets"
 }
 
+variable "dotfiles_auth_secret_name" {
+  description = "Secrets Manager secret name holding a git credential (a GitHub fine-grained PAT with read-only Contents on the dotfiles repo) used to clone a PRIVATE dotfiles repo at session start. Empty (default) means an unauthenticated clone, which only works for a public repo. Supplied via git-ignored tfvars; the token itself is a by-hand secret, never committed."
+  type        = string
+  default     = ""
+}
+
 variable "assumable_role_arns" {
   description = "Task-specific role ARNs the instance role may assume for short-lived credentials. Broad operations use these, not standing instance permissions. Empty by default."
   type        = list(string)
