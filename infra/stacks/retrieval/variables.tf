@@ -67,9 +67,9 @@ variable "embedding_dimension" {
 # rerank without code changes.
 # ---------------------------------------------------------------------------
 variable "rerank_model_id" {
-  description = "Bedrock rerank model id used at query time (for example amazon.rerank-v1:0 or cohere.rerank-v3-5:0)."
+  description = "Bedrock rerank model id used at query time. Availability is region-specific: us-east-1 offers cohere.rerank-v3-5:0 (not amazon.rerank-v1:0). Verify with `aws bedrock list-foundation-models` filtered to rerank models in your region."
   type        = string
-  default     = "amazon.rerank-v1:0"
+  default     = "cohere.rerank-v3-5:0"
 }
 
 variable "default_search_type" {

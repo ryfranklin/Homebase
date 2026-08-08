@@ -29,6 +29,11 @@ locals {
   corpus_kms_key_arn = data.aws_ssm_parameter.corpus_kms_key_arn.value
 
   embedding_model_arn = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${var.embedding_model_id}"
+
+  # Rerank is applied at query time via the Retrieve API. Bedrock performs the
+  # rerank under THIS KB service role (assumed as BedrockReranking-*), not the
+  # caller's role, so the KB role itself needs bedrock:Rerank on the rerank model.
+  rerank_model_arn = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/${var.rerank_model_id}"
 }
 
 # ---------------------------------------------------------------------------
@@ -92,6 +97,27 @@ data "aws_iam_policy_document" "kb" {
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel"]
     resources = [local.embedding_model_arn]
+  }
+
+  # Query-time reranking. Retrieve with a rerankingConfiguration makes Bedrock
+  # invoke the rerank model under this KB role. Without this, Retrieve-with-rerank
+  # 403s and the agent's rerank rung (and the ADR-002 eval) fail.
+  #
+  # bedrock:Rerank does NOT support resource-level scoping to the model ARN (it
+  # evaluates against a system rerank resource), so AWS requires resource "*" for
+  # the action. The rerank model itself is still scoped, via InvokeModel below.
+  statement {
+    sid       = "Rerank"
+    effect    = "Allow"
+    actions   = ["bedrock:Rerank"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "InvokeRerankModel"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
+    resources = [local.rerank_model_arn]
   }
 
   statement {

@@ -78,7 +78,38 @@ Each step names where the secret lands. Never commit a real value.
    The client id goes into the git-ignored `infra/stacks/identity/terraform.tfvars` as
    `google_client_id`.
 
-### 2b. ACM certificate + DNS — before applying web (P8)
+### 2b. Bedrock model access: the rerank model — before retrieval reranks (P4/P5)
+
+Retrieval reranks with a Bedrock rerank model at query time, and that model must be enabled for the
+account. Availability is region-specific: **us-east-1 offers `cohere.rerank-v3-5:0`** (not
+`amazon.rerank-v1:0`). Verify for your region:
+
+```bash
+aws bedrock list-foundation-models --region <YOUR_AWS_REGION> \
+  --query "modelSummaries[?contains(modelId,'rerank')].modelId"
+```
+
+Cohere is an AWS Marketplace model, and the Bedrock "Model access" console page has been **retired**.
+You now enable a Marketplace model by **invoking it once** as a principal that holds
+`aws-marketplace:Subscribe` / `aws-marketplace:ViewSubscriptions` (for example, attach the managed
+policy `AWSMarketplaceManageSubscriptions`). That first successful invoke accepts the model EULA and
+enables it account-wide:
+
+```bash
+aws bedrock-agent-runtime rerank --region <YOUR_AWS_REGION> \
+  --queries '[{"type":"TEXT","textQuery":{"text":"test"}}]' \
+  --sources '[{"type":"INLINE","inlineDocumentSource":{"type":"TEXT","textDocument":{"text":"hello"}}}]' \
+  --reranking-configuration '{"type":"BEDROCK_RERANKING_MODEL","bedrockRerankingConfiguration":{"modelConfiguration":{"modelArn":"arn:aws:bedrock:<YOUR_AWS_REGION>::foundation-model/cohere.rerank-v3-5:0"}}}'
+```
+
+Confirm with `aws bedrock get-foundation-model-availability --model-id cohere.rerank-v3-5:0 --region
+<YOUR_AWS_REGION> --query agreementAvailability.status` (expect `AVAILABLE`). The Titan embedding model
+used for ingestion is an Amazon model, auto-enabled on first use, so only the rerank model needs this
+step. The retrieval stack's KB role already carries `bedrock:Rerank` (on `*`, which the action
+requires) plus `bedrock:InvokeModel` on the rerank model; if you change `rerank_model_id`, re-apply
+retrieval, then agent (the agent bakes the rerank ARN into its runtime env at apply time).
+
+### 2c. ACM certificate + DNS — before applying web (P8)
 
 1. Request an ACM certificate in **us-east-1** (CloudFront requires us-east-1) for
    `<YOUR_APP_DOMAIN>`, and validate it via DNS.
@@ -86,7 +117,7 @@ Each step names where the secret lands. Never commit a real value.
    domain into `domain_names`. After apply, point DNS (a CNAME/ALIAS) at the CloudFront distribution
    domain. (Skip this to use the default `*.cloudfront.net` domain and certificate.)
 
-### 2c. Slack app + connector OAuth apps — before applying connectors (P11)
+### 2d. Slack app + connector OAuth apps — before applying connectors (P11)
 
 1. Register a NEW dedicated **Homebase** Slack app in your workspace (its own scopes and credentials;
    do not reuse any other app's tokens). Request read scopes by default; add a write scope only for a
@@ -97,7 +128,7 @@ Each step names where the secret lands. Never commit a real value.
    client ids go into the same git-ignored tfvars. User tokens are held and refreshed by AgentCore
    Identity. See [connectors.md](./connectors.md).
 
-### 2d. Workstation dotfiles + shell secret — before applying workstation (P10)
+### 2e. Workstation dotfiles + shell secret — before applying workstation (P10)
 
 1. **Your `~/.zshrc.local` shell secret → AWS Secrets Manager** (for example
    `homebase/workstation/shell-secrets`). It is pulled at session start by the instance role.
