@@ -41,8 +41,9 @@ locals {
   connectors = {
     # All three Google connectors share ONE provider and request the SAME union of
     # read scopes, because AgentCore vaults tokens by exact scope set (a subset
-    # request restarts the 3LO flow). One consent then satisfies gmail/gcal/gdrive
-    # and means a single weekly re-auth while the app is in Google Testing mode.
+    # request restarts the 3LO flow). One consent then satisfies gmail/gcal/gdrive.
+    # (The Google app is Internal to the Workspace org, so the token is long-lived,
+    # no weekly re-auth.)
     gmail  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
     gcal   = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
     gdrive = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
