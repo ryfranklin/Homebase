@@ -38,12 +38,6 @@ locals {
     quickbooks = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.quickbooks.credential_provider_arn, scopes = ["com.intuit.quickbooks.accounting.read"], read_tool = "qbo_read_reports", read_desc = "Read QuickBooks reports (read-only)" }
     atlassian  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
   }
-
-  # Derived placeholder shim ARN when a real one is not supplied.
-  default_shim_arns = {
-    for name in keys(local.connectors) :
-    name => "arn:${local.partition}:lambda:${var.aws_region}:${local.account_id}:function:${local.name_prefix}-connector-${name}"
-  }
 }
 
 # KMS key for the Gateway and stored connector credentials.
@@ -219,7 +213,7 @@ resource "aws_bedrockagentcore_gateway_target" "connector" {
   target_configuration {
     mcp {
       lambda {
-        lambda_arn = lookup(var.connector_shim_lambda_arns, each.key, local.default_shim_arns[each.key])
+        lambda_arn = lookup(var.connector_shim_lambda_arns, each.key, aws_lambda_function.shim[each.key].arn)
 
         # The read-first tool this target exposes. Write tools are added only where
         # a gated write exists; they are not requested here.

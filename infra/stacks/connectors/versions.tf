@@ -7,5 +7,9 @@ terraform {
       # AgentCore Gateway/Identity resources require a recent 6.x provider.
       version = ">= 6.27.0, < 7.0.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = ">= 2.4.0, < 3.0.0"
+    }
   }
 }
