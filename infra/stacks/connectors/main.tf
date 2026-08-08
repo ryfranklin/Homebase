@@ -31,12 +31,11 @@ locals {
   # catalog.py; these mirror the read scopes only. Write scopes are NOT requested
   # here; a write tool requests its scope only when its gated action runs.
   connectors = {
-    gmail      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/gmail.readonly"], read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
-    gcal       = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/calendar.readonly"], read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
-    gdrive     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/drive.readonly"], read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
-    slack      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, scopes = ["channels:history", "groups:history"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
-    quickbooks = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.quickbooks.credential_provider_arn, scopes = ["com.intuit.quickbooks.accounting.read"], read_tool = "qbo_read_reports", read_desc = "Read QuickBooks reports (read-only)" }
-    atlassian  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
+    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/gmail.readonly"], read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
+    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/calendar.readonly"], read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
+    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/drive.readonly"], read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
+    slack     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, scopes = ["channels:history", "groups:history"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
+    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
   }
 }
 
@@ -149,25 +148,6 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "slack" {
       client_id_wo                  = var.slack_client_id
       client_secret_wo              = var.slack_client_secret
       client_credentials_wo_version = var.slack_secret_version
-    }
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_bedrockagentcore_oauth2_credential_provider" "quickbooks" {
-  name                       = "${local.name_prefix}-quickbooks"
-  credential_provider_vendor = "CustomOauth2"
-
-  oauth2_provider_config {
-    custom_oauth2_provider_config {
-      client_id_wo                  = var.quickbooks_client_id
-      client_secret_wo              = var.quickbooks_client_secret
-      client_credentials_wo_version = var.quickbooks_secret_version
-
-      oauth_discovery {
-        discovery_url = var.quickbooks_discovery_url
-      }
     }
   }
 

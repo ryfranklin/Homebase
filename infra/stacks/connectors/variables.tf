@@ -68,28 +68,6 @@ variable "slack_secret_version" {
   default     = "1"
 }
 
-# QuickBooks (Intuit).
-variable "quickbooks_client_id" {
-  description = "OAuth client id for the QuickBooks connector."
-  type        = string
-  default     = ""
-}
-variable "quickbooks_client_secret" {
-  description = "OAuth client secret for the QuickBooks connector."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-variable "quickbooks_secret_version" {
-  description = "Bump to rotate the QuickBooks client secret."
-  type        = string
-  default     = "1"
-}
-variable "quickbooks_discovery_url" {
-  description = "OIDC discovery URL for QuickBooks/Intuit. Placeholder in the example tfvars."
-  type        = string
-  default     = ""
-}
 
 # Atlassian (Jira / Confluence).
 variable "atlassian_client_id" {

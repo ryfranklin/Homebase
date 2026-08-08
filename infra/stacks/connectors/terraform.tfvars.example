@@ -19,11 +19,6 @@ google_client_secret = "<YOUR_GOOGLE_CONNECTOR_CLIENT_SECRET>"
 slack_client_id     = "<YOUR_HOMEBASE_SLACK_APP_CLIENT_ID>"
 slack_client_secret = "<YOUR_HOMEBASE_SLACK_APP_CLIENT_SECRET>"
 
-# QuickBooks (Intuit).
-quickbooks_client_id     = "<YOUR_QUICKBOOKS_CLIENT_ID>"
-quickbooks_client_secret = "<YOUR_QUICKBOOKS_CLIENT_SECRET>"
-quickbooks_discovery_url = "<YOUR_QUICKBOOKS_OIDC_DISCOVERY_URL>"
-
 # Atlassian (Jira / Confluence).
 atlassian_client_id     = "<YOUR_ATLASSIAN_CLIENT_ID>"
 atlassian_client_secret = "<YOUR_ATLASSIAN_CLIENT_SECRET>"

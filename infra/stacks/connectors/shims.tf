@@ -41,7 +41,6 @@ data "aws_iam_policy_document" "shim" {
     resources = [
       aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn,
       aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn,
-      aws_bedrockagentcore_oauth2_credential_provider.quickbooks.credential_provider_arn,
       aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn,
     ]
   }
