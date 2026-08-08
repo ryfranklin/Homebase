@@ -36,29 +36,18 @@ resource "aws_iam_role" "shim" {
 }
 
 data "aws_iam_policy_document" "shim" {
-  # Step 2 of the token flow: exchange a workload identity token for the
-  # connector's OAuth token, scoped to this stack's credential providers.
+  # The AgentCore Identity token flow. Both the workload-token calls (step 1) and
+  # GetResourceOauth2Token (step 2) authorize against the workload-identity
+  # resource and do NOT honor a credential-provider-scoped grant, so AWS requires
+  # resource "*".
   statement {
-    sid     = "GetConnectorToken"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:GetResourceOauth2Token"]
-    resources = [
-      aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn,
-      aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn,
-      aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn,
-    ]
-  }
-
-  # Step 1 of the token flow: get the per-user workload identity token. These
-  # workload-token actions do NOT support resource-level scoping (an exact-ARN
-  # grant is not honored), so AWS requires resource "*".
-  statement {
-    sid    = "GetWorkloadToken"
+    sid    = "AgentCoreTokenFlow"
     effect = "Allow"
     actions = [
       "bedrock-agentcore:GetWorkloadAccessToken",
       "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
       "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
+      "bedrock-agentcore:GetResourceOauth2Token",
     ]
     resources = ["*"]
   }
