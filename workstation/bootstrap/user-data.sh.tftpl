@@ -20,11 +20,26 @@ ENVIRONMENT="${environment}"
 WS_USER="${workstation_user}"
 HOME_DEVICE="${home_device}"
 
+# --- wait for outbound egress via the NAT ---
+# The private subnet reaches the internet only through the NAT instance, which may
+# still be finishing its own setup at first boot; the box also stops/starts
+# nightly. Wait for connectivity instead of failing the whole bootstrap (which is
+# what happened when dnf ran before the NAT was ready).
+for i in $(seq 1 60); do
+  if curl -fsS -m 5 -o /dev/null https://aws.amazon.com; then
+    echo "egress up (attempt $i)"; break
+  fi
+  echo "waiting for egress via NAT... ($i)"; sleep 10
+done
+
+# dnf with a few retries, to ride out transient repo timeouts.
+dnf_install() { for _ in 1 2 3 4 5; do dnf install -y "$@" && return 0; sleep 10; done; return 1; }
+
 # --- toolchain: git, docker, python, node, aws cli ---
-dnf install -y git docker python3 python3-pip unzip tar gzip
+dnf_install git docker python3 python3-pip unzip tar gzip
 systemctl enable --now docker
 usermod -aG docker "$WS_USER" || true
-dnf install -y nodejs20 || dnf install -y nodejs || true
+dnf_install nodejs20 || dnf_install nodejs || true
 
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip

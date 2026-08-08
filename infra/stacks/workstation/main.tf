@@ -168,15 +168,24 @@ resource "aws_instance" "nat" {
   }
 
   # Enable IP forwarding and masquerade so the private subnet reaches the internet.
+  # AL2023 does NOT ship the iptables command by default, so install it first (the
+  # NAT has its own direct IGW egress, so dnf works here). Persist the rules and
+  # ip_forward so they survive the nightly stop/start (user_data does not re-run).
   user_data = <<-EOT
     #!/bin/bash
     set -euo pipefail
-    sysctl -w net.ipv4.ip_forward=1
     echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-nat.conf
+    sysctl -w net.ipv4.ip_forward=1
+    dnf install -y iptables-services
     IFACE=$(ip route show default | awk '/default/ {print $5; exit}')
     iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
     iptables -A FORWARD -i "$IFACE" -o "$IFACE" -j ACCEPT
+    iptables-save > /etc/sysconfig/iptables
+    systemctl enable iptables
   EOT
+
+  # A user_data fix must recreate the (stateless) NAT for it to take effect.
+  user_data_replace_on_change = true
 
   tags = merge(local.common_tags, { Name = "${local.name_prefix}-nat" })
 }
