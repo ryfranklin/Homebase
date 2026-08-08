@@ -52,6 +52,18 @@ data "aws_iam_policy_document" "shim" {
     resources = ["*"]
   }
 
+  # GetResourceOauth2Token reads the provider's stored OAuth credentials from the
+  # AgentCore-managed Secrets Manager vault using the CALLER's identity, so the
+  # shim role needs GetSecretValue on this env's identity secrets. The secret name
+  # is bedrock-agentcore-identity!default/oauth2/<provider>-<random>; the wildcard
+  # covers the random hash and the Secrets Manager 6-char suffix.
+  statement {
+    sid       = "ReadIdentitySecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:bedrock-agentcore-identity!default/oauth2/${local.name_prefix}-*"]
+  }
+
   statement {
     sid       = "DecryptCredentials"
     effect    = "Allow"
