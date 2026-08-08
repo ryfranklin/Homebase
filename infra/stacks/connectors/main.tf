@@ -31,11 +31,11 @@ locals {
   # catalog.py; these mirror the read scopes only. Write scopes are NOT requested
   # here; a write tool requests its scope only when its gated action runs.
   connectors = {
-    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/gmail.readonly"], read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
-    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/calendar.readonly"], read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
-    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, scopes = ["https://www.googleapis.com/auth/drive.readonly"], read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
-    slack     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, scopes = ["channels:history", "groups:history"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
-    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
+    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/gmail.readonly"], read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
+    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/calendar.readonly"], read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
+    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/drive.readonly"], read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
+    slack     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.slack.name, scopes = ["channels:history", "groups:history"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
+    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
   }
 }
 
@@ -199,11 +199,13 @@ resource "aws_bedrockagentcore_gateway_target" "connector" {
   gateway_identifier = aws_bedrockagentcore_gateway.this.gateway_id
   name               = "${local.name_prefix}-${each.key}"
 
+  # A Lambda target is invoked by the Gateway via its execution role, so it uses
+  # the GATEWAY_IAM_ROLE credential type (an OAuth provider can only attach to a
+  # direct HTTP/OpenAPI target). The connector's OAuth token is resolved INSIDE the
+  # shim Lambda via AgentCore Identity (CONNECTOR_PROVIDER_ARN + CONNECTOR_SCOPES
+  # env), not by the Gateway.
   credential_provider_configuration {
-    oauth {
-      provider_arn = each.value.provider_arn
-      scopes       = each.value.scopes
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {

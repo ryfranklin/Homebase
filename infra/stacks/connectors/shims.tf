@@ -81,6 +81,11 @@ resource "aws_lambda_function" "shim" {
     variables = {
       CONNECTOR               = each.key
       CONNECTOR_PROVIDER_ARN  = each.value.provider_arn
+      CONNECTOR_PROVIDER_NAME = each.value.provider_name
+      CONNECTOR_SCOPES        = join(",", each.value.scopes)
+      # The agent workload identity used for the on-behalf-of token flow. Defaults
+      # to the gateway name; confirm/correct at live verification.
+      WORKLOAD_NAME           = "${local.name_prefix}-connectors"
       HOMEBASE_DEFAULT_TENANT = var.project_name
     }
   }

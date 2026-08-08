@@ -24,7 +24,7 @@ from .catalog import TOOLS
 from .confirmation import ConfirmationContract
 from .gate import UnknownToolError
 from .identity import ConnectorCredentials
-from .lambda_identity import AgentCoreIdentityClient
+from .lambda_identity import AgentCoreIdentityClient, AuthorizationRequiredError
 from .shim import ConnectorShim
 
 # Map the Gateway tool name (underscore form, e.g. slack_read_messages) to the
@@ -106,6 +106,9 @@ def handle(event, context=None, *, shim=None):
         )
     except UnknownToolError:
         return {"error": "unknown_tool", "tool": tool_name}
+    except AuthorizationRequiredError as exc:
+        # First use of this connector for the tenant: the user must consent once.
+        return {"requires_authorization": True, "authorization_url": exc.authorization_url}
     return _serialize(result)
 
 

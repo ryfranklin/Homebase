@@ -64,6 +64,18 @@ class HandlerGateTests(unittest.TestCase):
         out = handle({"name": "bogus_tool", "arguments": {}}, shim=_shim("slack", []))
         self.assertEqual(out["error"], "unknown_tool")
 
+    def test_authorization_required_is_surfaced(self):
+        from homebase_connectors.lambda_identity import AuthorizationRequiredError
+
+        class _NeedsAuthIdentity:
+            def get_token(self, key):
+                raise AuthorizationRequiredError("https://consent.example/authorize?x=1")
+
+        shim = ConnectorShim("slack", ConnectorCredentials(_NeedsAuthIdentity()), lambda *a: {"ok": True})
+        out = handle({"name": "slack_read_messages", "arguments": {"channel": "C1", "tenant_id": "t1"}}, shim=shim)
+        self.assertTrue(out["requires_authorization"])
+        self.assertIn("consent.example", out["authorization_url"])
+
     def test_tenant_defaults_when_no_claim(self):
         calls = []
         # No tenant_id in args or claims -> falls back to the seed default.
