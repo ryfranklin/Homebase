@@ -13,6 +13,12 @@ resource "aws_bedrockagentcore_workload_identity" "shim" {
   name = "${local.name_prefix}-connector-shim"
 }
 
+# The web GUI domain (from the web stack, P8): AgentCore returns the browser here
+# after the user completes 3LO connector consent. Non-secret; read at plan time.
+data "aws_ssm_parameter" "web_domain" {
+  name = "/${var.project_name}/${var.environment}/web/distribution_domain"
+}
+
 data "archive_file" "shim" {
   type        = "zip"
   source_dir  = "${path.module}/../../../services/connectors/src"
@@ -105,6 +111,8 @@ resource "aws_lambda_function" "shim" {
       # Our own caller-owned workload identity for the on-behalf-of token flow.
       WORKLOAD_NAME           = aws_bedrockagentcore_workload_identity.shim.name
       HOMEBASE_DEFAULT_TENANT = var.project_name
+      # Where AgentCore returns the browser after 3LO consent completes.
+      CONNECTOR_RETURN_URL = "https://${data.aws_ssm_parameter.web_domain.value}/"
     }
   }
 

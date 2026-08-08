@@ -39,6 +39,7 @@ class AgentCoreIdentityClient:
         scopes=None,
         workload_name=None,
         oauth2_flow="USER_FEDERATION",
+        return_url=None,
         region=None,
         client=None,
     ):
@@ -47,6 +48,9 @@ class AgentCoreIdentityClient:
         self._scopes = scopes if scopes is not None else [s for s in env_scopes.split(",") if s]
         self._workload_name = workload_name or os.environ.get("WORKLOAD_NAME", "")
         self._oauth2_flow = oauth2_flow
+        # Where AgentCore returns the browser after the user completes 3LO consent.
+        # Required by GetResourceOauth2Token; sourced from the web GUI URL.
+        self._return_url = return_url if return_url is not None else os.environ.get("CONNECTOR_RETURN_URL", "")
         self._region = region or os.environ.get("AWS_REGION")
         self._client = client
 
@@ -73,12 +77,15 @@ class AgentCoreIdentityClient:
         )
         workload_token = workload.get("workloadAccessToken") or workload.get("workload_access_token")
 
-        resp = c.get_resource_oauth2_token(
+        kwargs = dict(
             workloadIdentityToken=workload_token,
             resourceCredentialProviderName=self._provider_name,
             scopes=self._scopes,
             oauth2Flow=self._oauth2_flow,
         )
+        if self._return_url:
+            kwargs["resourceOauth2ReturnUrl"] = self._return_url
+        resp = c.get_resource_oauth2_token(**kwargs)
         token = resp.get("accessToken") or resp.get("access_token")
         if token:
             return token
