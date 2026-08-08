@@ -27,13 +27,25 @@ locals {
   app_client_id = data.aws_ssm_parameter.app_client_id.value
   discovery_url = "${local.issuer_url}/.well-known/openid-configuration"
 
+  # The union of Google read scopes, shared by all three Google connectors (see
+  # the note on the map below).
+  google_read_scopes = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
+  ]
+
   # Read-first scopes per connector. Source of truth is services/connectors
   # catalog.py; these mirror the read scopes only. Write scopes are NOT requested
   # here; a write tool requests its scope only when its gated action runs.
   connectors = {
-    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/gmail.readonly"], read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
-    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/calendar.readonly"], read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
-    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = ["https://www.googleapis.com/auth/drive.readonly"], read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
+    # All three Google connectors share ONE provider and request the SAME union of
+    # read scopes, because AgentCore vaults tokens by exact scope set (a subset
+    # request restarts the 3LO flow). One consent then satisfies gmail/gcal/gdrive
+    # and means a single weekly re-auth while the app is in Google Testing mode.
+    gmail     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gmail_search_messages", read_desc = "Search Gmail messages (read-only)" }
+    gcal      = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
+    gdrive    = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
     slack     = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.slack.name, scopes = ["channels:history", "groups:history", "channels:read", "groups:read"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
     atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = ["read:jira-work"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
   }
