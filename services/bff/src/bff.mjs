@@ -140,7 +140,15 @@ export async function handleRequest(event, respond, deps) {
       await deps.completeConnectorAuth({ userId: tenantId, sessionUri });
       console.log(JSON.stringify({ event: "connector_finalize", ok: true, tenant: tenantId }));
     } catch (err) {
-      console.error(JSON.stringify({ event: "connector_finalize", ok: false, tenant: tenantId, error: err?.name || "error" }));
+      console.error(
+        JSON.stringify({
+          event: "connector_finalize",
+          ok: false,
+          tenant: tenantId,
+          error: err?.name || "error",
+          message: String(err?.message || "").slice(0, 300),
+        }),
+      );
       return writeError(respond, cors, 502, "connector_finalize_failed", "could not finalize connector authorization");
     }
     const writer = respond(200, { "Content-Type": "application/json", ...cors });
