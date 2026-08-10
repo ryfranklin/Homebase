@@ -246,6 +246,18 @@ data "aws_iam_policy_document" "bff" {
     resources = ["*"]
   }
 
+  # CompleteResourceTokenAuth reads the connector provider's stored OAuth
+  # credentials from the AgentCore-managed Secrets Manager vault using the CALLER's
+  # identity, so the BFF role needs GetSecretValue on this env's identity secrets
+  # (same grant the connector shim role has). The name is
+  # bedrock-agentcore-identity!default/oauth2/<provider>-<random>.
+  statement {
+    sid       = "ReadConnectorIdentitySecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:bedrock-agentcore-identity!default/oauth2/${local.name_prefix}-*"]
+  }
+
   statement {
     sid       = "WriteLogs"
     effect    = "Allow"
