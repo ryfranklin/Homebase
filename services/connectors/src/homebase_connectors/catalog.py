@@ -38,7 +38,7 @@ _TOOL_LIST = [
     Tool("gdrive", "gdrive.search_files", READ, ("drive.readonly",), "Search Drive files"),
     Tool("gdrive", "gdrive.update_file", WRITE, ("drive.file",), "Create or modify a Drive file"),
     # Slack
-    Tool("slack", "slack.read_messages", READ, ("channels:history", "groups:history"), "Read Slack messages"),
+    Tool("slack", "slack.read_messages", READ, ("channels:history", "groups:history"), "Read Slack messages from a channel (accepts a channel name or id)"),
     Tool("slack", "slack.post_message", WRITE, ("chat:write",), "Post a Slack message"),
     # QuickBooks
     Tool("quickbooks", "qbo.read_reports", READ, ("com.intuit.quickbooks.accounting.read",), "Read QuickBooks reports"),

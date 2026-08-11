@@ -104,6 +104,55 @@ class ApiDispatcherTests(unittest.TestCase):
         self.assertIn("channel=C1", sent["url"])
         self.assertEqual(sent["headers"]["Authorization"], "Bearer TOKEN")
 
+    def test_slack_read_with_id_makes_a_single_history_call(self):
+        calls = []
+
+        def transport(method, url, headers, body):
+            calls.append(url)
+            return {"ok": True, "messages": []}
+
+        api = make_api(transport)
+        api("slack", "slack.read_messages", {"channel": "C011HMPF82E"}, "T")
+        # A real id needs no resolution: exactly one call, to conversations.history.
+        self.assertEqual(len(calls), 1)
+        self.assertIn("conversations.history", calls[0])
+
+    def test_slack_read_resolves_channel_name_to_id(self):
+        calls = []
+
+        def transport(method, url, headers, body):
+            calls.append(url)
+            if "conversations.list" in url:
+                return {"ok": True, "channels": [{"id": "C0ABC1234", "name": "general"}]}
+            return {"ok": True, "messages": []}
+
+        api = make_api(transport)
+        api("slack", "slack.read_messages", {"channel": "general"}, "T")
+        # First resolves the name via conversations.list, then reads with the id.
+        self.assertIn("conversations.list", calls[0])
+        self.assertIn("conversations.history", calls[1])
+        self.assertIn("channel=C0ABC1234", calls[1])
+
+    def test_slack_read_resolves_name_with_leading_hash(self):
+        def transport(method, url, headers, body):
+            if "conversations.list" in url:
+                return {"ok": True, "channels": [{"id": "C0XYZ", "name": "general"}]}
+            return {"ok": True, "messages": []}
+
+        api = make_api(transport)
+        # Should not raise: "#general" is treated as the name "general".
+        api("slack", "slack.read_messages", {"channel": "#general"}, "T")
+
+    def test_slack_read_unknown_channel_name_raises(self):
+        from homebase_connectors.api import ConnectorApiError
+
+        def transport(method, url, headers, body):
+            return {"ok": True, "channels": []}  # no next_cursor -> single page
+
+        api = make_api(transport)
+        with self.assertRaises(ConnectorApiError):
+            api("slack", "slack.read_messages", {"channel": "nope"}, "T")
+
     def test_gmail_search_builds_query(self):
         api, sent = self._capture()
         api("gmail", "gmail.search_messages", {"query": "from:me"}, "T")

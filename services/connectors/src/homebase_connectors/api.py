@@ -83,6 +83,48 @@ def _slack_post(params, token):
     return "POST", "https://slack.com/api/chat.postMessage", h, body
 
 
+def _is_slack_id(value):
+    # Slack channel IDs are uppercase alphanumerics starting with C (public), G
+    # (private/group), or D (DM). Channel NAMES are always lowercased by Slack, so a
+    # value with any lowercase char (or a leading '#') is a name, not an id.
+    v = value or ""
+    return bool(v) and v[0] in "CGD" and v.isalnum() and v == v.upper()
+
+
+def _slack_resolve_channel(name, token, send):
+    """Resolve a Slack channel name to its id via conversations.list (needs the
+    channels:read/groups:read scope). Paginates a bounded number of pages so a huge
+    workspace can't loop forever; raises if the channel is not found."""
+    wanted = name.lstrip("#")
+    cursor = ""
+    for _ in range(10):  # up to 10 pages of 200 = 2000 channels, then give up
+        query = {"types": "public_channel,private_channel", "limit": 200}
+        if cursor:
+            query["cursor"] = cursor
+        qs = urllib.parse.urlencode(query)
+        data = send("GET", f"https://slack.com/api/conversations.list?{qs}", _bearer(token), None)
+        if not data.get("ok"):
+            raise ConnectorApiError(f"slack conversations.list failed: {data.get('error')}")
+        for ch in data.get("channels", []):
+            if ch.get("name") == wanted:
+                return ch["id"]
+        cursor = (data.get("response_metadata") or {}).get("next_cursor") or ""
+        if not cursor:
+            break
+    raise ConnectorApiError(f"slack channel not found: {name}")
+
+
+def _slack_read_handler(params, token, send):
+    """Read messages, accepting either a channel id (C0...) or a channel name
+    (resolved to its id first). Slack's conversations.history only accepts an id."""
+    params = dict(params or {})
+    channel = params.get("channel", "")
+    if channel and not _is_slack_id(channel):
+        params["channel"] = _slack_resolve_channel(channel, token, send)
+    method, url, headers, body = _slack_read(params, token)
+    return send(method, url, headers, body)
+
+
 def _qbo_read(params, token):
     realm = urllib.parse.quote(params["realmId"])
     report = urllib.parse.quote(params.get("report", "ProfitAndLoss"))
@@ -126,12 +168,18 @@ _BUILDERS = {
     "gcal.create_event": _gcal_create,
     "gdrive.search_files": _gdrive_search,
     "gdrive.update_file": _gdrive_update,
-    "slack.read_messages": _slack_read,
     "slack.post_message": _slack_post,
     "qbo.read_reports": _qbo_read,
     "qbo.create_invoice": _qbo_create_invoice,
     "jira.search_issues": _jira_search,
     "jira.create_issue": _jira_create,
+}
+
+
+# Tools that orchestrate more than one request need the transport, so they are
+# handlers `handler(params, token, send) -> dict` rather than pure request builders.
+_HANDLERS = {
+    "slack.read_messages": _slack_read_handler,
 }
 
 
@@ -152,6 +200,9 @@ def make_api(transport=None):
     send = transport or _default_transport
 
     def api(connector, tool_name, params, token):
+        handler = _HANDLERS.get(tool_name)
+        if handler is not None:
+            return handler(params or {}, token, send)
         builder = _BUILDERS.get(tool_name)
         if builder is None:
             raise UnsupportedToolError(tool_name)

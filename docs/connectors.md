@@ -87,5 +87,7 @@ headlessly. The BFF role is granted `bedrock-agentcore:CompleteResourceTokenAuth
 Notes learned in live verification:
 - AgentCore vaults tokens by the EXACT scope set, so a connector must request the same scopes on every
   call; the three Google connectors share one union scope set so a single consent covers all of them.
+- `slack_read_messages` accepts a channel name or id: a name is resolved to its id via
+  `conversations.list` (hence the `channels:read`/`groups:read` scopes) before reading history.
 - Atlassian needs `offline_access` for a refresh token, and Jira reads use `/rest/api/3/search/jql` (the
   classic `/search` endpoint returns HTTP 410) with a bounded JQL (a `WHERE` restriction is required).
