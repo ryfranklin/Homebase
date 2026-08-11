@@ -243,6 +243,10 @@ resource "aws_cloudfront_distribution" "this" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      # The agent can run a multi-step tool loop for tens of seconds. Raise the
+      # origin response timeout to the 60s max (the BFF also sends SSE keepalives),
+      # so a long turn does not 504. Higher than 60s needs a service quota increase.
+      origin_read_timeout = 60
     }
 
     # Shared secret injected on every origin request. The BFF refuses requests

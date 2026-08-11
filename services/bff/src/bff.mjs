@@ -161,6 +161,18 @@ export async function handleRequest(event, respond, deps) {
   const prompt = body.input ?? body.prompt ?? "";
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
+  // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
+  // tool loop for tens of seconds; without early/periodic bytes CloudFront's
+  // origin-response timeout (30s) fires and the request 504s. SSE comment lines
+  // (":" prefix) are ignored by the client parser.
+  writer.write(": open\n\n");
+  const heartbeat = setInterval(() => {
+    try {
+      writer.write(": keepalive\n\n");
+    } catch {
+      /* stream already closed */
+    }
+  }, 10000);
   try {
     const stream = deps.agentStream({
       runtimeArn: config.agentRuntimeArn,
@@ -176,6 +188,7 @@ export async function handleRequest(event, respond, deps) {
   } catch (err) {
     writer.write(sseEvent({ type: "error", message: "agent_error" }));
   } finally {
+    clearInterval(heartbeat);
     writer.end();
   }
 }

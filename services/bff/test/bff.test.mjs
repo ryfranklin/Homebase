@@ -102,6 +102,8 @@ test("valid token streams SSE with tokens and a done event", async () => {
   assert.equal(rec.headers["Content-Type"], "text/event-stream");
   assert.equal(rec.headers["Access-Control-Allow-Origin"], ALLOWED_ORIGIN);
   const stream = rec.chunks.join("");
+  // An immediate keepalive comment is sent first so CloudFront gets an early byte.
+  assert.equal(rec.chunks[0], ": open\n\n");
   assert.match(stream, /"type":"token"/);
   assert.match(stream, /"type":"citation"/);
   assert.match(stream, /"type":"done"/);

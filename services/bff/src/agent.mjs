@@ -56,10 +56,17 @@ export async function makeAgentClient(region) {
   };
 }
 
-// Decodes a raw SSE byte stream into event objects.
-async function* decodeSseStream(byteStream) {
+// Exported for tests.
+// Decodes the agent runtime response into event objects. The agent supports two
+// response shapes: an SSE stream of {type,...} events, or (current server) a single
+// JSON object {answer, grounded, citations, authorization_url?}. SSE frames are
+// yielded as they arrive; a non-SSE JSON body is converted to token + citation
+// events once fully read, so the GUI renders it either way.
+export async function* decodeSseStream(byteStream) {
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawSseEvent = false;
+
   for await (const chunk of byteStream) {
     buffer += decoder.decode(chunk, { stream: true });
     let idx;
@@ -68,6 +75,7 @@ async function* decodeSseStream(byteStream) {
       buffer = buffer.slice(idx + 2);
       const dataLine = rawEvent.split("\n").find((l) => l.startsWith("data:"));
       if (dataLine) {
+        sawSseEvent = true;
         const json = dataLine.slice("data:".length).trim();
         try {
           yield JSON.parse(json);
@@ -75,6 +83,26 @@ async function* decodeSseStream(byteStream) {
           yield { type: "token", text: json };
         }
       }
+    }
+  }
+
+  // Fallback: a single JSON response (not SSE). Convert it to the GUI's events.
+  const rest = buffer.trim();
+  if (!sawSseEvent && rest) {
+    let obj;
+    try {
+      obj = JSON.parse(rest);
+    } catch {
+      yield { type: "token", text: rest };
+      return;
+    }
+    if (obj && typeof obj === "object" && "answer" in obj) {
+      yield { type: "token", text: String(obj.answer ?? "") };
+      for (const c of obj.citations || []) {
+        yield { type: "citation", source_path: c.source_path, score: c.score };
+      }
+    } else {
+      yield { type: "token", text: rest };
     }
   }
 }

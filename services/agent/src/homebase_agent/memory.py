@@ -10,7 +10,11 @@ memory never crosses tenants.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Protocol
+
+# AgentCore Memory's conversational role is an uppercase enum (USER/ASSISTANT/TOOL).
+_ROLE_MAP = {"user": "USER", "assistant": "ASSISTANT", "tool": "TOOL"}
 
 
 class Memory(Protocol):
@@ -36,11 +40,15 @@ class AgentCoreMemory:
         self._memory_id = memory_id
 
     def record_turn(self, session, role, text) -> None:
+        # eventTimestamp is required; role must be the uppercase enum value.
         self._client.create_event(
             memoryId=self._memory_id,
             actorId=session.memory_actor_id(),
             sessionId=session.session_id,
-            payload=[{"conversational": {"role": role, "content": {"text": text}}}],
+            eventTimestamp=datetime.now(timezone.utc),
+            payload=[
+                {"conversational": {"role": _ROLE_MAP.get(role, "OTHER"), "content": {"text": text}}}
+            ],
         )
 
     def recall(self, session, query, *, top_k=5) -> list:

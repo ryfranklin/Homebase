@@ -81,6 +81,14 @@ class Agent:
         # connector read tools; otherwise it uses the single-shot RAG path below.
         self._connectors = connectors
 
+    def _remember(self, session, role, text):
+        # Memory is best-effort context, never on the answer's critical path: a
+        # memory backend hiccup must not fail the user's request.
+        try:
+            self._memory.record_turn(session, role, text)
+        except Exception:  # noqa: BLE001 (best-effort by design)
+            pass
+
     def _citations_from_passages(self, passages):
         return [
             Citation(
@@ -116,9 +124,9 @@ class Agent:
             execute=execute,
         )
 
-        self._memory.record_turn(session, "user", question)
+        self._remember(session, "user", question)
         if loop.text:
-            self._memory.record_turn(session, "assistant", loop.text)
+            self._remember(session, "assistant", loop.text)
         return AnswerResult(
             text=loop.text,
             grounded=loop.grounded,
@@ -141,7 +149,7 @@ class Agent:
                 citations=[],
                 session=session,
             )
-            self._memory.record_turn(session, "user", question)
+            self._remember(session, "user", question)
             return result
 
         text = self._llm.generate(
@@ -165,7 +173,7 @@ class Agent:
         if not citations:
             raise AssertionError("grounded answer produced without citations")
 
-        self._memory.record_turn(session, "user", question)
-        self._memory.record_turn(session, "assistant", text)
+        self._remember(session, "user", question)
+        self._remember(session, "assistant", text)
 
         return AnswerResult(text=text, grounded=True, citations=citations, session=session)
