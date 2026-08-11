@@ -165,6 +165,21 @@ class ApiDispatcherTests(unittest.TestCase):
         api("atlassian", "jira.search_issues", {"cloudId": "abc", "jql": "project=X"}, "T")
         self.assertIn("/ex/jira/abc/rest/api/3/search", sent["url"])
 
+    def test_jira_search_resolves_cloud_id_when_omitted(self):
+        calls = []
+
+        def transport(method, url, headers, body):
+            calls.append(url)
+            if "accessible-resources" in url:
+                return [{"id": "cloud-123", "url": "https://ex.atlassian.net"}]
+            return {"issues": []}
+
+        api = make_api(transport)
+        api("atlassian", "jira.search_issues", {"jql": "project=X"}, "T")
+        # First resolves the site, then searches with the resolved cloudId.
+        self.assertIn("accessible-resources", calls[0])
+        self.assertIn("/ex/jira/cloud-123/rest/api/3/search/jql", calls[1])
+
     def test_unsupported_tool_raises(self):
         api, _ = self._capture()
         with self.assertRaises(UnsupportedToolError):

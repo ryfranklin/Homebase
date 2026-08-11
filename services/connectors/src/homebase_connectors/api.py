@@ -160,6 +160,24 @@ def _jira_create(params, token):
     return "POST", f"https://api.atlassian.com/ex/jira/{cloud}/rest/api/3/issue", h, body
 
 
+def _jira_resolve_cloud_id(token, send):
+    """Resolve the accessible Jira site's cloudId so callers need not know it.
+    Uses the first accessible resource (the single-tenant seed has one site)."""
+    data = send("GET", "https://api.atlassian.com/oauth/token/accessible-resources", _bearer(token), None)
+    if isinstance(data, list) and data:
+        return data[0]["id"]
+    raise ConnectorApiError("no accessible Atlassian site for this token")
+
+
+def _jira_search_handler(params, token, send):
+    """Search issues, resolving cloudId automatically when the caller omits it."""
+    params = dict(params or {})
+    if not params.get("cloudId"):
+        params["cloudId"] = _jira_resolve_cloud_id(token, send)
+    method, url, headers, body = _jira_search(params, token)
+    return send(method, url, headers, body)
+
+
 # Catalog tool name (dot form) -> request builder.
 _BUILDERS = {
     "gmail.search_messages": _gmail_search,
@@ -171,7 +189,6 @@ _BUILDERS = {
     "slack.post_message": _slack_post,
     "qbo.read_reports": _qbo_read,
     "qbo.create_invoice": _qbo_create_invoice,
-    "jira.search_issues": _jira_search,
     "jira.create_issue": _jira_create,
 }
 
@@ -180,6 +197,7 @@ _BUILDERS = {
 # handlers `handler(params, token, send) -> dict` rather than pure request builders.
 _HANDLERS = {
     "slack.read_messages": _slack_read_handler,
+    "jira.search_issues": _jira_search_handler,
 }
 
 
