@@ -42,7 +42,17 @@ def build_agent_from_env():
     retrieval = RetrievalTool(client("bedrock-agent-runtime"), kb_id, rerank_model_arn=rerank_arn)
     llm = BedrockLLMClient(client("bedrock-runtime"), model_id)
     memory = AgentCoreMemory(client("bedrock-agentcore"), memory_id) if memory_id else NullMemory()
-    return Agent(retrieval, llm=llm, memory=memory)
+
+    # Connectors are opt-in: when the shim name prefix is set, the agent gets a
+    # tool-use loop with the connector read tools alongside knowledge-base search.
+    connector_prefix = os.environ.get("HOMEBASE_CONNECTOR_PREFIX")
+    connectors = None
+    if connector_prefix:
+        from .connectors import ConnectorClient
+
+        connectors = ConnectorClient(client("lambda"), connector_prefix)
+
+    return Agent(retrieval, llm=llm, memory=memory, connectors=connectors)
 
 
 def _session_from_payload(payload: dict) -> Session:
@@ -80,17 +90,18 @@ def make_handler(agent):
             session = _session_from_payload(payload)
             question = payload.get("input") or payload.get("prompt") or ""
             result = agent.answer(session, question)
-            self._json(
-                200,
-                {
-                    "answer": result.text,
-                    "grounded": result.grounded,
-                    "citations": [
-                        {"source_path": c.source_path, "score": c.score, "metadata": c.metadata}
-                        for c in result.citations
-                    ],
-                },
-            )
+            body = {
+                "answer": result.text,
+                "grounded": result.grounded,
+                "citations": [
+                    {"source_path": c.source_path, "score": c.score, "metadata": c.metadata}
+                    for c in result.citations
+                ],
+            }
+            # Present the connector consent link when a tool needs the account linked.
+            if getattr(result, "authorization_url", None):
+                body["authorization_url"] = result.authorization_url
+            self._json(200, body)
 
         def log_message(self, format, *args):  # keep the container logs quiet
             return

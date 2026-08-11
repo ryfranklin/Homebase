@@ -49,10 +49,13 @@ locals {
   container_uri = "${aws_ecr_repository.agent.repository_url}:${var.agent_image_tag}"
 
   runtime_environment = {
-    HOMEBASE_KB_ID              = local.knowledge_base_id
-    HOMEBASE_MODEL_ID           = var.model_id
-    HOMEBASE_RERANK_MODEL_ARN   = local.rerank_model_arn
-    HOMEBASE_MEMORY_ID          = aws_bedrockagentcore_memory.this.id
+    HOMEBASE_KB_ID            = local.knowledge_base_id
+    HOMEBASE_MODEL_ID         = var.model_id
+    HOMEBASE_RERANK_MODEL_ARN = local.rerank_model_arn
+    HOMEBASE_MEMORY_ID        = aws_bedrockagentcore_memory.this.id
+    # Enables the connector tool-use loop: the shim function name prefix. The agent
+    # invokes homebase-<env>-connector-<connector> for each read tool.
+    HOMEBASE_CONNECTOR_PREFIX   = local.name_prefix
     AGENT_OBSERVABILITY_ENABLED = "true"
     OTEL_PYTHON_DISTRO          = "aws_distro"
     OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
@@ -215,6 +218,16 @@ data "aws_iam_policy_document" "runtime" {
     effect    = "Allow"
     actions   = ["bedrock:Retrieve"]
     resources = [local.knowledge_base_arn]
+  }
+
+  # The agent's connector tool loop invokes the connector shim Lambdas directly
+  # (each shim resolves the tenant's OAuth token and calls the vendor). Only the
+  # invoke permission is needed here; the shims run under their own role.
+  statement {
+    sid       = "InvokeConnectorShims"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:${local.partition}:lambda:${var.aws_region}:${local.account_id}:function:${local.name_prefix}-connector-*"]
   }
 
   statement {

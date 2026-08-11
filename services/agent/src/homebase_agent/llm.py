@@ -58,3 +58,18 @@ class BedrockLLMClient:
         )
         parts = response["output"]["message"]["content"]
         return "".join(part.get("text", "") for part in parts)
+
+    def converse_with_tools(self, *, system, messages, tools):
+        """One Converse turn with a tool config, normalized for the tool loop:
+        returns {"message": <assistant message>, "stop_reason": <str>}."""
+        response = self._client.converse(
+            modelId=self._model_id,
+            system=[{"text": system}],
+            messages=messages,
+            toolConfig={"tools": tools},
+            inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+        )
+        return {
+            "message": response["output"]["message"],
+            "stop_reason": response.get("stopReason"),
+        }
