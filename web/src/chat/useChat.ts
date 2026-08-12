@@ -18,6 +18,19 @@ export interface UseChat {
 
 // getToken returns a fresh (refreshed if needed) access token for each send, so
 // the Authorization bearer is always valid on the streaming fetch call.
+// A session id generated once per page load. Sending an explicit, rotating session
+// id (rather than letting the BFF fall back to a stable tenant:user id) means a
+// reload starts a fresh agent session — which also stops the request from being
+// pinned to a stale warm runtime instance after a deploy. AgentCore requires the
+// runtime session id to be reasonably long, so the "web-" + uuid form is safe.
+function newSessionId(): string {
+  const uuid =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}-${Math.floor(Math.random() * 1e9)}`;
+  return `web-${uuid}`;
+}
+
 export function useChat(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
@@ -26,6 +39,7 @@ export function useChat(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string>(newSessionId());
 
   const send = useCallback(
     async (input: string) => {
@@ -48,7 +62,7 @@ export function useChat(
         for await (const event of streamChat(
           apiBaseUrl,
           token,
-          { input: trimmed },
+          { input: trimmed, sessionId: sessionIdRef.current },
           { signal: controller.signal, fetchImpl },
         )) {
           setMessages((prev) => prev.map((m) => (m.id === assistantId ? applyEvent(m, event) : m)));
