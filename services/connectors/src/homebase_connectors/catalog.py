@@ -13,9 +13,11 @@ from dataclasses import dataclass
 READ = "read"
 WRITE = "write"
 
-# The six connectors. Homebase authenticates each independently through AgentCore
-# Identity; it does not reuse any other app's tokens.
-CONNECTORS = ("gmail", "gcal", "gdrive", "slack", "quickbooks", "atlassian")
+# The connectors. Homebase authenticates each independently through AgentCore
+# Identity; it does not reuse any other app's tokens. Jira and Confluence are
+# distinct connectors (separate shims/tools) backed by the same Atlassian OAuth
+# provider, so one Atlassian consent (unioned scopes) covers both.
+CONNECTORS = ("gmail", "gcal", "gdrive", "slack", "quickbooks", "atlassian", "confluence")
 
 
 @dataclass(frozen=True)
@@ -43,9 +45,10 @@ _TOOL_LIST = [
     # QuickBooks
     Tool("quickbooks", "qbo.read_reports", READ, ("com.intuit.quickbooks.accounting.read",), "Read QuickBooks reports"),
     Tool("quickbooks", "qbo.create_invoice", WRITE, ("com.intuit.quickbooks.accounting.write",), "Create a QuickBooks invoice"),
-    # Atlassian (Jira / Confluence)
+    # Atlassian (Jira / Confluence) — same OAuth provider, unioned scopes.
     Tool("atlassian", "jira.search_issues", READ, ("read:jira-work",), "Search Jira issues"),
     Tool("atlassian", "jira.create_issue", WRITE, ("write:jira-work",), "Create a Jira issue"),
+    Tool("confluence", "confluence.search", READ, ("read:confluence-content.all",), "Search Confluence pages with a CQL query"),
 ]
 
 TOOLS = {tool.name: tool for tool in _TOOL_LIST}

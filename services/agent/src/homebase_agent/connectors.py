@@ -101,6 +101,25 @@ CONNECTOR_TOOLS = [
             },
         }
     },
+    {
+        "toolSpec": {
+            "name": "confluence_search",
+            "description": (
+                "Search Confluence pages with a CQL query (e.g. 'type=page AND text ~ "
+                "\"onboarding\"'). The site is resolved automatically."
+            ),
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "cql": {"type": "string", "description": "Confluence CQL query"},
+                        "limit": {"type": "integer"},
+                    },
+                    "required": ["cql"],
+                }
+            },
+        }
+    },
 ]
 
 # Tool name -> connector key (the shim function suffix). Atlassian backs Jira.
@@ -110,6 +129,7 @@ _TOOL_TO_CONNECTOR = {
     "gcal_list_events": "gcal",
     "gdrive_search_files": "gdrive",
     "jira_search_issues": "atlassian",
+    "confluence_search": "confluence",
 }
 
 

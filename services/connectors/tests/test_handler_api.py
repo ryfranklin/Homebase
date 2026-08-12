@@ -180,6 +180,21 @@ class ApiDispatcherTests(unittest.TestCase):
         self.assertIn("accessible-resources", calls[0])
         self.assertIn("/ex/jira/cloud-123/rest/api/3/search/jql", calls[1])
 
+    def test_confluence_search_resolves_cloud_id_and_builds_cql(self):
+        calls = []
+
+        def transport(method, url, headers, body):
+            calls.append(url)
+            if "accessible-resources" in url:
+                return [{"id": "cloud-9", "url": "https://ex.atlassian.net"}]
+            return {"results": []}
+
+        api = make_api(transport)
+        api("confluence", "confluence.search", {"cql": "type=page"}, "T")
+        self.assertIn("accessible-resources", calls[0])
+        self.assertIn("/ex/confluence/cloud-9/wiki/rest/api/search", calls[1])
+        self.assertIn("cql=type", calls[1])
+
     def test_unsupported_tool_raises(self):
         api, _ = self._capture()
         with self.assertRaises(UnsupportedToolError):

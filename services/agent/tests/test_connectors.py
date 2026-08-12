@@ -53,8 +53,15 @@ class ConnectorClientTests(unittest.TestCase):
                 "gcal_list_events",
                 "gdrive_search_files",
                 "jira_search_issues",
+                "confluence_search",
             },
         )
+
+    def test_confluence_tool_maps_to_confluence_shim(self):
+        lam = FakeLambda({"result": {"results": []}})
+        client = ConnectorClient(lam, "homebase-prod")
+        client.call("confluence_search", {"cql": "type=page"}, "homebase")
+        self.assertEqual(lam.invocations[0][0], "homebase-prod-connector-confluence")
 
 
 if __name__ == "__main__":

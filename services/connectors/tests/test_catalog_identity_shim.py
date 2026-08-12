@@ -12,9 +12,9 @@ SRC = pathlib.Path(__file__).resolve().parents[1] / "src"
 
 
 class CatalogTests(unittest.TestCase):
-    def test_all_six_connectors_present(self):
+    def test_all_connectors_present(self):
         self.assertEqual(set(CONNECTORS), {t.connector for t in TOOLS.values()})
-        self.assertEqual(len(CONNECTORS), 6)
+        self.assertEqual(len(CONNECTORS), 7)
 
     def test_read_first_every_connector_has_a_read_tool(self):
         for connector in CONNECTORS:

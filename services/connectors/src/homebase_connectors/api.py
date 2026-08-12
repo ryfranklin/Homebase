@@ -160,9 +160,10 @@ def _jira_create(params, token):
     return "POST", f"https://api.atlassian.com/ex/jira/{cloud}/rest/api/3/issue", h, body
 
 
-def _jira_resolve_cloud_id(token, send):
-    """Resolve the accessible Jira site's cloudId so callers need not know it.
-    Uses the first accessible resource (the single-tenant seed has one site)."""
+def _atlassian_resolve_cloud_id(token, send):
+    """Resolve the accessible Atlassian site's cloudId (shared by Jira and
+    Confluence) so callers need not know it. Uses the first accessible resource
+    (the single-tenant seed has one site)."""
     data = send("GET", "https://api.atlassian.com/oauth/token/accessible-resources", _bearer(token), None)
     if isinstance(data, list) and data:
         return data[0]["id"]
@@ -173,8 +174,23 @@ def _jira_search_handler(params, token, send):
     """Search issues, resolving cloudId automatically when the caller omits it."""
     params = dict(params or {})
     if not params.get("cloudId"):
-        params["cloudId"] = _jira_resolve_cloud_id(token, send)
+        params["cloudId"] = _atlassian_resolve_cloud_id(token, send)
     method, url, headers, body = _jira_search(params, token)
+    return send(method, url, headers, body)
+
+
+def _confluence_search(params, token):
+    cloud = urllib.parse.quote(params["cloudId"])
+    qs = urllib.parse.urlencode({"cql": params.get("cql", ""), "limit": params.get("limit", 25)})
+    return "GET", f"https://api.atlassian.com/ex/confluence/{cloud}/wiki/rest/api/search?{qs}", _bearer(token), None
+
+
+def _confluence_search_handler(params, token, send):
+    """Search Confluence with CQL, resolving cloudId automatically when omitted."""
+    params = dict(params or {})
+    if not params.get("cloudId"):
+        params["cloudId"] = _atlassian_resolve_cloud_id(token, send)
+    method, url, headers, body = _confluence_search(params, token)
     return send(method, url, headers, body)
 
 
@@ -198,6 +214,7 @@ _BUILDERS = {
 _HANDLERS = {
     "slack.read_messages": _slack_read_handler,
     "jira.search_issues": _jira_search_handler,
+    "confluence.search": _confluence_search_handler,
 }
 
 

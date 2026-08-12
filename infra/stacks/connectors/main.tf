@@ -35,6 +35,14 @@ locals {
     "https://www.googleapis.com/auth/drive.readonly",
   ]
 
+  # The union of Atlassian read scopes, shared by the Jira and Confluence connectors
+  # (one provider, one consent covers both). offline_access yields a refresh token.
+  atlassian_read_scopes = [
+    "read:jira-work",
+    "read:confluence-content.all",
+    "offline_access",
+  ]
+
   # Read-first scopes per connector. Source of truth is services/connectors
   # catalog.py; these mirror the read scopes only. Write scopes are NOT requested
   # here; a write tool requests its scope only when its gated action runs.
@@ -48,10 +56,11 @@ locals {
     gcal   = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gcal_list_events", read_desc = "List calendar events (read-only)" }
     gdrive = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.google.name, scopes = local.google_read_scopes, read_tool = "gdrive_search_files", read_desc = "Search Drive files (read-only)" }
     slack  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.slack.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.slack.name, scopes = ["channels:history", "groups:history", "channels:read", "groups:read"], read_tool = "slack_read_messages", read_desc = "Read Slack messages (read-only)" }
-    # offline_access is required for Atlassian (a CustomOauth2 provider) to issue a
-    # refresh token; without it AgentCore only gets a ~1h access token and the vault
-    # entry expires hourly. read:jira-work covers issue search.
-    atlassian = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = ["read:jira-work", "offline_access"], read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
+    # Jira and Confluence share the atlassian provider and the SAME unioned scope
+    # set, so a single Atlassian consent covers both. offline_access is required for
+    # a CustomOauth2 provider to issue a refresh token (else a ~1h token, no refresh).
+    atlassian  = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = local.atlassian_read_scopes, read_tool = "jira_search_issues", read_desc = "Search Jira issues (read-only)" }
+    confluence = { provider_arn = aws_bedrockagentcore_oauth2_credential_provider.atlassian.credential_provider_arn, provider_name = aws_bedrockagentcore_oauth2_credential_provider.atlassian.name, scopes = local.atlassian_read_scopes, read_tool = "confluence_search", read_desc = "Search Confluence pages (read-only)" }
   }
 }
 
