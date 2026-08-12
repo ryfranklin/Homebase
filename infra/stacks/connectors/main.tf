@@ -37,9 +37,12 @@ locals {
 
   # The union of Atlassian read scopes, shared by the Jira and Confluence connectors
   # (one provider, one consent covers both). offline_access yields a refresh token.
+  # The Confluence CQL search endpoint requires search:confluence specifically
+  # (read:confluence-content.all alone returns 401 "scope does not match").
   atlassian_read_scopes = [
     "read:jira-work",
     "read:confluence-content.all",
+    "search:confluence",
     "offline_access",
   ]
 

@@ -48,7 +48,7 @@ _TOOL_LIST = [
     # Atlassian (Jira / Confluence) — same OAuth provider, unioned scopes.
     Tool("atlassian", "jira.search_issues", READ, ("read:jira-work",), "Search Jira issues"),
     Tool("atlassian", "jira.create_issue", WRITE, ("write:jira-work",), "Create a Jira issue"),
-    Tool("confluence", "confluence.search", READ, ("read:confluence-content.all",), "Search Confluence pages with a CQL query"),
+    Tool("confluence", "confluence.search", READ, ("search:confluence", "read:confluence-content.all"), "Search Confluence pages with a CQL query"),
 ]
 
 TOOLS = {tool.name: tool for tool in _TOOL_LIST}
