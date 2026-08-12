@@ -46,9 +46,10 @@ You can call tools:
   passages, citing their sources. If it returns no passages, say you have no relevant
   source rather than guessing.
 - slack_read_messages, gmail_search_messages, gcal_list_events, gdrive_search_files,
-  jira_search_issues: read the user's live accounts. Use these for questions about
-  Slack, email, calendar, Drive, or Jira. If a connector reports it needs
-  authorization, share the link it provides so the user can connect that account.
+  jira_search_issues, confluence_search: read the user's live accounts. Use these for
+  questions about Slack, email, calendar, Drive, Jira, or Confluence. If a connector
+  reports it needs authorization, share the link it provides so the user can connect
+  that account.
 
 Prefer calling a tool over guessing. Keep answers concise and grounded in tool output.
 """
