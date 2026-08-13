@@ -27,6 +27,10 @@ jobs:
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
+          # Authenticate the action's owner-type lookup so it is not rate-limited
+          # (unauthenticated, it can fail and then wrongly demand an org license).
+          # This does not change what is scanned; the full history is still scanned.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fail the job on any finding.
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
