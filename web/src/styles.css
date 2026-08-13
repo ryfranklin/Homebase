@@ -1771,3 +1771,40 @@ button.fb-row:hover { background: var(--surface); }
   .fb-row { grid-template-columns: 110px 1fr 70px; }
   .fb-row > .fb-updated, .fb-row > .fb-next, .fb-labels > *:nth-child(n+4) { display: none; }
 }
+
+/* ---------- Plan sources (corpus grounding) ---------- */
+.src-count { color: var(--faint); }
+.src-intro { margin-top: -4px; margin-bottom: 14px; font-size: 0.84rem; }
+.src-list { display: flex; flex-direction: column; gap: 10px; }
+.src-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  background: var(--surface);
+  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease), background 0.3s var(--ease);
+}
+.src-card.highlight {
+  border-color: var(--pending);
+  box-shadow: 0 0 0 2px var(--pending-soft);
+  background: var(--pending-soft);
+}
+.src-head { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; }
+.src-kind {
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 2px 7px; border-radius: 5px; border: 1px solid var(--border-strong); color: var(--muted);
+}
+.src-kind.kind-ADR, .src-kind.kind-decision { color: var(--text); border-color: var(--white); }
+.src-kind.kind-spec { color: var(--pending); border-color: rgba(224, 168, 58, 0.4); }
+.src-title { font-size: 0.94rem; font-weight: 500; }
+.src-score { margin-left: auto; font-family: var(--font-mono); font-size: 0.76rem; color: var(--faint); }
+.src-path { font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); }
+.src-excerpt { font-size: 0.86rem; line-height: 1.55; color: var(--muted); margin: 8px 0 10px; }
+.src-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.src-cited { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.src-tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
+.src-open { border: none; background: none; color: var(--muted); font-family: inherit; font-size: 0.78rem; padding: 2px 4px; transition: color 0.15s; }
+.src-open:hover { color: var(--text); }
+
+/* Clickable [[links]] in AC cards + copilot */
+.ac-link.linkable { border: none; font-family: var(--font-mono); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.ac-link.linkable:hover { background: var(--pending-soft); color: var(--pending); }

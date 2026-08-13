@@ -21,9 +21,11 @@ export type GateAction = "approve" | "revise" | "reject";
 export function AcCard({
   ac,
   onGate,
+  onOpenSource,
 }: {
   ac: AcceptanceCriterion;
   onGate: (id: string, action: GateAction) => void;
+  onOpenSource?: (slug: string) => void;
 }) {
   const gateable = ac.status === "proposed" || ac.status === "needs_revision";
   return (
@@ -40,11 +42,17 @@ export function AcCard({
 
       {(ac.links.length > 0 || ac.comments.length > 0) && (
         <div className="ac-meta">
-          {ac.links.map((l) => (
-            <span key={l} className="ac-link">
-              [[{l}]]
-            </span>
-          ))}
+          {ac.links.map((l) =>
+            onOpenSource ? (
+              <button key={l} type="button" className="ac-link linkable" onClick={() => onOpenSource(l)}>
+                [[{l}]]
+              </button>
+            ) : (
+              <span key={l} className="ac-link">
+                [[{l}]]
+              </span>
+            ),
+          )}
           {ac.comments.length > 0 && <span className="ac-comments">{ac.comments.length} note{ac.comments.length === 1 ? "" : "s"}</span>}
         </div>
       )}

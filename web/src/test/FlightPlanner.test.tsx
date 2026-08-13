@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { FlightPlanner } from "../plan/FlightPlanner";
 import { approvedCount, pendingCount, readyToClear } from "../plan/types";
 import { SAMPLE_PLANS } from "../plan/sample";
+import { resolvePlanSources } from "../plan/corpus";
 
 describe("plan status helpers", () => {
   const relay = SAMPLE_PLANS.find((p) => p.id === "fp-relay")!;
@@ -43,5 +44,27 @@ describe("FlightPlanner prototype", () => {
     const before = screen.getAllByRole("button", { name: "Approve" }).length;
     fireEvent.click(screen.getByRole("button", { name: /Draft it as a proposal/ }));
     expect(screen.getAllByRole("button", { name: "Approve" }).length).toBe(before + 1);
+  });
+
+  it("shows the corpus sources the plan is grounded on", () => {
+    render(<FlightPlanner />);
+    fireEvent.click(screen.getByText("Homebase MCP relay"));
+    expect(screen.getByRole("heading", { level: 2, name: "Sources" })).toBeInTheDocument();
+    expect(screen.getByText("ADR-002 — Retrieval store")).toBeInTheDocument();
+    expect(screen.getByText("data-engineering/adr-002-retrieval-store.md")).toBeInTheDocument();
+  });
+});
+
+describe("resolvePlanSources", () => {
+  const relay = SAMPLE_PLANS.find((p) => p.id === "fp-relay")!;
+  it("aggregates cited vault docs with their citing ACs, ranked", () => {
+    const sources = resolvePlanSources(relay);
+    expect(sources.length).toBeGreaterThan(0);
+    const retrieval = sources.find((s) => s.doc.slug === "retrieval")!;
+    expect(retrieval.citedBy).toContain("AC-2");
+    // context references [[project_mission_control]] even though no AC cites it.
+    expect(sources.some((s) => s.doc.slug === "project_mission_control" && s.inContext)).toBe(true);
+    // sorted by score descending.
+    expect(sources[0].score).toBeGreaterThanOrEqual(sources[sources.length - 1].score);
   });
 });

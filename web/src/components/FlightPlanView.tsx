@@ -1,7 +1,9 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { pendingCount, readyToClear, type FlightPlan, type PlanStatus } from "../plan/types";
+import { resolvePlanSources } from "../plan/corpus";
 import { AcCard, type GateAction } from "./AcCard";
+import { PlanSources } from "./PlanSources";
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "draft",
@@ -11,8 +13,21 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
   landed: "landed",
 };
 
-function Copilot({ plan, onCritique }: { plan: FlightPlan; onCritique: () => void }) {
+function Copilot({
+  plan,
+  onCritique,
+  onOpenSource,
+}: {
+  plan: FlightPlan;
+  onCritique: () => void;
+  onOpenSource: (slug: string) => void;
+}) {
   const gap = pendingCount(plan) === 0 && !readyToClear(plan);
+  const ref = (slug: string) => (
+    <button type="button" className="ac-link linkable" onClick={() => onOpenSource(slug)}>
+      [[{slug}]]
+    </button>
+  );
   return (
     <aside className="copilot" aria-label="Planning copilot">
       <div className="copilot-head">
@@ -31,10 +46,9 @@ function Copilot({ plan, onCritique }: { plan: FlightPlan; onCritique: () => voi
       </div>
       <div className="copilot-msg">
         <p>
-          I grounded on <span className="ac-link">[[identity]]</span>,{" "}
-          <span className="ac-link">[[retrieval]]</span>, and{" "}
-          <span className="ac-link">[[review-gate]]</span>. The plan has no criterion covering the{" "}
-          <strong>rejection path</strong> or a review SLA{gap ? "" : " — and a couple are still awaiting review"}.
+          I grounded on {ref("identity")}, {ref("retrieval")}, and {ref("review-gate")}. The plan has no
+          criterion covering the <strong>rejection path</strong> or a review SLA
+          {gap ? "" : " — and a couple are still awaiting review"}.
         </p>
         <button type="button" className="vault-btn" onClick={onCritique}>
           Draft it as a proposal →
@@ -58,15 +72,25 @@ export function FlightPlanView({
   onCritique: () => void;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
+  const sources = useMemo(() => resolvePlanSources(plan), [plan]);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
   const sections = [
     { id: "objective", label: "Objective" },
     { id: "context", label: "Context" },
     { id: "criteria", label: "Criteria" },
+    { id: "sources", label: "Sources" },
     { id: "route", label: "Route" },
     { id: "risks", label: "Risks" },
   ];
   const jump = (id: string) => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const pend = pendingCount(plan);
+
+  // Clicking a [[link]] scrolls to that source card and briefly highlights it.
+  const openSource = (slug: string) => {
+    setHighlighted(slug);
+    document.getElementById(`src-${slug}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => setHighlighted((cur) => (cur === slug ? null : cur)), 1600);
+  };
 
   return (
     <div className="flightplan">
@@ -125,9 +149,18 @@ export function FlightPlanView({
             </div>
             <div className="ac-list">
               {plan.criteria.map((ac) => (
-                <AcCard key={ac.id} ac={ac} onGate={onGate} />
+                <AcCard key={ac.id} ac={ac} onGate={onGate} onOpenSource={openSource} />
               ))}
             </div>
+          </section>
+
+          <section id="sec-sources" className="fp-section">
+            <div className="fp-section-head">
+              <h2>Sources</h2>
+              <span className="fp-proposed src-count">{sources.length} from the vault</span>
+            </div>
+            <p className="fp-prose fp-muted src-intro">Corpus knowledge this plan is grounded on (via get_context).</p>
+            <PlanSources sources={sources} highlighted={highlighted} onOpen={openSource} />
           </section>
 
           <section id="sec-route" className="fp-section">
@@ -153,7 +186,7 @@ export function FlightPlanView({
           </section>
         </main>
 
-        <Copilot plan={plan} onCritique={onCritique} />
+        <Copilot plan={plan} onCritique={onCritique} onOpenSource={openSource} />
       </div>
     </div>
   );
