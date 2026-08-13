@@ -12,16 +12,19 @@ full conventions.
 
 ## Architecture
 
-- Agent runtime on Amazon Bedrock AgentCore
+- Agent runtime on Amazon Bedrock AgentCore, running a tool-use loop over knowledge-base search and
+  the live connectors, streaming its answer token by token
 - Retrieval via Bedrock Knowledge Base with S3 Vectors, using semantic retrieval plus Bedrock Rerank
   (S3 Vectors is semantic-only; hybrid is the gated OpenSearch Serverless seam, ADR-002)
 - Authentication via Amazon Cognito with Google federation
-- Web GUI as a React SPA served from CloudFront
+- Web GUI as a React SPA served from CloudFront, rendering the streamed response live
 - Streaming backend for frontend (BFF) as a Lambda Function URL with response streaming (SSE), fronted
   by CloudFront; not behind API Gateway
 - A thin chat CLI running as a Fargate container
 - A separate EC2 workstation reached over SSM (no public SSH)
-- Six connectors exposed as MCP tools via AgentCore Gateway and AgentCore Identity
+- Six live connectors (Gmail, Calendar, Drive, Slack, Jira, Confluence): read-first and write-gated,
+  each with per-user OAuth via AgentCore Identity (an AgentCore Gateway also exposes them as MCP tools);
+  the user links an account once through a self-service consent flow in the GUI
 - All infrastructure defined as Terraform IaC
 
 For the full picture (the two access planes, the retrieval flow, the layered security perimeter, and
@@ -46,7 +49,7 @@ flowchart TB
         SSM["SSM only: no key pair,<br/>no inbound, no public IP"] --> ROLES["Least-privilege roles<br/>(assume-role for broad ops)"]
     end
 
-    CORE["AgentCore Runtime<br/>Claude on Bedrock · Memory · Observability"]
+    CORE["AgentCore Runtime<br/>Claude on Bedrock · tool-use loop · streaming · Memory"]
 
     subgraph retrieval["Retrieval (semantic + rerank)"]
         direction TB
@@ -55,7 +58,7 @@ flowchart TB
     end
 
     subgraph conn["Connectors (live, read-first, write-gated, never indexed)"]
-        GW["AgentCore Gateway + Identity"] --> SIX["Gmail · Calendar · Drive · Slack · QuickBooks · Atlassian"]
+        GW["AgentCore Identity (per-user OAuth)<br/>+ Gateway (MCP)"] --> SIX["Gmail · Calendar · Drive · Slack · Jira · Confluence"]
     end
 
     SPA --> CF
@@ -79,7 +82,7 @@ services/       Backend services
   agent/        AgentCore agent runtime
   bff/          Streaming Lambda BFF (Function URL, SSE)
   ingestion/    Knowledge base ingestion pipeline
-  connectors/   Six connectors exposed as MCP tools
+  connectors/   Six live connectors (read-first shim Lambdas + catalog)
 web/            React single page application
 cli/            Thin chat CLI container
 workstation/    EC2 workstation bootstrap
