@@ -45,3 +45,15 @@ variable "github_oidc_provider_arn" {
   type        = string
   default     = ""
 }
+
+variable "github_repo_immutable" {
+  description = <<-EOT
+    Immutable form of the repo slug, "owner@ownerid/repo@repoid", used when the
+    account emits GitHub's immutable OIDC subject claims (the token sub then reads
+    repo:owner@ownerid/repo@repoid:ref:... instead of repo:owner/repo:ref:...).
+    Find it via: gh api /repos/OWNER/REPO/actions/oidc/customization/sub
+    (the sub_claim_prefix field). Leave empty if your account uses mutable subjects.
+  EOT
+  type        = string
+  default     = ""
+}

@@ -8,6 +8,11 @@ environment  = "prod"
 # The GitHub repo whose main branch may assume the deploy role.
 github_repo = "<YOUR_GITHUB_OWNER>/<YOUR_REPO>"
 
+# Only if your account emits immutable OIDC subject claims (numeric owner/repo ids).
+# Find it with: gh api /repos/OWNER/REPO/actions/oidc/customization/sub
+# and copy the sub_claim_prefix value (owner@ownerid/repo@repoid). Leave empty otherwise.
+github_repo_immutable = ""
+
 # The SPA's S3 bucket (the web stack's static bucket name).
 web_bucket_name = "<YOUR_WEB_BUCKET_NAME>"
 

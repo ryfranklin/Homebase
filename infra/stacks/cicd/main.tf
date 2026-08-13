@@ -62,10 +62,16 @@ data "aws_iam_policy_document" "trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Trust the repo's main branch. Accept both the mutable slug and, when the
+    # account emits immutable OIDC subjects, the owner@id/repo@id form. Whichever
+    # GitHub sends, the match stays scoped to exactly this repo and branch.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values = compact([
+        "repo:${var.github_repo}:ref:refs/heads/main",
+        var.github_repo_immutable != "" ? "repo:${var.github_repo_immutable}:ref:refs/heads/main" : "",
+      ])
     }
   }
 }
