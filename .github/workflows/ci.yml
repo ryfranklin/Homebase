@@ -1,8 +1,11 @@
 name: ci
 
-# Continuous integration for Homebase. No deploy steps: this workflow only
-# scans, checks formatting, and lints where code exists. Infrastructure is
-# applied by a human, never by CI or an agent.
+# Continuous integration for Homebase. Scans, formatting, lint, and tests, plus a
+# CONTENT-ONLY web deploy on push to main (S3 sync + CloudFront invalidation).
+# Infrastructure (terraform apply) and the agent image are NEVER deployed here:
+# those remain human actions (see scripts/deploy-agent.sh and the RUNBOOK). The web
+# deploy authenticates with GitHub OIDC (no long-lived keys) and is skipped until
+# the deploy vars/secret are configured (see infra/stacks/cicd).
 
 on:
   pull_request:
@@ -117,3 +120,56 @@ jobs:
         run: |
           cd eval
           PYTHONPATH=src python -m homebase_eval.cli --gate --k 3
+
+  deploy-web:
+    name: deploy web (S3 sync + CloudFront invalidation)
+    # CONTENT deploy only. This never runs terraform apply and never touches the
+    # agent image (both remain human actions). It runs only on a push to main,
+    # only after the checks pass, and only once the deploy vars are configured
+    # (vars.WEB_BUCKET). Auth is GitHub OIDC, so there are NO long-lived AWS keys.
+    # All account-specific values come from repo Variables/Secrets, never literals.
+    needs: [secret-scan, terraform-fmt, lint, tests, eval-gate]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.WEB_BUCKET != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for OIDC role assumption
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Configure AWS credentials (GitHub OIDC, no static keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build the SPA
+        working-directory: web
+        # Vite build-time config. These are public client identifiers (they ship in
+        # the bundle anyway), injected from repo Variables so nothing is hardcoded.
+        env:
+          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_HOSTED_UI_DOMAIN: ${{ vars.VITE_COGNITO_HOSTED_UI_DOMAIN }}
+          VITE_COGNITO_SCOPES: ${{ vars.VITE_COGNITO_SCOPES }}
+          VITE_REDIRECT_URI: ${{ vars.VITE_REDIRECT_URI }}
+          VITE_LOGOUT_URI: ${{ vars.VITE_LOGOUT_URI }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Sync to S3 and invalidate CloudFront
+        run: |
+          aws s3 sync web/dist "s3://${{ vars.WEB_BUCKET }}/" --delete
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"

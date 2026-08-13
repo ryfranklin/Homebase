@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in real values.
+# Every value here is a FAKE placeholder.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "prod"
+
+# The GitHub repo whose main branch may assume the deploy role.
+github_repo = "<YOUR_GITHUB_OWNER>/<YOUR_REPO>"
+
+# The SPA's S3 bucket (the web stack's static bucket name).
+web_bucket_name = "<YOUR_WEB_BUCKET_NAME>"
+
+# Leave empty to create the account's GitHub OIDC provider here. If one already
+# exists in the account, put its ARN here to reuse it instead.
+github_oidc_provider_arn = ""
