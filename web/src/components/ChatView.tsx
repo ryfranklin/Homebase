@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
 import { DocsOverlay } from "./DocsOverlay";
-import { Markdown } from "./Markdown";
 import { ServiceNetwork } from "./ServiceNetwork";
+
+// Markdown pulls in react-markdown + highlight.js. Lazy-load it into its own chunk
+// so the initial bundle stays lean; it's preloaded on mount (below) so the chunk is
+// ready by the time an answer streams, and a plain-text fallback covers the gap.
+const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -35,6 +39,11 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Warm the Markdown chunk in the background so the first answer renders instantly.
+    void import("./Markdown");
+  }, []);
 
   useEffect(() => {
     // Optional-chained: scrollIntoView is absent in some test environments.
@@ -82,7 +91,9 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
             <div className="bubble">
               {m.text ? (
                 m.role === "assistant" ? (
-                  <Markdown text={m.text} />
+                  <Suspense fallback={<div className="prose">{m.text}</div>}>
+                    <Markdown text={m.text} />
+                  </Suspense>
                 ) : (
                   <div className="prose">{m.text}</div>
                 )

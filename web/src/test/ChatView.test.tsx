@@ -51,7 +51,7 @@ describe("ChatView", () => {
     expect(screen.getByText(/Ask a question/)).toBeInTheDocument();
   });
 
-  it("renders assistant markdown (heading, bold, link)", () => {
+  it("renders assistant markdown (heading, bold, link)", async () => {
     render(
       <ChatView
         messages={[
@@ -64,7 +64,8 @@ describe("ChatView", () => {
         onSend={() => {}}
       />,
     );
-    expect(screen.getByRole("heading", { name: "Title" })).toBeInTheDocument();
+    // Markdown is lazy-loaded; wait for its chunk to render.
+    expect(await screen.findByRole("heading", { name: "Title" })).toBeInTheDocument();
     expect(screen.getByText("bold").tagName).toBe("STRONG");
     const link = screen.getByRole("link", { name: "link" });
     expect(link).toHaveAttribute("href", "https://example.com/x");
