@@ -180,6 +180,34 @@ jobs:
           print("verify OK:", len(tools), "connector tools:", ", ".join(sorted(tools)))
           '
 
+  vault-worker:
+    name: vault worker (typecheck + tests)
+    # Typechecks and tests the git-vault worker (git ops + conflict policy + mirror).
+    # Runs only when services/vault-worker changes. git is preinstalled on the runner,
+    # which the GitVault tests need (they run against throwaway local repos).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect worker changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            worker:
+              - 'services/vault-worker/**'
+      - name: Set up Node
+        if: steps.changes.outputs.worker == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install, typecheck, test
+        if: steps.changes.outputs.worker == 'true'
+        working-directory: services/vault-worker
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
   deploy-web:
     name: deploy web (S3 sync + CloudFront invalidation)
     # CONTENT deploy only. This never runs terraform apply and never touches the
