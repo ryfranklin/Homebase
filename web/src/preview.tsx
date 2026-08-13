@@ -4,6 +4,7 @@
 // App, so it is never part of a production build.
 
 import { ChatView } from "./components/ChatView";
+import { FlightPlanner } from "./plan/FlightPlanner";
 import type { ChatMessage } from "./chat/messages";
 
 const SAMPLE: ChatMessage[] = [
@@ -52,6 +53,8 @@ const SAMPLE: ChatMessage[] = [
 
 export function DesignPreview() {
   const mode = new URLSearchParams(window.location.search).get("preview");
+  // ?preview=plan renders the Flight Planner prototype (board + plan + clearance).
+  if (mode === "plan") return <FlightPlanner />;
   const messages = mode === "chat" ? SAMPLE : [];
   return (
     <ChatView

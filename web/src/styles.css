@@ -1558,3 +1558,216 @@ button {
   font-size: 0.78rem;
   flex-shrink: 0;
 }
+
+/* ============================ Flight Planner ============================ */
+:root {
+  --pending: #e0a83a;              /* functional accent: awaiting review */
+  --pending-soft: rgba(224, 168, 58, 0.12);
+}
+
+/* Shared status colors */
+.status-draft { color: var(--muted); }
+.status-in_review, .status-proposed, .status-needs_revision { color: var(--pending); }
+.status-approved, .status-cleared, .status-in_flight, .status-landed { color: var(--text); }
+.status-rejected { color: var(--danger); }
+
+/* ---------- Flight board ---------- */
+.flightboard {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 28px 80px;
+}
+.fb-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.fb-head h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.fb-sub { color: var(--muted); font-size: 0.86rem; margin: 0; }
+.fb-actions { display: inline-flex; align-items: center; gap: 12px; }
+.fb-badge {
+  font-size: 0.76rem;
+  color: var(--pending);
+  background: var(--pending-soft);
+  border: 1px solid rgba(224, 168, 58, 0.35);
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+.fb-table { display: flex; flex-direction: column; }
+.fb-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 90px 84px 96px 120px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 15px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+button.fb-row:hover { background: var(--surface); }
+.fb-labels {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  border-bottom-color: var(--border-strong);
+}
+.fb-labels:hover { background: none; }
+.fb-status { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.fb-glyph { font-size: 0.7rem; }
+.fb-title { font-weight: 500; }
+.fb-owner, .fb-updated { color: var(--muted); font-size: 0.82rem; }
+.fb-ac { font-family: var(--font-mono); font-size: 0.82rem; }
+.fb-pending { color: var(--pending); margin-left: 5px; }
+.fb-next { color: var(--faint); font-size: 0.8rem; text-align: right; }
+
+/* ---------- Flight plan editor ---------- */
+.flightplan { display: flex; flex-direction: column; height: 100dvh; }
+.fp-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+}
+.fp-title-wrap { display: inline-flex; align-items: baseline; gap: 12px; flex: 1; min-width: 0; }
+.fp-title-wrap h1 { font-size: 1.1rem; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-status { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid currentColor; padding: 2px 9px; border-radius: 999px; }
+.fp-head-right { display: inline-flex; align-items: center; gap: 14px; }
+.fp-contribs { display: inline-flex; gap: 6px; }
+.fp-contrib { font-size: 0.76rem; color: var(--muted); }
+.fp-contrib.agent { color: var(--pending); }
+.fp-contrib.agent::before { content: "◆ "; font-size: 0.6rem; }
+
+.fp-body { flex: 1; display: flex; min-height: 0; }
+.fp-outline {
+  width: 176px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-soft);
+}
+.fp-outline-item {
+  display: flex; align-items: center; justify-content: space-between;
+  border: none; background: none; color: var(--muted);
+  font-family: inherit; font-size: 0.85rem; text-align: left;
+  padding: 7px 10px; border-radius: 8px; transition: color 0.15s, background 0.15s;
+}
+.fp-outline-item:hover { color: var(--text); background: var(--surface); }
+.fp-outline-badge { font-size: 0.68rem; color: var(--pending); background: var(--pending-soft); border-radius: 999px; padding: 1px 7px; }
+
+.fp-main { flex: 1; overflow-y: auto; padding: 28px 40px 100px; }
+.fp-section { max-width: 760px; margin: 0 auto 40px; }
+.fp-section h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin: 0 0 12px; }
+.fp-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.fp-section-head h2 { margin: 0; }
+.fp-proposed { font-size: 0.76rem; color: var(--pending); }
+.fp-prose { font-size: 0.96rem; line-height: 1.7; color: var(--text); margin: 0; }
+.fp-muted { color: var(--faint); }
+.fp-route { margin: 0; padding-left: 20px; color: var(--text); font-size: 0.92rem; line-height: 1.9; }
+.fp-risks { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; line-height: 1.8; }
+
+/* ---------- AC cards ---------- */
+.ac-list { display: flex; flex-direction: column; gap: 12px; }
+.ac-card {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  background: var(--surface);
+}
+.ac-card.status-proposed, .ac-card.status-needs_revision { border-left-color: var(--pending); background: var(--pending-soft); }
+.ac-card.status-approved { border-left-color: var(--white); }
+.ac-card.status-rejected { border-left-color: var(--danger); opacity: 0.55; }
+.ac-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ac-id { font-family: var(--font-mono); font-size: 0.76rem; color: var(--faint); }
+.ac-status { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.ac-author { margin-left: auto; font-size: 0.78rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.ac-author.agent { color: var(--pending); }
+.ac-agent-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pending); }
+.ac-statement { font-size: 0.95rem; line-height: 1.55; margin: 0 0 8px; color: var(--text); }
+.ac-rationale { font-size: 0.83rem; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
+.ac-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ac-link { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text); background: var(--surface-2); border-radius: 6px; padding: 2px 7px; }
+.ac-comments { font-size: 0.74rem; color: var(--faint); }
+.ac-thread { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ac-comment { font-size: 0.82rem; display: flex; gap: 8px; }
+.ac-comment-text { color: var(--muted); }
+.ac-gate { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ac-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-family: inherit; font-size: 0.79rem; padding: 6px 13px; border-radius: 8px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.ac-btn:hover { background: var(--surface-2); }
+.ac-btn.approve { background: var(--white); color: var(--bg); border-color: var(--white); }
+.ac-btn.approve:hover { opacity: 0.88; }
+.ac-btn.reject:hover { color: var(--danger); border-color: rgba(255, 95, 86, 0.5); }
+
+/* ---------- Copilot panel ---------- */
+.copilot {
+  width: 300px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding: 20px 18px; background: var(--bg-soft);
+  overflow-y: auto;
+}
+.copilot-head { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.9rem; margin-bottom: 16px; }
+.copilot-mark { color: var(--white); }
+.copilot-tag { margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+.copilot-chips { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.copilot-chip {
+  text-align: left; border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); font-family: inherit; font-size: 0.82rem; padding: 8px 12px;
+  border-radius: 9px; transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.copilot-chip:hover { color: var(--text); background: var(--surface-2); border-color: var(--border-strong); }
+.copilot-msg { border-top: 1px solid var(--border); padding-top: 16px; }
+.copilot-msg p { font-size: 0.86rem; line-height: 1.6; color: var(--muted); margin: 0 0 12px; }
+.copilot-msg .ac-link { font-size: 0.72rem; }
+
+/* ---------- Pre-flight clearance ---------- */
+.preflight-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center;
+  z-index: 50; padding: 24px;
+}
+.preflight {
+  width: 100%; max-width: 440px;
+  background: var(--bg-soft); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); padding: 22px 24px;
+}
+.preflight-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.preflight-head h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.preflight-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.preflight-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text); }
+.preflight-item.warn { color: var(--pending); }
+.preflight-mark { width: 18px; text-align: center; }
+.preflight-item.ok .preflight-mark { color: var(--text); }
+.preflight-count { margin-left: auto; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.preflight-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--border); }
+.preflight-signoff { font-size: 0.85rem; color: var(--muted); }
+.preflight-note { font-size: 0.76rem; color: var(--faint); margin: 12px 0 0; text-align: center; }
+
+@media (max-width: 860px) {
+  .fp-outline, .copilot { display: none; }
+  .fb-row { grid-template-columns: 110px 1fr 70px; }
+  .fb-row > .fb-updated, .fb-row > .fb-next, .fb-labels > *:nth-child(n+4) { display: none; }
+}
