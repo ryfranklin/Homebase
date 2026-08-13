@@ -50,8 +50,34 @@ describe("FlightPlanner prototype", () => {
     render(<FlightPlanner />);
     fireEvent.click(screen.getByText("Homebase MCP relay"));
     expect(screen.getByRole("heading", { level: 2, name: "Sources" })).toBeInTheDocument();
-    expect(screen.getByText("ADR-002 — Retrieval store")).toBeInTheDocument();
+    expect(screen.getByText("ADR-002 Retrieval store")).toBeInTheDocument();
     expect(screen.getByText("data-engineering/adr-002-retrieval-store.md")).toBeInTheDocument();
+  });
+
+  it("ingests a new source via the Add source picker", () => {
+    render(<FlightPlanner />);
+    fireEvent.click(screen.getByText("Homebase MCP relay"));
+    // The auth RFC (Confluence) is not yet selected into the relay plan.
+    expect(screen.queryByText("Engineer auth RFC")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+ Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add sources" });
+    // Add it from the picker.
+    const row = screen.getByText("Engineer auth RFC").closest(".src-pick") as HTMLElement;
+    fireEvent.click(row.querySelector("button")!);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(dialog).not.toBeInTheDocument();
+    // Now it appears as a plan source.
+    expect(screen.getByText("Engineer auth RFC")).toBeInTheDocument();
+  });
+
+  it("previews the Jira materialization on the clearance screen", () => {
+    render(<FlightPlanner />);
+    fireEvent.click(screen.getByText("Homebase MCP relay"));
+    fireEvent.click(screen.getByRole("button", { name: /File clearance/ }));
+    expect(screen.getByText(/On clearance, Mission Control creates/)).toBeInTheDocument();
+    expect(screen.getByText("Epic")).toBeInTheDocument();
+    expect(screen.getAllByText("Story").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Definition of done/)).toBeInTheDocument();
   });
 });
 

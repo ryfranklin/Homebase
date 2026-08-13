@@ -37,9 +37,35 @@ export interface FlightPlan {
   objective: string;
   context: string;
   criteria: AcceptanceCriterion[];
+  sources: string[]; // refs into the corpus catalog (see plan/corpus.ts)
   route: string[]; // waypoints
   risks: string[];
   updatedAt: string;
+}
+
+// Preview of the work a materializer would create from a cleared plan (schema:
+// epic = plan, stories = waypoints (fallback ACs), ACs = definition of done).
+export interface MaterializedStory {
+  key: string; // WP-1 / AC-1
+  title: string;
+}
+export interface MaterializePreview {
+  epic: string;
+  stories: MaterializedStory[];
+  definitionOfDone: string[]; // approved AC statements
+}
+
+export function materializePreview(plan: FlightPlan): MaterializePreview {
+  const approved = plan.criteria.filter(AC_APPROVED);
+  const stories: MaterializedStory[] =
+    plan.route.length > 0
+      ? plan.route.map((wp, i) => ({ key: `WP-${i + 1}`, title: wp }))
+      : approved.map((ac) => ({ key: ac.id, title: ac.statement }));
+  return {
+    epic: plan.title,
+    stories,
+    definitionOfDone: approved.map((ac) => ac.statement),
+  };
 }
 
 export const AC_APPROVED = (c: AcceptanceCriterion) => c.status === "approved";

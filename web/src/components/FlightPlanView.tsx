@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 
 import { pendingCount, readyToClear, type FlightPlan, type PlanStatus } from "../plan/types";
-import { resolvePlanSources } from "../plan/corpus";
+import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
 import { AcCard, type GateAction } from "./AcCard";
 import { PlanSources } from "./PlanSources";
 
@@ -60,19 +60,23 @@ function Copilot({
 
 export function FlightPlanView({
   plan,
+  catalog,
   onBack,
   onGate,
   onFileClearance,
   onCritique,
+  onAddSource,
 }: {
   plan: FlightPlan;
+  catalog: Record<string, VaultDoc>;
   onBack: () => void;
   onGate: (id: string, action: GateAction) => void;
   onFileClearance: () => void;
   onCritique: () => void;
+  onAddSource: () => void;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
-  const sources = useMemo(() => resolvePlanSources(plan), [plan]);
+  const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const sections = [
     { id: "objective", label: "Objective" },
@@ -160,7 +164,7 @@ export function FlightPlanView({
               <span className="fp-proposed src-count">{sources.length} from the vault</span>
             </div>
             <p className="fp-prose fp-muted src-intro">Corpus knowledge this plan is grounded on (via get_context).</p>
-            <PlanSources sources={sources} highlighted={highlighted} onOpen={openSource} />
+            <PlanSources sources={sources} highlighted={highlighted} onOpen={openSource} onAddSource={onAddSource} />
           </section>
 
           <section id="sec-route" className="fp-section">

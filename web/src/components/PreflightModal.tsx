@@ -1,4 +1,5 @@
 import { activeCriteria, approvedCount, pendingCount, readyToClear, type FlightPlan } from "../plan/types";
+import { MaterializePreview } from "./MaterializePreview";
 
 function Check({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
@@ -43,6 +44,12 @@ export function PreflightModal({
           <Check ok>Risks acknowledged<span className="preflight-count">{plan.risks.length}</span></Check>
           {pend > 0 && <Check ok={false}>{pend} criterion pending review</Check>}
         </ul>
+
+        <div className="preflight-materialize">
+          <span className="preflight-mz-label">On clearance, Mission Control creates:</span>
+          <MaterializePreview plan={plan} />
+        </div>
+
         <div className="preflight-foot">
           <span className="preflight-signoff">
             Sign-off <strong>{plan.owner.name}</strong>
