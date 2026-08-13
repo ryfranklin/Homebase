@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 
 import type { UseVault } from "../vault/useVault";
 import { newNoteKey } from "../vault/resolve";
+import { timeAgo } from "../vault/format";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
+import { VaultHistory } from "./VaultHistory";
 
 export interface VaultViewProps {
   vault: UseVault;
@@ -147,6 +149,12 @@ export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
                     {vault.dirty && <span className="vault-dirty" title="Unsaved changes">•</span>}
                   </h1>
                   <span className="vault-note-key">{vault.note.key}</span>
+                  {vault.note.updatedBy && (
+                    <span className="vault-attr">
+                      Edited by {vault.note.updatedBy}
+                      {vault.note.updatedAt ? ` · ${timeAgo(vault.note.updatedAt)}` : ""}
+                    </span>
+                  )}
                 </div>
                 <div className="vault-note-actions">
                   {vault.editing ? (
@@ -168,6 +176,9 @@ export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
                       Edit
                     </button>
                   )}
+                  <button type="button" className="vault-btn" onClick={() => void vault.loadHistory()}>
+                    History
+                  </button>
                   <button type="button" className="vault-btn danger" onClick={onDelete}>
                     Delete
                   </button>
@@ -222,6 +233,14 @@ export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
           )}
         </main>
       </div>
+
+      {vault.history && (
+        <VaultHistory
+          versions={vault.history}
+          onRestore={(v) => void vault.restore(v)}
+          onClose={vault.clearHistory}
+        />
+      )}
     </div>
   );
 }

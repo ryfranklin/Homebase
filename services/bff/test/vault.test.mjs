@@ -67,25 +67,52 @@ test("assertSafeKey rejects traversal, non-markdown, and sidecars", () => {
 // ---------------------------------------------------------------------------
 
 function fakeStore(seed = {}) {
-  const map = new Map(Object.entries(seed));
+  const map = new Map(); // key -> latest content (convenience view)
+  const versions = new Map(); // key -> [{versionId, content, metadata, ...}] newest-first
+  let vseq = 0;
+  const write = (key, content, metadata = {}) => {
+    vseq += 1;
+    map.set(key, content);
+    const list = versions.get(key) || [];
+    list.unshift({ versionId: `v${vseq}`, content, metadata, lastModified: `2026-01-01T00:00:0${vseq % 10}Z`, size: content.length });
+    versions.set(key, list);
+  };
+  for (const [k, v] of Object.entries(seed)) write(k, v);
   return {
     map,
+    versions,
     puts: [],
     deletes: [],
     async listKeys() {
       return [...map.keys()];
     },
-    async getObject(key) {
+    async getObject(key, versionId) {
+      if (versionId) {
+        const v = (versions.get(key) || []).find((x) => x.versionId === versionId);
+        if (!v) throw Object.assign(new Error("NoSuchVersion"), { name: "NoSuchVersion" });
+        return { content: v.content, metadata: v.metadata };
+      }
       if (!map.has(key)) throw Object.assign(new Error("NoSuchKey"), { name: "NoSuchKey" });
-      return { content: map.get(key) };
+      const latest = (versions.get(key) || [])[0] || { metadata: {} };
+      return { content: map.get(key), metadata: latest.metadata };
     },
-    async putObject(key, body) {
-      map.set(key, body);
+    async putObject(key, body, _ct, metadata) {
+      write(key, body, metadata || {});
       this.puts.push(key);
     },
     async deleteObject(key) {
       map.delete(key);
       this.deletes.push(key);
+    },
+    async listVersions(key, limit = 50) {
+      return (versions.get(key) || []).slice(0, limit).map((v, i) => ({
+        versionId: v.versionId,
+        lastModified: v.lastModified,
+        updatedAt: v.metadata["updated-at"] || null,
+        updatedBy: v.metadata["updated-by"] || null,
+        size: v.size,
+        isCurrent: i === 0,
+      }));
     },
   };
 }
@@ -110,7 +137,9 @@ test("put writes the note and triggers reingest", async () => {
   let reingested = 0;
   const vault = makeVault({ store, reingest: async () => { reingested++; } });
   const res = await vault.put("new/note.md", "# New\n[[x]]");
-  assert.deepEqual(res, { ok: true, key: "new/note.md", title: "New" });
+  assert.equal(res.ok, true);
+  assert.equal(res.key, "new/note.md");
+  assert.equal(res.title, "New");
   assert.equal(store.map.get("new/note.md"), "# New\n[[x]]");
   assert.equal(reingested, 1);
 });
@@ -160,6 +189,55 @@ test("corpus cache is invalidated on write so search sees new notes", async () =
   assert.equal((await vault.search("beta")).results.length, 0);
   await vault.put("b.md", "beta content");
   assert.equal((await vault.search("beta")).results.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Attribution + history / restore
+// ---------------------------------------------------------------------------
+
+const alice = { id: "u-alice", name: "alice@example.com" };
+const bob = { id: "u-bob", name: "bob@example.com" };
+
+test("put stamps the author, and get returns attribution", async () => {
+  const vault = makeVault({ store: fakeStore() });
+  await vault.put("n.md", "# hi", alice);
+  const note = await vault.get("n.md");
+  assert.equal(note.updatedBy, "alice@example.com");
+  assert.equal(note.updatedById, "u-alice");
+  assert.ok(note.updatedAt);
+});
+
+test("history lists versions newest-first with authors and a current flag", async () => {
+  const vault = makeVault({ store: fakeStore() });
+  await vault.put("n.md", "v1", alice);
+  await vault.put("n.md", "v2", bob);
+  const { versions } = await vault.history("n.md");
+  assert.equal(versions.length, 2);
+  assert.equal(versions[0].updatedBy, "bob@example.com");
+  assert.equal(versions[0].isCurrent, true);
+  assert.equal(versions[1].updatedBy, "alice@example.com");
+});
+
+test("restore copies an old version forward, attributed to the restorer", async () => {
+  const store = fakeStore();
+  let reingested = 0;
+  const vault = makeVault({ store, reingest: async () => { reingested++; } });
+  await vault.put("n.md", "original", alice);
+  await vault.put("n.md", "changed", bob);
+  const { versions } = await vault.history("n.md");
+  const oldest = versions[versions.length - 1];
+  const res = await vault.restore("n.md", oldest.versionId, alice);
+  assert.equal(res.ok, true);
+  assert.equal(res.restoredFrom, oldest.versionId);
+  assert.equal(store.map.get("n.md"), "original"); // content reverted
+  const note = await vault.get("n.md");
+  assert.equal(note.updatedBy, "alice@example.com"); // attributed to who restored
+  assert.ok(reingested >= 1);
+});
+
+test("restore requires a versionId", async () => {
+  const vault = makeVault({ store: fakeStore({ "n.md": "x" }) });
+  await assert.rejects(() => vault.restore("n.md", "", alice), { code: "invalid_version" });
 });
 
 // ---------------------------------------------------------------------------
@@ -225,4 +303,13 @@ test("unsafe key over the route surfaces a 400", async () => {
   const { rec, json } = await route({ path: "/api/vault/note", query: { key: "../evil.md" }, vault });
   assert.equal(rec.statusCode, 400);
   assert.equal(json().error, "invalid_key");
+});
+
+test("route stamps the verified user as author and history reflects it", async () => {
+  const vault = makeVault({ store: fakeStore() });
+  await route({ method: "PUT", path: "/api/vault/note", body: { key: "n.md", content: "# hi" }, vault });
+  const read = await route({ path: "/api/vault/note", query: { key: "n.md" }, vault });
+  assert.equal(read.json().updatedBy, "user-1"); // verifyToken() returns sub "user-1", no email
+  const hist = await route({ path: "/api/vault/history", query: { key: "n.md" }, vault });
+  assert.equal(hist.json().versions[0].updatedBy, "user-1");
 });

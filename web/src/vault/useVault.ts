@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { makeVaultApi } from "./api";
 import { flattenKeys, resolveWikilink } from "./resolve";
-import type { Backlink, Note, SearchResult, TreeNode } from "./types";
+import type { Backlink, Note, NoteVersion, SearchResult, TreeNode } from "./types";
 
 export type VaultStatus =
   | { kind: "idle" }
@@ -21,6 +21,7 @@ export interface UseVault {
   backlinks: Backlink[];
   status: VaultStatus;
   results: SearchResult[] | null;
+  history: NoteVersion[] | null;
   setDraft: (v: string) => void;
   setEditing: (v: boolean) => void;
   open: (key: string) => Promise<void>;
@@ -30,6 +31,9 @@ export interface UseVault {
   remove: (key: string) => Promise<void>;
   search: (q: string) => Promise<void>;
   clearSearch: () => void;
+  loadHistory: () => Promise<void>;
+  restore: (versionId: string) => Promise<void>;
+  clearHistory: () => void;
   refreshTree: () => Promise<void>;
 }
 
@@ -56,6 +60,7 @@ export function useVault(
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [status, setStatus] = useState<VaultStatus>({ kind: "idle" });
   const [results, setResults] = useState<SearchResult[] | null>(null);
+  const [history, setHistory] = useState<NoteVersion[] | null>(null);
 
   const keys = useMemo(() => flattenKeys(tree), [tree]);
   const fail = (e: unknown) => setStatus({ kind: "error", message: (e as Error).message });
@@ -93,6 +98,7 @@ export function useVault(
         setDraft(n.content);
         setEditing(false);
         setResults(null);
+        setHistory(null);
         setStatus({ kind: "idle" });
         loadBacklinks(key);
       } catch (e) {
@@ -174,6 +180,32 @@ export function useVault(
     [api],
   );
 
+  const loadHistory = useCallback(async () => {
+    if (!note) return;
+    try {
+      const h = await api.history(note.key);
+      setHistory(h.versions);
+    } catch (e) {
+      fail(e);
+    }
+  }, [api, note]);
+
+  const restore = useCallback(
+    async (versionId: string) => {
+      if (!note) return;
+      const key = note.key;
+      setStatus({ kind: "saving" });
+      try {
+        await api.restore(key, versionId);
+        setHistory(null);
+        await open(key);
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [api, note, open],
+  );
+
   const dirty = editing && note != null && draft !== note.content;
 
   return {
@@ -187,6 +219,7 @@ export function useVault(
     backlinks,
     status,
     results,
+    history,
     setDraft,
     setEditing,
     open,
@@ -196,6 +229,9 @@ export function useVault(
     remove,
     search,
     clearSearch: () => setResults(null),
+    loadHistory,
+    restore,
+    clearHistory: () => setHistory(null),
     refreshTree,
   };
 }

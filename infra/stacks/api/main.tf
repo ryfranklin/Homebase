@@ -311,14 +311,16 @@ data "aws_iam_policy_document" "bff" {
   statement {
     sid       = "ListVaultBucket"
     effect    = "Allow"
-    actions   = ["s3:ListBucket"]
+    actions   = ["s3:ListBucket", "s3:ListBucketVersions"]
     resources = [local.corpus_bucket_arn]
   }
 
+  # Read/write current objects, plus read prior versions for note history/restore
+  # (the corpus bucket is versioned).
   statement {
     sid       = "ReadWriteVaultObjects"
     effect    = "Allow"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    actions   = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject"]
     resources = ["${local.corpus_bucket_arn}/*"]
   }
 

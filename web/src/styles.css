@@ -1459,3 +1459,102 @@ button {
   height: 100dvh;
   background: var(--bg);
 }
+
+/* Attribution line under the note title */
+.vault-attr {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.74rem;
+  color: var(--faint);
+}
+
+/* History modal */
+.vault-history-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  padding: 24px;
+}
+.vault-history {
+  width: 100%;
+  max-width: 480px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+.vault-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.vault-history-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.vault-history-empty {
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+.vault-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vault-version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.vault-version:hover {
+  background: var(--surface);
+}
+.vault-version-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.vault-version-who {
+  font-size: 0.88rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vault-version-when {
+  font-size: 0.74rem;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.vault-version-current {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--bg);
+  background: var(--white);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.vault-version .vault-btn {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}

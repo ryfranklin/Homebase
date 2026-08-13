@@ -1,4 +1,4 @@
-import type { Backlink, Note, SearchResult, TreeNode } from "./types";
+import type { Backlink, Note, NoteVersion, SearchResult, TreeNode } from "./types";
 
 // Thin authed client for the vault routes. Mirrors the chat/connector fetch
 // pattern: every call carries a fresh bearer token and hits `${apiBaseUrl}/api/vault/*`.
@@ -41,6 +41,8 @@ export interface VaultApi {
   remove(key: string): Promise<{ ok: true; key: string }>;
   search(q: string): Promise<{ results: SearchResult[] }>;
   backlinks(key: string): Promise<{ backlinks: Backlink[] }>;
+  history(key: string): Promise<{ key: string; versions: NoteVersion[] }>;
+  restore(key: string, versionId: string): Promise<{ ok: true; key: string }>;
 }
 
 export function makeVaultApi(
@@ -58,5 +60,7 @@ export function makeVaultApi(
     remove: (key) => call(`note?key=${q(key)}`, { method: "DELETE" }),
     search: (query) => call(`search?q=${q(query)}`),
     backlinks: (key) => call(`backlinks?key=${q(key)}`),
+    history: (key) => call(`history?key=${q(key)}`),
+    restore: (key, versionId) => call("restore", { method: "POST", body: JSON.stringify({ key, versionId }) }),
   };
 }

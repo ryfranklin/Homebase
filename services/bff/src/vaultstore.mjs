@@ -3,9 +3,15 @@
 // stays pure and unit-testable with a fake store.
 
 export async function makeVaultDeps({ region, bucket, kbId, dataSourceId }) {
-  const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = await import(
-    "@aws-sdk/client-s3"
-  );
+  const {
+    S3Client,
+    ListObjectsV2Command,
+    GetObjectCommand,
+    PutObjectCommand,
+    DeleteObjectCommand,
+    ListObjectVersionsCommand,
+    HeadObjectCommand,
+  } = await import("@aws-sdk/client-s3");
   const s3 = new S3Client({ region });
 
   const store = {
@@ -21,9 +27,37 @@ export async function makeVaultDeps({ region, bucket, kbId, dataSourceId }) {
       } while (ContinuationToken);
       return keys;
     },
-    async getObject(key) {
-      const out = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-      return { content: await out.Body.transformToString("utf8") };
+    async getObject(key, versionId) {
+      const out = await s3.send(
+        new GetObjectCommand({ Bucket: bucket, Key: key, ...(versionId ? { VersionId: versionId } : {}) }),
+      );
+      return { content: await out.Body.transformToString("utf8"), metadata: out.Metadata || {} };
+    },
+    async listVersions(key, limit = 50) {
+      const out = await s3.send(new ListObjectVersionsCommand({ Bucket: bucket, Prefix: key }));
+      const versions = (out.Versions || []).filter((v) => v.Key === key).slice(0, limit);
+      // Author lives in per-version user metadata; a HeadObject per version fetches it.
+      return Promise.all(
+        versions.map(async (v) => {
+          let updatedBy = null;
+          let updatedAt = null;
+          try {
+            const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key, VersionId: v.VersionId }));
+            updatedBy = head.Metadata?.["updated-by"] || null;
+            updatedAt = head.Metadata?.["updated-at"] || null;
+          } catch {
+            /* metadata unavailable for this version */
+          }
+          return {
+            versionId: v.VersionId,
+            lastModified: v.LastModified?.toISOString?.() ?? v.LastModified ?? null,
+            updatedAt,
+            updatedBy,
+            size: v.Size,
+            isCurrent: !!v.IsLatest,
+          };
+        }),
+      );
     },
     async putObject(key, body, contentType, metadata) {
       await s3.send(

@@ -14,6 +14,17 @@ export interface Note {
   title: string;
   frontMatter: Record<string, string>;
   links: string[];
+  updatedBy: string | null;
+  updatedById: string | null;
+  updatedAt: string | null;
+}
+
+export interface NoteVersion {
+  versionId: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  size: number | null;
+  isCurrent: boolean;
 }
 
 export interface SearchResult {

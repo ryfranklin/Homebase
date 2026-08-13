@@ -17,6 +17,7 @@ function fakeVault(overrides: Partial<UseVault> = {}): UseVault {
     backlinks: [],
     status: { kind: "idle" },
     results: null,
+    history: null,
     setDraft: () => {},
     setEditing: () => {},
     open: async () => {},
@@ -26,6 +27,9 @@ function fakeVault(overrides: Partial<UseVault> = {}): UseVault {
     remove: async () => {},
     search: async () => {},
     clearSearch: () => {},
+    loadHistory: async () => {},
+    restore: async () => {},
+    clearHistory: () => {},
     refreshTree: async () => {},
     ...overrides,
   };
@@ -37,6 +41,9 @@ const note: Note = {
   content: "## Decision\n\nWe chose **S3 Vectors**.",
   frontMatter: {},
   links: [],
+  updatedBy: "ryan@example.com",
+  updatedById: "u-ryan",
+  updatedAt: new Date().toISOString(),
 };
 
 const tree: TreeNode[] = [{ name: "adr-020.md", path: "data-eng/adr-020.md", type: "file" }];
@@ -69,5 +76,26 @@ describe("VaultView", () => {
     render(<VaultView vault={fakeVault()} onOpenChat={onOpenChat} />);
     fireEvent.click(screen.getByRole("button", { name: "Chat" }));
     expect(onOpenChat).toHaveBeenCalled();
+  });
+
+  it("shows attribution and opens history", () => {
+    const loadHistory = vi.fn();
+    render(<VaultView vault={fakeVault({ note, loadHistory })} onOpenChat={() => {}} />);
+    expect(screen.getByText(/Edited by ryan@example.com/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(loadHistory).toHaveBeenCalled();
+  });
+
+  it("renders the history panel and restores a version", () => {
+    const restore = vi.fn();
+    const history = [
+      { versionId: "v2", updatedBy: "bob@example.com", updatedAt: new Date().toISOString(), size: 10, isCurrent: true },
+      { versionId: "v1", updatedBy: "alice@example.com", updatedAt: new Date().toISOString(), size: 8, isCurrent: false },
+    ];
+    render(<VaultView vault={fakeVault({ note, history, restore })} onOpenChat={() => {}} />);
+    expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+    // Only the non-current version has a Restore button.
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(restore).toHaveBeenCalledWith("v1");
   });
 });

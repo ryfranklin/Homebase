@@ -51,7 +51,7 @@ function writeJson(respond, cors, status, obj) {
 // Vault CRUD + search + backlinks over the S3 Markdown corpus. Auth, tenant, and
 // origin checks have already run in handleRequest; deps.vault is present only when
 // the corpus is configured on this deployment.
-async function handleVault(resource, method, event, body, respond, cors, deps) {
+async function handleVault(resource, method, event, body, respond, cors, deps, actor) {
   if (!deps.vault) {
     return writeError(respond, cors, 503, "vault_unconfigured", "vault is not enabled on this deployment");
   }
@@ -66,14 +66,20 @@ async function handleVault(resource, method, event, body, respond, cors, deps) {
     if (resource === "backlinks" && method === "GET") {
       return writeJson(respond, cors, 200, await deps.vault.backlinks(q.key ?? ""));
     }
+    if (resource === "history" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.history(q.key ?? ""));
+    }
+    if (resource === "restore" && method === "POST") {
+      return writeJson(respond, cors, 200, await deps.vault.restore(body.key ?? "", body.versionId ?? "", actor));
+    }
     if (resource === "note" && method === "GET") {
       return writeJson(respond, cors, 200, await deps.vault.get(q.key ?? ""));
     }
     if (resource === "note" && method === "PUT") {
-      return writeJson(respond, cors, 200, await deps.vault.put(body.key ?? "", body.content ?? ""));
+      return writeJson(respond, cors, 200, await deps.vault.put(body.key ?? "", body.content ?? "", actor));
     }
     if (resource === "note" && method === "DELETE") {
-      return writeJson(respond, cors, 200, await deps.vault.del(q.key ?? body.key ?? ""));
+      return writeJson(respond, cors, 200, await deps.vault.del(q.key ?? body.key ?? "", actor));
     }
     return writeError(respond, cors, 405, "method_not_allowed", `${method} not allowed on ${resource}`);
   } catch (err) {
@@ -216,9 +222,11 @@ export async function handleRequest(event, respond, deps) {
 
   // Vault workspace: browse / read / edit / search the Markdown corpus. Scoped by
   // the verified tenant (single-tenant seed: the whole corpus is the vault).
-  const vaultMatch = /\/vault\/(tree|note|search|backlinks)$/.exec(path);
+  const vaultMatch = /\/vault\/(tree|note|search|backlinks|history|restore)$/.exec(path);
   if (vaultMatch) {
-    return handleVault(vaultMatch[1], method, event, body, respond, cors, deps);
+    // Attribution: stamp writes with the verified user (email if present, else sub).
+    const actor = { id: userId, name: claims.email || claims["cognito:username"] || userId };
+    return handleVault(vaultMatch[1], method, event, body, respond, cors, deps, actor);
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;
