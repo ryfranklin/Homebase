@@ -1,3 +1,4 @@
-# Generated: copied from the repo-root architecture.html at build/dev time
-# (single source of truth stays at the repo root).
+# Generated: copied from the canonical repo docs at build/dev time
+# (single source of truth stays at the repo root / docs/).
 public/architecture.html
+public/diagrams.md
