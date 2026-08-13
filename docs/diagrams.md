@@ -79,6 +79,88 @@ erDiagram
 
 ---
 
+## AWS services and network topology
+
+One region, one account. CloudFront (WAF + origin secret) is the only public ingress.
+The BFF and shim Lambdas are not VPC-attached; the VPC carries the workstation, the
+CLI, and an AgentCore interface endpoint, with private subnets that have no inbound
+and egress only through a stoppable NAT.
+
+```mermaid
+flowchart TB
+  Users([Internet · users])
+
+  subgraph edge["Edge (global)"]
+    CF["CloudFront + WAF"]
+  end
+  Cognito["Cognito User Pool<br/>Google federation"]
+
+  Users --> CF
+  CF -->|"default · OAC"| S3web["S3 · SPA static (private)"]
+  CF -->|"/api/* · X-Origin-Secret"| BFF["Lambda BFF<br/>Function URL · SSE"]
+  CF -.->|"JWT verified in BFF"| Cognito
+
+  subgraph region["AWS Region · single account"]
+    subgraph vpc["VPC · no inbound"]
+      IGW["Internet Gateway"]
+      subgraph pubs["Public subnet"]
+        NAT["NAT instance<br/>(stoppable)"]
+      end
+      subgraph privs["Private subnets"]
+        WS["EC2 workstation<br/>no public IP"]
+        CLI["Fargate chat CLI<br/>ECS Exec only"]
+      end
+      VPCE["Interface endpoint<br/>bedrock-agentcore"]
+      WS --> NAT
+      CLI --> NAT
+      NAT --> IGW
+    end
+
+    subgraph ac["Bedrock AgentCore"]
+      RT["Runtime · agent"]
+      MEM["Memory"]
+      IDV["Identity · OAuth vault"]
+    end
+    subgraph br["Amazon Bedrock"]
+      Claude["Claude · inference profile"]
+      Rerank["Cohere Rerank"]
+      Titan["Titan Embeddings"]
+    end
+    KB["Knowledge Base"] --> S3V["Amazon S3 Vectors"]
+    Shims["Lambda connector shims x6"]
+
+    subgraph state["State & security"]
+      S3c["S3 corpus · KMS"]
+      SM["Secrets Manager"]
+      SSMP["SSM Parameter Store"]
+      KMS["KMS CMKs · per stack"]
+    end
+    subgraph ops["Access & ops"]
+      SSM["SSM · Session Manager / ECS Exec"]
+      CW["CloudWatch · logs · alarms"]
+      SNS["SNS · budget / alarms"]
+    end
+  end
+
+  BFF --> RT
+  BFF --> SM
+  RT --> Claude
+  RT --> MEM
+  RT --> KB
+  KB --> Rerank
+  KB --> Titan
+  KB --> S3c
+  RT -->|"lambda:InvokeFunction"| Shims
+  Shims --> IDV
+  IDV --> SM
+  Shims --> Vendors([Vendor APIs])
+  SSM -.->|"no SSH"| WS
+  SSM -.-> CLI
+  CW --> SNS
+```
+
+---
+
 ## Components (UML component diagram)
 
 The four deployables and their internal modules. Arrows are call/dependency

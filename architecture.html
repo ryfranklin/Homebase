@@ -178,6 +178,7 @@
         <button role="tab" aria-selected="false" data-view="retrieval">retrieval</button>
         <button role="tab" aria-selected="false" data-view="security">security perimeter</button>
         <button role="tab" aria-selected="false" data-view="connectors">connectors</button>
+        <button role="tab" aria-selected="false" data-view="topology">aws topology</button>
       </nav>
 
       <!-- ============ SYSTEM CONTEXT ============ -->
@@ -325,6 +326,61 @@
           <div class="col"><div class="card"><h3>Write gate <span class="pill gate">confirm</span></h3><p>Any write (send, post, create, modify) returns a confirmation contract instead of executing. Only a re-invocation with the matching token proceeds. The gate lives at the tool layer, so the GUI and the SSH CLI both inherit it. Only read tools are offered to the agent.</p></div></div>
           <div class="col"><div class="card"><h3>Identity <span class="pill core">per-user</span></h3><p>OAuth tokens live in AgentCore Identity, keyed by the caller's tenant and connector. No tokens, client ids, or workspace ids in code; the agent reaches a connector with only the tenant it already carries. Independent auth, no borrowed tokens.</p></div></div>
           <div class="col"><div class="card"><h3>Never indexed <span class="pill deny">ADR-004</span></h3><p>Connector data is fetched live per query and is never written into the corpus / S3 Vectors store. There is no connector-to-corpus ingestion path.</p></div></div>
+        </div>
+      </section>
+
+      <!-- ============ AWS TOPOLOGY ============ -->
+      <section class="view" id="topology" role="tabpanel">
+        <h2>AWS services and network topology</h2>
+        <p class="sub">One region, one account. CloudFront is the only public ingress; the VPC exists for the workstation, the CLI, and interface endpoints. No inbound SSH anywhere. Every CIDR, id, and endpoint is a placeholder.</p>
+
+        <h3 style="margin-top:14px">Public edge</h3>
+        <div class="flow">
+          <div class="node"><span class="k">users</span>Internet (HTTPS)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">edge</span>CloudFront + WAF<br />(managed rules)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">spa origin</span>S3 static site<br />(private, OAC)</div>
+        </div>
+        <div class="flow">
+          <div class="node"><span class="k">/api/*</span>CloudFront behavior<br />(+ X-Origin-Secret)</div>
+          <span class="arrow stream">→ SSE →</span>
+          <div class="node"><span class="k">bff</span>Lambda Function URL<br />(streaming, not in VPC)</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">core</span>AgentCore Runtime</div>
+        </div>
+
+        <h3 style="margin-top:18px">VPC — network layout</h3>
+        <div class="layers">
+          <div class="layer"><span class="n">igw</span><span><span class="t">Internet Gateway</span> <span class="d">— the only route to the internet; egress only.</span></span></div>
+          <div class="layer"><span class="n">pub</span><span><span class="t">Public subnet · NAT instance</span> <span class="d">— a stoppable t4g.nano gives private hosts egress, then drops to $0 when idle.</span></span></div>
+          <div class="layer ssh"><span class="n">priv</span><span><span class="t">Private subnets · workstation + chat CLI</span> <span class="d">— EC2 workstation (no public IP) and the Fargate CLI. Egress via NAT; NO inbound, NO public IP.</span></span></div>
+          <div class="layer"><span class="n">vpce</span><span><span class="t">Interface endpoint · bedrock-agentcore</span> <span class="d">— private connectivity to AgentCore from inside the VPC.</span></span></div>
+        </div>
+
+        <h3 style="margin-top:18px">Managed services (regional)</h3>
+        <div class="grid2">
+          <div class="card"><h3>Bedrock AgentCore <span class="pill core">agent</span></h3><p>Runtime (agent container), Memory, Gateway (MCP), Identity (OAuth vault). The BFF invokes the Runtime; the agent invokes the connector shim Lambdas.</p></div>
+          <div class="card"><h3>Amazon Bedrock <span class="pill core">models</span></h3><p>Claude via a cross-region inference profile, Cohere Rerank, Titan Embeddings. Reached by the Runtime and the Knowledge Base.</p></div>
+          <div class="card"><h3>Retrieval store <span class="pill read">read</span></h3><p>Bedrock Knowledge Base over Amazon S3 Vectors (semantic index); rerank at query time.</p></div>
+          <div class="card"><h3>Cognito <span class="pill core">identity</span></h3><p>User pool with Google federation, hosted UI, and a pre-sign-up allow-list Lambda. Tokens verified in the BFF.</p></div>
+          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI. EC2: workstation. AgentCore: the agent.</p></div>
+          <div class="card"><h3>Connector shims <span class="pill gate">write-gated</span></h3><p>One Lambda per connector; each resolves the tenant OAuth token from AgentCore Identity and calls the vendor API. Reached by <code>lambda:InvokeFunction</code>.</p></div>
+        </div>
+
+        <h3 style="margin-top:18px">State, security and ops</h3>
+        <div class="grid2">
+          <div class="card"><h3>Storage <span class="pill core">S3</span></h3><p>Private corpus bucket (KMS), the SPA static bucket (OAC), and the remote-state bucket. Amazon S3 Vectors holds the retrieval index.</p></div>
+          <div class="card"><h3>Secrets &amp; config <span class="pill core">KMS</span></h3><p>KMS CMKs per stack; Secrets Manager for the rotating origin secret, OAuth client secrets, and workstation secrets; SSM Parameter Store for non-secret config (SecureString for the allow-list).</p></div>
+          <div class="card"><h3>Access <span class="pill deny">no SSH</span></h3><p>Workstation and CLI are reached only through SSM (Session Manager / ECS Exec) — no key pair, no inbound, no public IP.</p></div>
+          <div class="card"><h3>Observability <span class="pill core">CloudWatch</span></h3><p>Encrypted log groups, dashboards, and spend / uptime alarms to an SNS topic; OTEL traces from the agent.</p></div>
+        </div>
+
+        <div class="note">
+          <b>Network posture.</b> CloudFront (WAF + origin secret) is the only public ingress. The BFF and
+          shim Lambdas are not VPC-attached — they reach AWS APIs over the AWS network. The VPC carries the
+          workstation, the CLI, and the AgentCore interface endpoint; its private subnets have no inbound
+          and reach the internet only for egress through a stoppable NAT.
         </div>
       </section>
 
