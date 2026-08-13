@@ -16,6 +16,7 @@ export interface ChatViewProps {
   onSend: (input: string) => void;
   onStop?: () => void;
   onSignOut?: () => void;
+  onOpenVault?: () => void;
 }
 
 // A small pulsing indicator shown while the agent is working but hasn't streamed
@@ -35,7 +36,7 @@ function Thinking() {
 
 // Presentational streaming chat. A single centered column: a minimal header, a
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
-export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: ChatViewProps) {
+export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpenVault }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,16 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
           Homebase
         </span>
         <div className="header-actions">
+          {onOpenVault && (
+            <div className="mode-switch" role="tablist" aria-label="Workspace">
+              <button type="button" onClick={onOpenVault} aria-selected="false">
+                Vault
+              </button>
+              <button type="button" className="mode-active" aria-selected="true">
+                Chat
+              </button>
+            </div>
+          )}
           <button type="button" className="link-button" onClick={() => setShowDocs(true)}>
             Docs
           </button>

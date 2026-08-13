@@ -24,10 +24,67 @@ function constantTimeEqual(a, b) {
 function corsHeaders(allowedOrigin) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "authorization, content-type",
     Vary: "Origin",
   };
+}
+
+function queryParams(event) {
+  if (event.queryStringParameters) return event.queryStringParameters;
+  const raw = event.rawQueryString || "";
+  const out = {};
+  for (const pair of raw.split("&")) {
+    if (!pair) continue;
+    const [k, v = ""] = pair.split("=");
+    out[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, " "));
+  }
+  return out;
+}
+
+function writeJson(respond, cors, status, obj) {
+  const writer = respond(status, { "Content-Type": "application/json", ...cors });
+  writer.write(JSON.stringify(obj));
+  writer.end();
+}
+
+// Vault CRUD + search + backlinks over the S3 Markdown corpus. Auth, tenant, and
+// origin checks have already run in handleRequest; deps.vault is present only when
+// the corpus is configured on this deployment.
+async function handleVault(resource, method, event, body, respond, cors, deps) {
+  if (!deps.vault) {
+    return writeError(respond, cors, 503, "vault_unconfigured", "vault is not enabled on this deployment");
+  }
+  const q = queryParams(event);
+  try {
+    if (resource === "tree" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.tree());
+    }
+    if (resource === "search" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.search(q.q ?? ""));
+    }
+    if (resource === "backlinks" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.backlinks(q.key ?? ""));
+    }
+    if (resource === "note" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.get(q.key ?? ""));
+    }
+    if (resource === "note" && method === "PUT") {
+      return writeJson(respond, cors, 200, await deps.vault.put(body.key ?? "", body.content ?? ""));
+    }
+    if (resource === "note" && method === "DELETE") {
+      return writeJson(respond, cors, 200, await deps.vault.del(q.key ?? body.key ?? ""));
+    }
+    return writeError(respond, cors, 405, "method_not_allowed", `${method} not allowed on ${resource}`);
+  } catch (err) {
+    const status = err.status || 500;
+    const code = err.code || "vault_error";
+    if (status >= 500) {
+      console.error(JSON.stringify({ event: "vault_error", resource, method, code, message: String(err?.message || "").slice(0, 300) }));
+      return writeError(respond, cors, 502, "vault_error", "vault operation failed");
+    }
+    return writeError(respond, cors, status, code, err.message);
+  }
 }
 
 function extractBearer(event) {
@@ -155,6 +212,13 @@ export async function handleRequest(event, respond, deps) {
     writer.write(JSON.stringify({ ok: true }));
     writer.end();
     return;
+  }
+
+  // Vault workspace: browse / read / edit / search the Markdown corpus. Scoped by
+  // the verified tenant (single-tenant seed: the whole corpus is the vault).
+  const vaultMatch = /\/vault\/(tree|note|search|backlinks)$/.exec(path);
+  if (vaultMatch) {
+    return handleVault(vaultMatch[1], method, event, body, respond, cors, deps);
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;

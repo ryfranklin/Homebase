@@ -13,9 +13,23 @@ import { makeIdentityClient } from "./identity.mjs";
 import { JwksCache } from "./jwks.mjs";
 import { verifyJwt } from "./jwt.mjs";
 import { cachedOriginSecrets } from "./secrets.mjs";
+import { makeVault } from "./vault.mjs";
+import { makeVaultDeps } from "./vaultstore.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
+
+// Vault workspace over the S3 corpus, enabled when the bucket is configured.
+let vault = null;
+if (config.corpusBucket) {
+  const { store, reingest } = await makeVaultDeps({
+    region: config.region,
+    bucket: config.corpusBucket,
+    kbId: config.kbId,
+    dataSourceId: config.kbDataSourceId,
+  });
+  vault = makeVault({ store, reingest });
+}
 
 // When the rotating origin secret ARN is configured, load its current/pending
 // values from Secrets Manager (cached) so rotation needs no redeploy.
@@ -80,5 +94,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     config: requestConfig,
     agentStream,
     completeConnectorAuth,
+    vault,
   });
 });

@@ -28,5 +28,12 @@ export function loadConfig(env = process.env) {
     // loads the current (and pending, during rotation) values at runtime, so the
     // secret can be rotated without a redeploy.
     originSecretArn: env.HOMEBASE_ORIGIN_SECRET_ARN || null,
+    // Vault workspace: the S3 Markdown corpus is the editable vault. When the
+    // bucket is set, the BFF exposes /api/vault/*; when the KB id + data source id
+    // are also set, saving a note best-effort re-grounds it for the agent. All
+    // optional so the chat-only deployment and the unit tests run without them.
+    corpusBucket: env.HOMEBASE_CORPUS_BUCKET || null,
+    kbId: env.HOMEBASE_KB_ID || null,
+    kbDataSourceId: env.HOMEBASE_KB_DATA_SOURCE_ID || null,
   };
 }

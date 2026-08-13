@@ -15,6 +15,25 @@ data "aws_ssm_parameter" "app_client_id" {
   name = "/${var.project_name}/${var.environment}/identity/app_client_id"
 }
 
+# Vault workspace: the BFF reads/writes the S3 Markdown corpus (the editable vault)
+# and triggers a KB sync on save. Bucket + CMK come from storage (P3); the KB and
+# data source ids come from retrieval (P4).
+data "aws_ssm_parameter" "corpus_bucket_name" {
+  name = "/${var.project_name}/${var.environment}/storage/corpus_bucket_name"
+}
+
+data "aws_ssm_parameter" "corpus_kms_key_arn" {
+  name = "/${var.project_name}/${var.environment}/storage/corpus_kms_key_arn"
+}
+
+data "aws_ssm_parameter" "knowledge_base_id" {
+  name = "/${var.project_name}/${var.environment}/retrieval/knowledge_base_id"
+}
+
+data "aws_ssm_parameter" "data_source_id" {
+  name = "/${var.project_name}/${var.environment}/retrieval/data_source_id"
+}
+
 locals {
   common_tags = merge({
     Project     = var.project_name
@@ -28,6 +47,13 @@ locals {
   agent_runtime_arn = data.aws_ssm_parameter.agent_runtime_arn.value
   issuer_url        = data.aws_ssm_parameter.issuer_url.value
   app_client_id     = data.aws_ssm_parameter.app_client_id.value
+
+  corpus_bucket_name = data.aws_ssm_parameter.corpus_bucket_name.value
+  corpus_kms_key_arn = data.aws_ssm_parameter.corpus_kms_key_arn.value
+  knowledge_base_id  = data.aws_ssm_parameter.knowledge_base_id.value
+  data_source_id     = data.aws_ssm_parameter.data_source_id.value
+  knowledge_base_arn = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:knowledge-base/${data.aws_ssm_parameter.knowledge_base_id.value}"
+  corpus_bucket_arn  = "arn:${data.aws_partition.current.partition}:s3:::${data.aws_ssm_parameter.corpus_bucket_name.value}"
 }
 
 # KMS key for the BFF log group.
@@ -279,6 +305,39 @@ data "aws_iam_policy_document" "bff" {
     actions   = ["kms:Decrypt"]
     resources = [module.api_kms.key_arn]
   }
+
+  # Vault workspace: browse / read / edit the Markdown corpus. List the bucket and
+  # read/write objects; scoped to exactly the corpus bucket.
+  statement {
+    sid       = "ListVaultBucket"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [local.corpus_bucket_arn]
+  }
+
+  statement {
+    sid       = "ReadWriteVaultObjects"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${local.corpus_bucket_arn}/*"]
+  }
+
+  # The corpus bucket is SSE-KMS with the storage CMK; read needs Decrypt and write
+  # needs GenerateDataKey on that key.
+  statement {
+    sid       = "CorpusKmsForVault"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [local.corpus_kms_key_arn]
+  }
+
+  # Saving a note best-effort re-grounds it: start a Knowledge Base ingestion sync.
+  statement {
+    sid       = "ReindexVaultOnSave"
+    effect    = "Allow"
+    actions   = ["bedrock:StartIngestionJob"]
+    resources = [local.knowledge_base_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "bff" {
@@ -315,6 +374,11 @@ resource "aws_lambda_function" "bff" {
       # The BFF reads the origin secret from Secrets Manager at runtime (current
       # and pending during rotation), so the secret rotates without a redeploy.
       HOMEBASE_ORIGIN_SECRET_ARN = aws_secretsmanager_secret.origin_secret.arn
+      # Vault workspace: the S3 corpus is the editable vault; on save the BFF starts
+      # a KB sync (kb id + data source id) so the note re-grounds for the agent.
+      HOMEBASE_CORPUS_BUCKET     = local.corpus_bucket_name
+      HOMEBASE_KB_ID             = local.knowledge_base_id
+      HOMEBASE_KB_DATA_SOURCE_ID = local.data_source_id
     }
   }
 

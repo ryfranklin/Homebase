@@ -1,0 +1,227 @@
+import { useEffect, useRef, useState } from "react";
+
+import type { UseVault } from "../vault/useVault";
+import { newNoteKey } from "../vault/resolve";
+import { Markdown } from "./Markdown";
+import { VaultTree } from "./VaultTree";
+
+export interface VaultViewProps {
+  vault: UseVault;
+  onOpenChat: () => void;
+  onSignOut?: () => void;
+}
+
+// The vault workspace: a sidebar (search + file tree), a note reader/editor, and
+// a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
+// agent. The visual language matches the near-black chat theme.
+export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
+  const [term, setTerm] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Debounced search: empty term clears results.
+  useEffect(() => {
+    const id = setTimeout(() => void vault.search(term), 180);
+    return () => clearTimeout(id);
+  }, [term]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cmd/Ctrl+S saves while editing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        if (vault.editing && vault.dirty) {
+          e.preventDefault();
+          void vault.save();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [vault.editing, vault.dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submitNew = () => {
+    const key = newNoteKey(newName);
+    if (!key) return;
+    setCreating(false);
+    setNewName("");
+    setTerm("");
+    void vault.create(key);
+  };
+
+  const onDelete = () => {
+    if (!vault.note) return;
+    if (window.confirm(`Delete "${vault.note.title}"? This removes it from the vault.`)) {
+      void vault.remove(vault.note.key);
+    }
+  };
+
+  return (
+    <div className="vault">
+      <header className="chat-header">
+        <span className="wordmark">
+          <span className="wordmark-dot" aria-hidden="true"></span>
+          Homebase
+        </span>
+        <div className="header-actions">
+          <div className="mode-switch" role="tablist" aria-label="Workspace">
+            <button type="button" className="mode-active" aria-selected="true">
+              Vault
+            </button>
+            <button type="button" onClick={onOpenChat} aria-selected="false">
+              Chat
+            </button>
+          </div>
+          {onSignOut && (
+            <button type="button" className="link-button" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
+        </div>
+      </header>
+
+      <div className="vault-body">
+        <aside className="vault-sidebar">
+          <div className="vault-side-top">
+            <input
+              className="vault-search"
+              type="search"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search notes…"
+              aria-label="Search notes"
+            />
+            <button type="button" className="vault-new" onClick={() => setCreating((v) => !v)} aria-label="New note">
+              +
+            </button>
+          </div>
+          {creating && (
+            <div className="vault-new-row">
+              <input
+                autoFocus
+                className="vault-new-input"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitNew();
+                  if (e.key === "Escape") setCreating(false);
+                }}
+                placeholder="folder/new-note.md"
+                aria-label="New note name"
+              />
+            </div>
+          )}
+          <div className="vault-count">
+            {vault.count} {vault.count === 1 ? "note" : "notes"}
+          </div>
+          <VaultTree tree={vault.tree} activeKey={vault.note?.key ?? null} onOpen={(k) => void vault.open(k)} />
+        </aside>
+
+        <main className="vault-main">
+          {vault.status.kind === "error" && <div className="vault-error">{vault.status.message}</div>}
+
+          {vault.results ? (
+            <div className="vault-results">
+              <div className="vault-results-head">
+                <span>
+                  {vault.results.length} result{vault.results.length === 1 ? "" : "s"} for “{term}”
+                </span>
+                <button type="button" className="link-button" onClick={() => setTerm("")}>
+                  Clear
+                </button>
+              </div>
+              {vault.results.map((r) => (
+                <button key={r.key} type="button" className="vault-result" onClick={() => void vault.open(r.key)}>
+                  <span className="vault-result-title">{r.title}</span>
+                  <span className="vault-result-key">{r.key}</span>
+                  <span className="vault-result-snippet">{r.snippet}</span>
+                </button>
+              ))}
+            </div>
+          ) : vault.note ? (
+            <article className="vault-note">
+              <div className="vault-note-head">
+                <div className="vault-note-titles">
+                  <h1>
+                    {vault.note.title}
+                    {vault.dirty && <span className="vault-dirty" title="Unsaved changes">•</span>}
+                  </h1>
+                  <span className="vault-note-key">{vault.note.key}</span>
+                </div>
+                <div className="vault-note-actions">
+                  {vault.editing ? (
+                    <>
+                      <button
+                        type="button"
+                        className="vault-btn primary"
+                        onClick={() => void vault.save()}
+                        disabled={!vault.dirty || vault.status.kind === "saving"}
+                      >
+                        {vault.status.kind === "saving" ? "Saving…" : "Save"}
+                      </button>
+                      <button type="button" className="vault-btn" onClick={() => vault.setEditing(false)}>
+                        Done
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="vault-btn" onClick={() => vault.setEditing(true)}>
+                      Edit
+                    </button>
+                  )}
+                  <button type="button" className="vault-btn danger" onClick={onDelete}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {vault.editing ? (
+                <div className="vault-editor-split">
+                  <textarea
+                    ref={editorRef}
+                    className="vault-editor"
+                    value={vault.draft}
+                    onChange={(e) => vault.setDraft(e.target.value)}
+                    spellCheck={false}
+                    aria-label="Note source"
+                  />
+                  <div className="vault-preview">
+                    <Markdown text={vault.draft} onWikiLink={vault.openWikilink} />
+                  </div>
+                </div>
+              ) : (
+                <div className="vault-reader">
+                  <Markdown text={vault.note.content} onWikiLink={vault.openWikilink} />
+                </div>
+              )}
+
+              {vault.backlinks.length > 0 && (
+                <section className="vault-backlinks" aria-label="Linked references">
+                  <h3>Linked references ({vault.backlinks.length})</h3>
+                  <ul>
+                    {vault.backlinks.map((b) => (
+                      <li key={b.key}>
+                        <button type="button" onClick={() => void vault.open(b.key)}>
+                          {b.title}
+                        </button>
+                        <span className="vault-backlink-key">{b.key}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </article>
+          ) : (
+            <div className="vault-empty">
+              <div className="vault-empty-mark" aria-hidden="true"></div>
+              <h1>Your vault</h1>
+              <p>Pick a note from the sidebar, search, or create a new one. Edits save to the cloud and re-ground the agent.</p>
+              <button type="button" className="vault-btn primary" onClick={() => setCreating(true)}>
+                New note
+              </button>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
