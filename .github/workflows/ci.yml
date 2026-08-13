@@ -247,3 +247,33 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*"
+
+      - name: Post-deploy canary (verify the live site serves)
+        # Blocking smoke check: a published deploy that doesn't actually serve should
+        # be red, not silently green. Hits the SPA root (VITE_REDIRECT_URI) and
+        # asserts HTTP 200 + the app's root marker, retrying while the invalidation
+        # propagates. The WAF default action is allow and a plain GET / trips no
+        # managed rule; GitHub runners egress from US, so any geo allowlist that
+        # includes US passes.
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          SITE_URL: ${{ secrets.VITE_REDIRECT_URI }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "VITE_REDIRECT_URI not set; skipping canary."
+            exit 0
+          fi
+          echo "Canary: GET $SITE_URL (expect HTTP 200 + <div id=\"root\">)"
+          code=000
+          for i in $(seq 1 10); do
+            code=$(curl -sS -m 15 -A "HomebaseCanary/1.0 (+github-actions)" \
+              -o body.html -w '%{http_code}' "$SITE_URL" || echo 000)
+            if [ "$code" = "200" ] && grep -q 'id="root"' body.html; then
+              echo "Canary OK on attempt $i (HTTP 200, SPA root marker present)."
+              exit 0
+            fi
+            echo "attempt $i/10: HTTP $code; retrying in 6s..."
+            sleep 6
+          done
+          echo "::error::Canary failed after 10 attempts (last HTTP $code). The deploy published but the live site did not return a valid SPA."
+          exit 1
