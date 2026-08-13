@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
+import { ServiceNetwork } from "./ServiceNetwork";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -61,7 +62,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
       <main className="transcript" aria-live="polite">
         {messages.length === 0 && (
           <div className="empty">
-            <div className="empty-mark" aria-hidden="true"></div>
+            <ServiceNetwork />
             <h1 className="empty-title">Ask a question about your knowledge base.</h1>
             <p className="empty-sub">Your notes, mail, calendar, Drive, Slack, Jira, and Confluence — one place.</p>
           </div>

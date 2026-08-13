@@ -155,29 +155,92 @@ button {
 .empty {
   margin: auto;
   text-align: center;
-  max-width: 30rem;
+  max-width: 34rem;
   padding: 24px;
   animation: rise 0.6s var(--ease) both;
 }
 
-.empty-mark {
-  width: 46px;
-  height: 46px;
-  margin: 0 auto 22px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--border);
-  position: relative;
-  box-shadow: 0 8px 40px rgba(255, 255, 255, 0.05);
+/* Animated service node-graph on the empty state */
+.service-network {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto 18px;
+  overflow: visible;
 }
-.empty-mark::after {
-  content: "";
-  position: absolute;
-  inset: 14px;
-  border-radius: 50%;
-  background: var(--white);
-  opacity: 0.9;
+.service-network svg {
+  display: block;
+  overflow: visible;
+  animation: float 7s ease-in-out infinite;
+}
+
+.edge {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+  stroke-dasharray: 2 7;
+  animation: edge-flow 2.4s linear infinite;
+}
+@keyframes edge-flow {
+  from {
+    stroke-dashoffset: 18;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.node-dot {
+  fill: #d2d2d6;
+}
+.node-halo {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: halo 2.9s var(--ease) infinite;
+}
+@keyframes halo {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.35);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+.node-label {
+  fill: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  dominant-baseline: middle;
+}
+
+.core-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spin 20s linear infinite;
+}
+.core-glow {
+  fill: rgba(255, 255, 255, 0.16);
+  transform-box: fill-box;
+  transform-origin: center;
   animation: pulse-dot 3s var(--ease) infinite;
+}
+.core-dot {
+  fill: var(--white);
+}
+.core-label {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
 }
 
 .empty-title {
@@ -655,6 +718,15 @@ button {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
   }
 }
 
