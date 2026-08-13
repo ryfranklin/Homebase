@@ -259,15 +259,19 @@ jobs:
         env:
           SITE_URL: ${{ secrets.VITE_REDIRECT_URI }}
         run: |
+          # Trim any stray whitespace/newline from the secret (URLs have none), so a
+          # secret-hygiene slip doesn't masquerade as a serving failure.
+          SITE_URL="$(printf '%s' "$SITE_URL" | tr -d '[:space:]')"
           if [ -z "$SITE_URL" ]; then
             echo "VITE_REDIRECT_URI not set; skipping canary."
             exit 0
           fi
-          echo "Canary: GET $SITE_URL (expect HTTP 200 + <div id=\"root\">)"
+          echo "Canary: GET the SPA root (expect HTTP 200 + <div id=\"root\">)"
           code=000
           for i in $(seq 1 10); do
             code=$(curl -sS -m 15 -A "HomebaseCanary/1.0 (+github-actions)" \
-              -o body.html -w '%{http_code}' "$SITE_URL" || echo 000)
+              -o body.html -w '%{http_code}' "$SITE_URL" 2>/dev/null || true)
+            [ -z "$code" ] && code=000
             if [ "$code" = "200" ] && grep -q 'id="root"' body.html; then
               echo "Canary OK on attempt $i (HTTP 200, SPA root marker present)."
               exit 0
