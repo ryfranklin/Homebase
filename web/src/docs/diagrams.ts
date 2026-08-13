@@ -49,11 +49,13 @@ export function parseDiagrams(md: string): Diagram[] {
   return out;
 }
 
-let initialized = false;
+// One shared init promise so concurrent callers (e.g. React StrictMode's double
+// effect invocation in dev) initialize Mermaid exactly once.
+let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
 
-async function loadMermaid() {
-  const mermaid = (await import("mermaid")).default;
-  if (!initialized) {
+function loadMermaid() {
+  if (mermaidPromise) return mermaidPromise;
+  mermaidPromise = import("mermaid").then(({ default: mermaid }) => {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
@@ -94,13 +96,18 @@ async function loadMermaid() {
         attributeBackgroundColorEven: "#1b1b1f",
       },
     });
-    initialized = true;
-  }
-  return mermaid;
+    return mermaid;
+  });
+  return mermaidPromise;
 }
 
-export async function renderMermaid(id: string, code: string): Promise<string> {
+// A fresh id per call: mermaid.render injects a temporary element with this id, so
+// two concurrent renders (StrictMode double-invoke, rapid re-renders) must not share
+// one, or they clobber each other and render intermittently.
+let renderSeq = 0;
+
+export async function renderMermaid(code: string): Promise<string> {
   const mermaid = await loadMermaid();
-  const { svg } = await mermaid.render(`svg-${id}`, code);
+  const { svg } = await mermaid.render(`hb-mmd-${renderSeq++}`, code);
   return svg;
 }

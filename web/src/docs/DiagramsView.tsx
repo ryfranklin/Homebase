@@ -8,7 +8,7 @@ function DiagramCard({ diagram }: { diagram: Diagram }) {
 
   useEffect(() => {
     let cancelled = false;
-    renderMermaid(diagram.id, diagram.code)
+    renderMermaid(diagram.code)
       .then((svg) => {
         if (!cancelled && ref.current) ref.current.innerHTML = svg;
       })
