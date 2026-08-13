@@ -11,9 +11,23 @@ export interface ChatViewProps {
   onSignOut?: () => void;
 }
 
-// Presentational streaming chat. Mobile-first: a single column that fills the
-// viewport, a scrollable transcript, and a composer pinned to the bottom (with
-// safe-area padding for notched phones).
+// A small pulsing indicator shown while the agent is working but hasn't streamed
+// any text yet ("waiting...").
+function Thinking() {
+  return (
+    <div className="thinking" role="status" aria-label="Thinking">
+      <span className="thinking-dots" aria-hidden="true">
+        <i></i>
+        <i></i>
+        <i></i>
+      </span>
+      <span className="thinking-label">Thinking</span>
+    </div>
+  );
+}
+
+// Presentational streaming chat. A single centered column: a minimal header, a
+// scrollable transcript, and a composer pinned to the bottom (safe-area aware).
 export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: ChatViewProps) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -33,7 +47,10 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
   return (
     <div className="chat">
       <header className="chat-header">
-        <span className="chat-title">Homebase</span>
+        <span className="wordmark">
+          <span className="wordmark-dot" aria-hidden="true"></span>
+          Homebase
+        </span>
         {onSignOut && (
           <button type="button" className="link-button" onClick={onSignOut}>
             Sign out
@@ -43,12 +60,23 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
 
       <main className="transcript" aria-live="polite">
         {messages.length === 0 && (
-          <p className="empty">Ask a question about your knowledge base.</p>
+          <div className="empty">
+            <div className="empty-mark" aria-hidden="true"></div>
+            <h1 className="empty-title">Ask a question about your knowledge base.</h1>
+            <p className="empty-sub">Your notes, mail, calendar, Drive, Slack, Jira, and Confluence — one place.</p>
+          </div>
         )}
         {messages.map((m) => (
           <article key={m.id} className={`message ${m.role}`} data-testid={`message-${m.role}`}>
             <div className="bubble">
-              {m.text || (m.streaming ? <span className="cursor">▋</span> : null)}
+              {m.text ? (
+                <div className="prose">
+                  {m.text}
+                  {m.streaming && <span className="caret" aria-hidden="true"></span>}
+                </div>
+              ) : m.streaming ? (
+                <Thinking />
+              ) : null}
               {m.error && <div className="message-error">{m.error}</div>}
             </div>
             {m.toolEvents.length > 0 && (
@@ -67,29 +95,34 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
       </main>
 
       <form className="composer" onSubmit={submit}>
-        <textarea
-          className="composer-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit(e);
-            }
-          }}
-          placeholder="Message Homebase"
-          rows={1}
-          aria-label="Message"
-        />
-        {streaming && onStop ? (
-          <button type="button" className="send-button" onClick={onStop}>
-            Stop
-          </button>
-        ) : (
-          <button type="submit" className="send-button" disabled={!input.trim()}>
-            Send
-          </button>
-        )}
+        <div className="composer-field">
+          <textarea
+            className="composer-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit(e);
+              }
+            }}
+            placeholder="Message Homebase…"
+            rows={1}
+            aria-label="Message"
+          />
+          {streaming && onStop ? (
+            <button type="button" className="icon-button stop" onClick={onStop} aria-label="Stop">
+              <span className="stop-glyph" aria-hidden="true"></span>
+            </button>
+          ) : (
+            <button type="submit" className="icon-button send" disabled={!input.trim()} aria-label="Send">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M12 20V5M12 5l-6 6M12 5l6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <p className="composer-hint">Homebase can read your connected accounts. Answers are grounded in your sources.</p>
       </form>
     </div>
   );

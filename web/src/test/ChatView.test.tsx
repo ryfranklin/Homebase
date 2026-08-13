@@ -28,7 +28,7 @@ describe("ChatView", () => {
     const onSend = vi.fn();
     render(<ChatView messages={[]} streaming={false} onSend={onSend} />);
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello" } });
-    fireEvent.click(screen.getByText("Send"));
+    fireEvent.click(screen.getByLabelText("Send"));
     expect(onSend).toHaveBeenCalledWith("hello");
   });
 
@@ -42,7 +42,7 @@ describe("ChatView", () => {
         onStop={onStop}
       />,
     );
-    fireEvent.click(screen.getByText("Stop"));
+    fireEvent.click(screen.getByLabelText("Stop"));
     expect(onStop).toHaveBeenCalled();
   });
 
