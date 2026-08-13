@@ -54,6 +54,13 @@ credentials
 *.secrets
 *_secret.*
 *credentials*.json
+
+# Exceptions: application/IaC source code whose name contains "secret" is not a
+# secret value (the BFF's origin-secret caching logic; the rotation Lambda). Keep
+# them tracked so CI and a clean-clone deploy see them; the broad patterns above
+# still catch real secret files, and gitleaks scans the content regardless.
+!services/bff/src/secrets.mjs
+!infra/stacks/api/rotation/rotate_origin_secret.py
 *.credentials.json
 secrets.*.yaml
 secrets.*.yml
