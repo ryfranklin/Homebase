@@ -35,16 +35,11 @@ terraform -chdir=infra/stacks/cicd apply
 
 ## Wire up GitHub Actions
 
-The `deploy-web` job in `.github/workflows/ci.yml` stays skipped until the repo
-**Variable** `WEB_BUCKET` is set. Configure under
-`Settings -> Secrets and variables -> Actions`:
+The `deploy-web` job in `.github/workflows/ci.yml` stays skipped (green) until
+both `AWS_DEPLOY_ROLE_ARN` and `WEB_BUCKET` are set. Add all of the following as
+repo **Secrets** under `Settings -> Secrets and variables -> Actions -> Secrets`:
 
-**Secret**
-
-- `AWS_DEPLOY_ROLE_ARN` = `terraform output web_deploy_role_arn`
-
-**Variables**
-
+- `AWS_DEPLOY_ROLE_ARN` = `terraform output -raw web_deploy_role_arn`
 - `AWS_REGION`
 - `WEB_BUCKET` (the SPA bucket name)
 - `CLOUDFRONT_DISTRIBUTION_ID`
@@ -56,7 +51,8 @@ The `deploy-web` job in `.github/workflows/ci.yml` stays skipped until the repo
 - `VITE_LOGOUT_URI`
 - `VITE_API_BASE_URL`
 
-These are public client identifiers and resource names, not secrets, but they
-are environment-specific so they live in repo config, never in the committed
-workflow. Once `WEB_BUCKET` is set, every push to `main` that passes the checks
-builds the SPA and deploys it.
+Only `AWS_DEPLOY_ROLE_ARN` is truly sensitive. The rest are public client
+identifiers and resource names (they ship in the SPA bundle / appear in DNS), but
+keeping them as Secrets masks them in the public Actions logs and keeps them out
+of the committed workflow. Once the two required Secrets exist, every push to
+`main` that passes the checks builds the SPA and deploys it.

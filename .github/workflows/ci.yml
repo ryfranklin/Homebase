@@ -5,7 +5,7 @@ name: ci
 # Infrastructure (terraform apply) and the agent image are NEVER deployed here:
 # those remain human actions (see scripts/deploy-agent.sh and the RUNBOOK). The web
 # deploy authenticates with GitHub OIDC (no long-lived keys) and is skipped until
-# the deploy vars/secret are configured (see infra/stacks/cicd).
+# the deploy Secrets are configured (see infra/stacks/cicd).
 
 on:
   pull_request:
@@ -125,51 +125,70 @@ jobs:
     name: deploy web (S3 sync + CloudFront invalidation)
     # CONTENT deploy only. This never runs terraform apply and never touches the
     # agent image (both remain human actions). It runs only on a push to main,
-    # only after the checks pass, and only once the deploy vars are configured
-    # (vars.WEB_BUCKET). Auth is GitHub OIDC, so there are NO long-lived AWS keys.
-    # All account-specific values come from repo Variables/Secrets, never literals.
+    # after the checks pass. Auth is GitHub OIDC, so there are NO long-lived AWS
+    # keys. Every account-specific value comes from repo Secrets (never a literal);
+    # keeping them as Secrets also masks them in the public Actions logs. A first
+    # step no-ops the job (stays green) until the deploy Secrets are configured.
     needs: [secret-scan, terraform-fmt, lint, tests, eval-gate]
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      vars.WEB_BUCKET != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # required for OIDC role assumption
     steps:
+      - name: Check deploy is configured
+        id: gate
+        env:
+          ROLE: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          BUCKET: ${{ secrets.WEB_BUCKET }}
+        run: |
+          if [ -n "$ROLE" ] && [ -n "$BUCKET" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Deploy not configured (AWS_DEPLOY_ROLE_ARN / WEB_BUCKET absent); skipping."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
 
       - name: Set up Node
+        if: steps.gate.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Configure AWS credentials (GitHub OIDC, no static keys)
+        if: steps.gate.outputs.ready == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Build the SPA
+        if: steps.gate.outputs.ready == 'true'
         working-directory: web
         # Vite build-time config. These are public client identifiers (they ship in
-        # the bundle anyway), injected from repo Variables so nothing is hardcoded.
+        # the bundle anyway), injected from repo Secrets so nothing is hardcoded.
         env:
-          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
-          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
-          VITE_COGNITO_HOSTED_UI_DOMAIN: ${{ vars.VITE_COGNITO_HOSTED_UI_DOMAIN }}
-          VITE_COGNITO_SCOPES: ${{ vars.VITE_COGNITO_SCOPES }}
-          VITE_REDIRECT_URI: ${{ vars.VITE_REDIRECT_URI }}
-          VITE_LOGOUT_URI: ${{ vars.VITE_LOGOUT_URI }}
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_HOSTED_UI_DOMAIN: ${{ secrets.VITE_COGNITO_HOSTED_UI_DOMAIN }}
+          VITE_COGNITO_SCOPES: ${{ secrets.VITE_COGNITO_SCOPES }}
+          VITE_REDIRECT_URI: ${{ secrets.VITE_REDIRECT_URI }}
+          VITE_LOGOUT_URI: ${{ secrets.VITE_LOGOUT_URI }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: |
           npm ci
           npm run build
 
       - name: Sync to S3 and invalidate CloudFront
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          WEB_BUCKET: ${{ secrets.WEB_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
-          aws s3 sync web/dist "s3://${{ vars.WEB_BUCKET }}/" --delete
+          aws s3 sync web/dist "s3://$WEB_BUCKET/" --delete
           aws cloudfront create-invalidation \
-            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*"
