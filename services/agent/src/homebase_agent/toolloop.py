@@ -89,3 +89,55 @@ def run_tool_loop(llm, *, system, question, tools, execute, max_turns=8) -> Tool
         citations=citations,
         grounded=grounded,
     )
+
+
+def run_tool_loop_stream(llm, *, system, question, tools, execute, max_turns=8):
+    """Streaming tool loop. A generator that yields SSE-ready events as they happen:
+
+      {"type": "token", "text": ...}                streamed answer text
+      {"type": "citation", "source_path": ..., "score": ...}   from knowledge-base search
+      {"type": "authorization_required", "url": ...}  a connector needs linking
+      {"type": "done"}                              terminal
+
+    Text is streamed live from the model; tool calls execute between turns.
+    """
+    messages = [{"role": "user", "content": [{"text": question}]}]
+
+    for _ in range(max_turns):
+        final = None
+        for ev in llm.converse_with_tools_stream(system=system, messages=messages, tools=tools):
+            if ev["type"] == "text":
+                yield {"type": "token", "text": ev["text"]}
+            elif ev["type"] == "final":
+                final = ev
+
+        message = final["message"] if final else {"role": "assistant", "content": []}
+        messages.append(message)
+
+        if not final or final.get("stop_reason") != "tool_use":
+            yield {"type": "done"}
+            return
+
+        tool_results = []
+        for block in message.get("content", []):
+            tool_use = block.get("toolUse")
+            if not tool_use:
+                continue
+            outcome = execute(tool_use["name"], tool_use.get("input") or {})
+
+            if outcome.authorization_url:
+                yield {"type": "token", "text": _consent_text(outcome.authorization_url)}
+                yield {"type": "authorization_required", "url": outcome.authorization_url}
+                yield {"type": "done"}
+                return
+            for citation in outcome.citations:
+                yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
+
+            tool_results.append(
+                {"toolResult": {"toolUseId": tool_use["toolUseId"], "content": [{"json": outcome.result}]}}
+            )
+
+        messages.append({"role": "user", "content": tool_results})
+
+    yield {"type": "token", "text": "I couldn't complete that within a reasonable number of steps."}
+    yield {"type": "done"}

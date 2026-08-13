@@ -7,7 +7,69 @@ Sonnet is a config change, not a code change.
 
 from __future__ import annotations
 
+import json
 from typing import Protocol
+
+
+def assemble_tool_stream(events):
+    """Consume a Bedrock converse_stream event stream and yield normalized events
+    for the streaming tool loop:
+
+      {"type": "text", "text": <delta>}         for each streamed text delta
+      {"type": "final", "message": <assistant message>, "stop_reason": <str>}  once
+
+    The final message reassembles the content blocks (text plus toolUse blocks with
+    their accumulated JSON input) so the tool loop can append it and continue.
+    """
+    blocks: dict = {}
+    order: list = []
+    stop_reason = None
+
+    def touch(idx):
+        if idx not in order:
+            order.append(idx)
+
+    for event in events:
+        if "contentBlockStart" in event:
+            e = event["contentBlockStart"]
+            idx = e["contentBlockIndex"]
+            start = e.get("start", {}) or {}
+            if "toolUse" in start:
+                tu = start["toolUse"]
+                blocks[idx] = {"kind": "tool", "toolUseId": tu["toolUseId"], "name": tu["name"], "input": ""}
+            else:
+                blocks[idx] = {"kind": "text", "text": ""}
+            touch(idx)
+        elif "contentBlockDelta" in event:
+            e = event["contentBlockDelta"]
+            idx = e["contentBlockIndex"]
+            delta = e.get("delta", {}) or {}
+            blk = blocks.setdefault(idx, {"kind": "text", "text": ""})
+            touch(idx)
+            if "text" in delta:
+                blk["kind"] = "text"
+                blk["text"] = blk.get("text", "") + delta["text"]
+                yield {"type": "text", "text": delta["text"]}
+            elif "toolUse" in delta:
+                blk["kind"] = "tool"
+                blk["input"] = blk.get("input", "") + delta["toolUse"].get("input", "")
+        elif "messageStop" in event:
+            stop_reason = event["messageStop"].get("stopReason")
+        # messageStart, contentBlockStop, metadata: nothing to accumulate.
+
+    content = []
+    for idx in order:
+        blk = blocks[idx]
+        if blk["kind"] == "text":
+            content.append({"text": blk.get("text", "")})
+        else:
+            try:
+                parsed = json.loads(blk.get("input") or "{}")
+            except ValueError:
+                parsed = {}
+            content.append({"toolUse": {"toolUseId": blk["toolUseId"], "name": blk["name"], "input": parsed}})
+
+    yield {"type": "final", "message": {"role": "assistant", "content": content}, "stop_reason": stop_reason}
 
 
 def _passages_block(passages) -> str:
@@ -73,3 +135,15 @@ class BedrockLLMClient:
             "message": response["output"]["message"],
             "stop_reason": response.get("stopReason"),
         }
+
+    def converse_with_tools_stream(self, *, system, messages, tools):
+        """Streaming variant of converse_with_tools: yields the normalized events
+        from assemble_tool_stream (text deltas, then one final message)."""
+        response = self._client.converse_stream(
+            modelId=self._model_id,
+            system=[{"text": system}],
+            messages=messages,
+            toolConfig={"tools": tools},
+            inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+        )
+        yield from assemble_tool_stream(response["stream"])

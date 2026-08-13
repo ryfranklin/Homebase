@@ -81,6 +81,10 @@ def make_handler(agent):
             else:
                 self._json(404, {"error": "not found"})
 
+        def _sse(self, event):
+            self.wfile.write(f"data: {json.dumps(event)}\n\n".encode("utf-8"))
+            self.wfile.flush()
+
         def do_POST(self):
             if self.path != "/invocations":
                 self._json(404, {"error": "not found"})
@@ -89,6 +93,23 @@ def make_handler(agent):
             payload = json.loads(self.rfile.read(length) or b"{}")
             session = _session_from_payload(payload)
             question = payload.get("input") or payload.get("prompt") or ""
+
+            # Stream the answer token-by-token when the agent supports it (the tool
+            # loop). The BFF consumes this SSE and relays it to the browser.
+            if agent.supports_streaming():
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    for event in agent.answer_stream(session, question):
+                        self._sse(event)
+                except Exception:  # noqa: BLE001 - never leave the stream hanging
+                    self._sse({"type": "error", "message": "agent_error"})
+                    self._sse({"type": "done"})
+                return
+
+            # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
             result = agent.answer(session, question)
             body = {
                 "answer": result.text,
@@ -98,7 +119,6 @@ def make_handler(agent):
                     for c in result.citations
                 ],
             }
-            # Present the connector consent link when a tool needs the account linked.
             if getattr(result, "authorization_url", None):
                 body["authorization_url"] = result.authorization_url
             self._json(200, body)

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from .llm import MockLLMClient
 from .memory import NullMemory
 from .prompts import load_system_prompt
-from .toolloop import Outcome, run_tool_loop
+from .toolloop import Outcome, run_tool_loop, run_tool_loop_stream
 
 NO_SOURCES_MESSAGE = (
     "I do not have a relevant source in your knowledge base for that, so I cannot answer it."
@@ -101,13 +101,16 @@ class Agent:
             for p in passages
         ]
 
-    def _answer_with_tools(self, session, question) -> AnswerResult:
+    def supports_streaming(self) -> bool:
+        return self._connectors is not None
+
+    def _make_execute(self, session, question):
+        """The tool dispatcher shared by the buffered and streaming loops."""
+
         def execute(name, tool_input):
             if name == "search_knowledge_base":
                 passages = self._retrieval.retrieve(tool_input.get("query") or question)
-                result = {
-                    "passages": [{"source": p.source_path, "text": p.text} for p in passages]
-                }
+                result = {"passages": [{"source": p.source_path, "text": p.text} for p in passages]}
                 return Outcome(result=result, citations=self._citations_from_passages(passages))
             # A connector read tool: invoke its shim; surface a consent prompt if the
             # user has not linked that account yet.
@@ -116,13 +119,18 @@ class Agent:
                 return Outcome(result={"status": "authorization_required"}, authorization_url=data.get("authorization_url"))
             return Outcome(result=data if isinstance(data, dict) else {"result": data})
 
-        tools = [SEARCH_KB_TOOL, *self._connectors.tool_specs()]
+        return execute
+
+    def _tools(self):
+        return [SEARCH_KB_TOOL, *self._connectors.tool_specs()]
+
+    def _answer_with_tools(self, session, question) -> AnswerResult:
         loop = run_tool_loop(
             self._llm,
             system=self._system_prompt + _TOOL_SYSTEM_SUFFIX,
             question=question,
-            tools=tools,
-            execute=execute,
+            tools=self._tools(),
+            execute=self._make_execute(session, question),
         )
 
         self._remember(session, "user", question)
@@ -135,6 +143,36 @@ class Agent:
             session=session,
             authorization_url=loop.authorization_url,
         )
+
+    def answer_stream(self, session, question):
+        """Streaming variant: a generator yielding SSE-ready events (token / citation
+        / authorization_required / done) as the tool loop runs. Requires connectors
+        (a tool-capable LLM); callers should gate on supports_streaming()."""
+        if self._connectors is None:
+            # Degrade gracefully to a single token from the buffered path.
+            result = self.answer(session, question)
+            yield {"type": "token", "text": result.text}
+            for citation in result.citations:
+                yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
+            yield {"type": "done"}
+            return
+
+        text_parts: list = []
+        for event in run_tool_loop_stream(
+            self._llm,
+            system=self._system_prompt + _TOOL_SYSTEM_SUFFIX,
+            question=question,
+            tools=self._tools(),
+            execute=self._make_execute(session, question),
+        ):
+            if event["type"] == "token":
+                text_parts.append(event["text"])
+            yield event
+
+        self._remember(session, "user", question)
+        final_text = "".join(text_parts)
+        if final_text:
+            self._remember(session, "assistant", final_text)
 
     def answer(self, session, question, **retrieval_kwargs) -> AnswerResult:
         if self._connectors is not None:
