@@ -14,17 +14,24 @@ async function authed<T>(
     ...init,
     headers: { "content-type": "application/json", authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
   });
+  const text = await res.text();
   if (!res.ok) {
     let message = res.statusText;
     try {
-      const body = await res.json();
+      const body = JSON.parse(text);
       message = body.message || body.error || message;
     } catch {
       /* non-JSON error body */
     }
     throw new Error(message);
   }
-  return res.json() as Promise<T>;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // A non-JSON 200 (e.g. the chat SSE stream) means the vault routes are not
+    // served yet - the api stack needs to be applied to deploy the new BFF.
+    throw new Error("The vault API is not available yet. Deploy the api stack (terraform -chdir=infra/stacks/api apply).");
+  }
 }
 
 export interface VaultApi {
