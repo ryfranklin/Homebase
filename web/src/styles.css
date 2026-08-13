@@ -501,6 +501,57 @@ button {
   padding: 0;
   font-size: 0.82em;
 }
+
+/* Syntax highlighting (highlight.js tokens via rehype-highlight) — a restrained
+   palette that fits the near-black theme. */
+.markdown .hljs {
+  color: #e9e9ec;
+}
+.markdown .hljs-comment,
+.markdown .hljs-quote {
+  color: var(--faint);
+  font-style: italic;
+}
+.markdown .hljs-keyword,
+.markdown .hljs-selector-tag,
+.markdown .hljs-literal,
+.markdown .hljs-type,
+.markdown .hljs-built_in {
+  color: #c4a7ff;
+}
+.markdown .hljs-string,
+.markdown .hljs-attr,
+.markdown .hljs-symbol,
+.markdown .hljs-bullet,
+.markdown .hljs-addition {
+  color: #9ae6b4;
+}
+.markdown .hljs-number,
+.markdown .hljs-meta,
+.markdown .hljs-regexp {
+  color: #f2b84b;
+}
+.markdown .hljs-title,
+.markdown .hljs-title.function_,
+.markdown .hljs-section,
+.markdown .hljs-name {
+  color: #82aaff;
+}
+.markdown .hljs-variable,
+.markdown .hljs-template-variable,
+.markdown .hljs-attribute,
+.markdown .hljs-tag {
+  color: #e9e9ec;
+}
+.markdown .hljs-deletion {
+  color: var(--danger);
+}
+.markdown .hljs-emphasis {
+  font-style: italic;
+}
+.markdown .hljs-strong {
+  font-weight: 650;
+}
 .markdown hr {
   border: none;
   border-top: 1px solid var(--border);
