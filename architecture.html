@@ -117,8 +117,10 @@
       </header>
       <p class="lede">
         An authenticated web GUI plus an SSH plane over a private knowledge base. Two ways in, one
-        agent core. Retrieval is semantic with reranking; connectors are live and write-gated; the
-        perimeter is layered. Every value shown here is a placeholder.
+        agent core. The agent answers by running a tool-use loop over knowledge-base search and the
+        live connectors, and streams its response token by token. Retrieval is semantic with
+        reranking; connectors are live and write-gated; the perimeter is layered. Every value shown
+        here is a placeholder.
       </p>
 
       <nav class="tabs" id="tabs" role="tablist">
@@ -161,20 +163,22 @@
             <div class="node"><span class="k">bff</span>Function URL (stream)</div>
             <span class="arrow">→</span>
             <div class="node"><span class="k">core</span>AgentCore Runtime<br />(Claude on Bedrock)</div>
-            <span class="arrow">↕</span>
-            <div class="node"><span class="k">ssh door</span>chat CLI · workstation</div>
+            <span class="arrow stream">← SSE ←</span>
+            <div class="node"><span class="k">tokens</span>streamed to the SPA</div>
           </div>
           <div class="flow">
-            <div class="node"><span class="k">core reaches</span>Retrieval + Memory + Connectors</div>
+            <div class="node"><span class="k">tool-use loop</span>the agent chooses tools</div>
             <span class="arrow">→</span>
-            <div class="node"><span class="k">retrieval</span>Bedrock KB · S3 Vectors</div>
+            <div class="node"><span class="k">tool · retrieval</span>Bedrock KB · S3 Vectors</div>
             <span class="arrow">→</span>
-            <div class="node"><span class="k">connectors</span>AgentCore Gateway + Identity</div>
+            <div class="node"><span class="k">tools · connectors</span>AgentCore Identity<br />(per-user OAuth)</div>
+            <span class="arrow">↕</span>
+            <div class="node"><span class="k">ssh door</span>chat CLI · workstation</div>
           </div>
         </div>
 
         <div class="grid2">
-          <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime. Cited answers only; a no-source path says so rather than guessing. AgentCore Memory (short + long term), OTEL observability to CloudWatch.</p></div>
+          <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime, running a tool-use loop over knowledge-base search and the connector read tools, streaming its answer token by token (SSE end to end). Knowledge-base answers cite their sources; AgentCore Memory (short + long term); OTEL observability to CloudWatch.</p></div>
           <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
           <div class="card"><h3>Infrastructure</h3><p>Terraform across twelve stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring.</p></div>
         </div>
@@ -245,20 +249,31 @@
       <!-- ============ CONNECTORS ============ -->
       <section class="view" id="connectors" role="tabpanel">
         <h2>Connectors: live, read-first, write-gated, never indexed</h2>
-        <p class="sub">Six integrations through AgentCore Gateway + Identity. Homebase authenticates each independently.</p>
+        <p class="sub">Six live integrations. Each is a shim the agent calls as a tool; AgentCore Identity holds a per-user OAuth token. Homebase authenticates each independently.</p>
 
         <div class="grid2">
           <div class="card"><h3>Gmail <span class="pill read">read-first</span></h3><p>Search messages (read). Send is a gated write.</p></div>
           <div class="card"><h3>Google Calendar <span class="pill read">read-first</span></h3><p>List events (read). Create event is a gated write.</p></div>
           <div class="card"><h3>Google Drive <span class="pill read">read-first</span></h3><p>Search files (read). Modify file is a gated write.</p></div>
-          <div class="card"><h3>Slack <span class="pill read">read-first</span></h3><p>Read messages (read). Post is a gated write. A dedicated Homebase app, own scopes.</p></div>
-          <div class="card"><h3>QuickBooks <span class="pill read">read-first</span></h3><p>Read reports (read). Create invoice is a gated write.</p></div>
-          <div class="card"><h3>Atlassian <span class="pill read">read-first</span></h3><p>Search issues (read). Create issue is a gated write.</p></div>
+          <div class="card"><h3>Slack <span class="pill read">read-first</span></h3><p>Read a channel by name or id (read). Post is a gated write. A dedicated Homebase app, own scopes.</p></div>
+          <div class="card"><h3>Jira <span class="pill read">read-first</span></h3><p>Search issues with JQL, site id resolved automatically (read). Create issue is a gated write.</p></div>
+          <div class="card"><h3>Confluence <span class="pill read">read-first</span></h3><p>Search pages with CQL (read). Shares one Atlassian app with Jira via a unioned scope set.</p></div>
+        </div>
+
+        <h3 style="margin-top:18px">Self-service linking (3LO, once per account)</h3>
+        <div class="flow">
+          <div class="node"><span class="k">1 · ask</span>agent calls a tool for<br />an unlinked account</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">2 · consent</span>it replies with a one-time<br />OAuth consent link</div>
+          <span class="arrow">→</span>
+          <div class="node"><span class="k">3 · finalize</span>the GUI completes the<br />session (BFF, signed call)</div>
+          <span class="arrow stream">→</span>
+          <div class="node"><span class="k">4 · vaulted</span>token stored in AgentCore<br />Identity; reads are headless</div>
         </div>
 
         <div class="row" style="margin-top:14px">
-          <div class="col"><div class="card"><h3>Write gate <span class="pill gate">confirm</span></h3><p>Any write (send, post, create, modify) returns a confirmation contract instead of executing. Only a re-invocation with the matching token proceeds. The gate lives at the tool layer, so the GUI and the SSH CLI both inherit it.</p></div></div>
-          <div class="col"><div class="card"><h3>Identity <span class="pill core">per-tenant</span></h3><p>OAuth credentials live in AgentCore Identity, namespaced per tenant (<code>&lt;tenant&gt;/&lt;connector&gt;</code>). No tokens, client ids, or workspace ids in code. Independent auth, no borrowed tokens.</p></div></div>
+          <div class="col"><div class="card"><h3>Write gate <span class="pill gate">confirm</span></h3><p>Any write (send, post, create, modify) returns a confirmation contract instead of executing. Only a re-invocation with the matching token proceeds. The gate lives at the tool layer, so the GUI and the SSH CLI both inherit it. Only read tools are offered to the agent.</p></div></div>
+          <div class="col"><div class="card"><h3>Identity <span class="pill core">per-user</span></h3><p>OAuth tokens live in AgentCore Identity, keyed by the caller's tenant and connector. No tokens, client ids, or workspace ids in code; the agent reaches a connector with only the tenant it already carries. Independent auth, no borrowed tokens.</p></div></div>
           <div class="col"><div class="card"><h3>Never indexed <span class="pill deny">ADR-004</span></h3><p>Connector data is fetched live per query and is never written into the corpus / S3 Vectors store. There is no connector-to-corpus ingestion path.</p></div></div>
         </div>
       </section>

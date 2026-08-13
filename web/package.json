@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "copy-docs": "node scripts/copy-docs.mjs",
+    "predev": "node scripts/copy-docs.mjs",
+    "prebuild": "node scripts/copy-docs.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

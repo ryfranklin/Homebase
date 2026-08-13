@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
+import { DocsOverlay } from "./DocsOverlay";
 import { ServiceNetwork } from "./ServiceNetwork";
 
 export interface ChatViewProps {
@@ -31,6 +32,7 @@ function Thinking() {
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
 export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: ChatViewProps) {
   const [input, setInput] = useState("");
+  const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,12 +54,19 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
           <span className="wordmark-dot" aria-hidden="true"></span>
           Homebase
         </span>
-        {onSignOut && (
-          <button type="button" className="link-button" onClick={onSignOut}>
-            Sign out
+        <div className="header-actions">
+          <button type="button" className="link-button" onClick={() => setShowDocs(true)}>
+            Docs
           </button>
-        )}
+          {onSignOut && (
+            <button type="button" className="link-button" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
+        </div>
       </header>
+
+      {showDocs && <DocsOverlay onClose={() => setShowDocs(false)} />}
 
       <main className="transcript" aria-live="polite">
         {messages.length === 0 && (
