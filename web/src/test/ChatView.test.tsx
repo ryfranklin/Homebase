@@ -50,4 +50,24 @@ describe("ChatView", () => {
     render(<ChatView messages={[]} streaming={false} onSend={() => {}} />);
     expect(screen.getByText(/Ask a question/)).toBeInTheDocument();
   });
+
+  it("renders assistant markdown (heading, bold, link)", () => {
+    render(
+      <ChatView
+        messages={[
+          assistant({
+            text: "## Title\n\nSome **bold** text and a [link](https://example.com/x).",
+            citations: [],
+          }),
+        ]}
+        streaming={false}
+        onSend={() => {}}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Title" })).toBeInTheDocument();
+    expect(screen.getByText("bold").tagName).toBe("STRONG");
+    const link = screen.getByRole("link", { name: "link" });
+    expect(link).toHaveAttribute("href", "https://example.com/x");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
 });

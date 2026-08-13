@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
 import { DocsOverlay } from "./DocsOverlay";
+import { Markdown } from "./Markdown";
 import { ServiceNetwork } from "./ServiceNetwork";
 
 export interface ChatViewProps {
@@ -80,10 +81,11 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut }: Cha
           <article key={m.id} className={`message ${m.role}`} data-testid={`message-${m.role}`}>
             <div className="bubble">
               {m.text ? (
-                <div className="prose">
-                  {m.text}
-                  {m.streaming && <span className="caret" aria-hidden="true"></span>}
-                </div>
+                m.role === "assistant" ? (
+                  <Markdown text={m.text} />
+                ) : (
+                  <div className="prose">{m.text}</div>
+                )
               ) : m.streaming ? (
                 <Thinking />
               ) : null}

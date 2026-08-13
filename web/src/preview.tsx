@@ -19,10 +19,12 @@ const SAMPLE: ChatMessage[] = [
     id: "a1",
     role: "assistant",
     text:
-      "ADR-002 kept Homebase on S3 Vectors (semantic + rerank): the live eval hit hit_rate@5 = 1.0, " +
-      "well above the 0.85 threshold, so the OpenSearch fallback wasn't triggered.\n\n" +
-      "In #general, the latest thread is about the Olympic curling rules question and a couple of " +
-      "recipe asks — nothing action-worthy.",
+      "### Retrieval decision\n\n" +
+      "**ADR-002** kept Homebase on **S3 Vectors** (semantic + rerank):\n\n" +
+      "- live eval `hit_rate@5 = 1.0` — above the `0.85` threshold\n" +
+      "- the OpenSearch fallback was **not** triggered\n\n" +
+      "See [ADR-002](https://example.invalid/adr-002-retrieval-store).\n\n" +
+      "In **#general**, the latest thread is the Olympic curling rules question and a couple of recipe asks — nothing action-worthy.",
     citations: [
       { sourcePath: "data-engineering/adr-002-retrieval-store.md", score: 0.98 },
       { sourcePath: "data-engineering/retrieval-eval.md", score: 0.91 },

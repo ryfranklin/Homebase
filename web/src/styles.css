@@ -421,6 +421,118 @@ button {
   display: inline;
 }
 
+/* Rendered Markdown (assistant answers) */
+.markdown {
+  color: #e9e9ec;
+}
+.markdown > *:first-child {
+  margin-top: 0;
+}
+.markdown > *:last-child {
+  margin-bottom: 0;
+}
+.markdown p {
+  margin: 0 0 0.75em;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 1.1em 0 0.45em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.markdown h1 {
+  font-size: 1.3rem;
+}
+.markdown h2 {
+  font-size: 1.15rem;
+}
+.markdown h3 {
+  font-size: 1.02rem;
+}
+.markdown h4 {
+  font-size: 0.95rem;
+}
+.markdown ul,
+.markdown ol {
+  margin: 0 0 0.75em;
+  padding-left: 1.35em;
+}
+.markdown li {
+  margin: 0.2em 0;
+}
+.markdown li > p {
+  margin: 0;
+}
+.markdown a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-strong);
+}
+.markdown a:hover {
+  text-decoration-color: var(--text);
+}
+.markdown strong {
+  font-weight: 650;
+  color: var(--text);
+}
+.markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05em 0.36em;
+}
+.markdown pre {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0 0 0.75em;
+}
+.markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.82em;
+}
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.1em 0;
+}
+.markdown blockquote {
+  margin: 0 0 0.75em;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted);
+}
+.markdown table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 0.75em;
+  font-size: 0.9em;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.markdown th {
+  background: var(--surface-2);
+}
+.markdown img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
 /* Streaming caret */
 .caret {
   display: inline-block;
