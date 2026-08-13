@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in real values.
+# Every value here is a FAKE placeholder.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "prod"
+
+# The foundation VPC id (the same value your workstation tfvars uses).
+vpc_id = "<YOUR_VPC_ID>"
+
+# HTTPS clone URL of the fresh private vault repo.
+github_repo_url = "https://github.com/<YOUR_OWNER>/<YOUR_VAULT_REPO>.git"
+
+# Name of the BY-HAND Secrets Manager secret holding the GitHub fine-grained PAT
+# (Contents read/write on the vault repo). The token is never in tfvars or state.
+github_token_secret_name = "homebase/vault-worker/github-token"
