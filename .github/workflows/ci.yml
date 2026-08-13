@@ -1,11 +1,12 @@
 name: ci
 
-# Continuous integration for Homebase. Scans, formatting, lint, and tests, plus a
-# CONTENT-ONLY web deploy on push to main (S3 sync + CloudFront invalidation).
-# Infrastructure (terraform apply) and the agent image are NEVER deployed here:
-# those remain human actions (see scripts/deploy-agent.sh and the RUNBOOK). The web
-# deploy authenticates with GitHub OIDC (no long-lived keys) and is skipped until
-# the deploy Secrets are configured (see infra/stacks/cicd).
+# Continuous integration for Homebase. Scans, formatting, lint, tests, a build+verify
+# of the agent image, plus a CONTENT-ONLY web deploy on push to main (S3 sync +
+# CloudFront invalidation). Infrastructure (terraform apply) and the agent image are
+# NEVER deployed here: the agent job only builds and verifies the image (no push, no
+# apply); pushing it and applying stay human (see scripts/deploy-agent.sh and the
+# RUNBOOK). The web deploy authenticates with GitHub OIDC (no long-lived keys) and is
+# skipped until the deploy Secrets are configured (see infra/stacks/cicd).
 
 on:
   pull_request:
@@ -120,6 +121,60 @@ jobs:
         run: |
           cd eval
           PYTHONPATH=src python -m homebase_eval.cli --gate --k 3
+
+  build-agent:
+    name: build + verify agent image (arm64, no push)
+    # Builds the PRODUCTION arm64 agent image and runs the same import + connector-
+    # tool checks as scripts/deploy-agent.sh, WITHOUT pushing to ECR or applying.
+    # No AWS credentials. Catches broken/stale images (missing package data, import
+    # errors, dropped connector tools) before a human ever runs the deploy. Only the
+    # emulated arm64 build is heavy, so it runs solely on PRs and pushes to main, and
+    # only when services/agent changed. Layer cache keeps reruns quick.
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect agent changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            agent:
+              - 'services/agent/**'
+
+      - name: Set up QEMU (arm64 emulation)
+        if: steps.changes.outputs.agent == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        if: steps.changes.outputs.agent == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the production arm64 image (no push)
+        if: steps.changes.outputs.agent == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: services/agent
+          platforms: linux/arm64
+          load: true
+          tags: homebase-agent:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image imports + connector tools (mirrors deploy-agent.sh)
+        if: steps.changes.outputs.agent == 'true'
+        run: |
+          docker run --rm --platform linux/arm64 --entrypoint python homebase-agent:ci -c '
+          import homebase_agent.server  # import must succeed
+          import homebase_agent.connectors as c
+          tools = {t["toolSpec"]["name"] for t in c.CONNECTOR_TOOLS}
+          assert tools, "no connector tools found in the image"
+          assert "confluence_search" in tools, "confluence_search tool missing"
+          print("verify OK:", len(tools), "connector tools:", ", ".join(sorted(tools)))
+          '
 
   deploy-web:
     name: deploy web (S3 sync + CloudFront invalidation)

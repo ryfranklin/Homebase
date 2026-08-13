@@ -44,3 +44,12 @@ PYTHONPATH=src python -m homebase_agent.harness --mode live
 
 Mock mode asserts that every grounded answer carries source metadata and that the no-source case
 says so, all with no AWS calls.
+
+## CI image check
+
+On PRs and pushes to `main` that touch `services/agent/**`, the `build-agent` job in
+`.github/workflows/ci.yml` builds the production `linux/arm64` image and runs the same import +
+connector-tool assertions as `scripts/deploy-agent.sh` (image imports `homebase_agent.server`, and
+`CONNECTOR_TOOLS` is non-empty and includes `confluence_search`). It does not push to ECR or apply:
+pushing the image and running `terraform apply` stay human. This catches broken or stale images (a
+missing package-data file, an import error, a dropped connector tool) before a deploy.
