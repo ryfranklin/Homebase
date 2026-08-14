@@ -4,6 +4,7 @@
 import { loadConfig } from "./config.ts";
 import { GitVault } from "./gitvault.ts";
 import { Mirror } from "./mirror.ts";
+import { Mutex } from "./mutex.ts";
 import { makeStore } from "./store.ts";
 import { createServer } from "./server.ts";
 
@@ -25,25 +26,30 @@ async function main(): Promise<void> {
     kbDataSourceId: config.kbDataSourceId,
   });
   const mirror = new Mirror(store, vault);
+  // One mutex serializes every git-touching operation (writes + the poll loop).
+  const mutex = new Mutex();
 
   // Initial sync so the KB reflects the current git state (prune + put).
   const { mirrored, pruned } = await mirror.full();
   await mirror.reingest();
   console.log(JSON.stringify({ event: "vault_ready", mirrored, pruned, branch: config.branch }));
 
-  createServer({ config, vault, mirror }).listen(config.port, () => {
+  createServer({ config, vault, mirror, mutex }).listen(config.port, () => {
     console.log(JSON.stringify({ event: "listening", port: config.port }));
   });
 
-  // Pull external commits (other users/clients) and mirror them.
-  setInterval(async () => {
-    try {
-      await vault.pull();
-      await mirror.full();
-      await mirror.reingest();
-    } catch (err) {
-      console.error(JSON.stringify({ event: "pull_error", message: String((err as Error)?.message).slice(0, 300) }));
-    }
+  // Pull external commits (other users/clients) and mirror them, serialized against
+  // in-flight writes so git operations never overlap on the one clone.
+  setInterval(() => {
+    void mutex
+      .run(async () => {
+        await vault.pull();
+        await mirror.full();
+        await mirror.reingest();
+      })
+      .catch((err) => {
+        console.error(JSON.stringify({ event: "pull_error", message: String((err as Error)?.message).slice(0, 300) }));
+      });
   }, config.pullIntervalMs);
 }
 

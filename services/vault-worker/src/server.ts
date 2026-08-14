@@ -9,11 +9,13 @@ import { timingSafeEqual } from "node:crypto";
 import type { WorkerConfig } from "./config.ts";
 import type { GitVault } from "./gitvault.ts";
 import type { Mirror } from "./mirror.ts";
+import type { Mutex } from "./mutex.ts";
 
 export interface ServerDeps {
   config: WorkerConfig;
   vault: GitVault;
   mirror: Mirror;
+  mutex: Mutex;
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -38,7 +40,7 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-export function createServer({ config, vault, mirror }: ServerDeps): Server {
+export function createServer({ config, vault, mirror, mutex }: ServerDeps): Server {
   return httpCreateServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://worker");
     const path = url.pathname;
@@ -60,39 +62,48 @@ export function createServer({ config, vault, mirror }: ServerDeps): Server {
 
       if (method === "POST" && path === "/write") {
         const body = await readBody(req);
-        const result = await vault.writeNote({
-          path: String(body.path ?? ""),
-          content: String(body.content ?? ""),
-          author: (body.author as { name: string; email: string }) ?? config.committer,
-          message: String(body.message ?? "update note"),
+        const result = await mutex.run(async () => {
+          const r = await vault.writeNote({
+            path: String(body.path ?? ""),
+            content: String(body.content ?? ""),
+            author: (body.author as { name: string; email: string }) ?? config.committer,
+            message: String(body.message ?? "update note"),
+          });
+          if (r.changed) {
+            await mirror.put(r.conflictPath ?? String(body.path));
+            if (r.conflictPath) await mirror.put(String(body.path));
+            await mirror.reingest();
+          }
+          return r;
         });
-        if (result.changed) {
-          await mirror.put(result.conflictPath ?? String(body.path));
-          if (result.conflictPath) await mirror.put(String(body.path));
-          await mirror.reingest();
-        }
         return json(res, 200, result);
       }
 
       if (method === "POST" && path === "/delete") {
         const body = await readBody(req);
         const p = String(body.path ?? "");
-        const result = await vault.deleteNote({
-          path: p,
-          author: (body.author as { name: string; email: string }) ?? config.committer,
-          message: String(body.message ?? "delete note"),
+        const result = await mutex.run(async () => {
+          const r = await vault.deleteNote({
+            path: p,
+            author: (body.author as { name: string; email: string }) ?? config.committer,
+            message: String(body.message ?? "delete note"),
+          });
+          if (r.changed) {
+            await mirror.remove(p);
+            await mirror.reingest();
+          }
+          return r;
         });
-        if (result.changed) {
-          await mirror.remove(p);
-          await mirror.reingest();
-        }
         return json(res, 200, result);
       }
 
       if (method === "POST" && path === "/pull") {
-        await vault.pull();
-        const result = await mirror.full();
-        await mirror.reingest();
+        const result = await mutex.run(async () => {
+          await vault.pull();
+          const r = await mirror.full();
+          await mirror.reingest();
+          return r;
+        });
         return json(res, 200, { ok: true, ...result });
       }
 
