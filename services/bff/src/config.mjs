@@ -35,5 +35,12 @@ export function loadConfig(env = process.env) {
     corpusBucket: env.HOMEBASE_CORPUS_BUCKET || null,
     kbId: env.HOMEBASE_KB_ID || null,
     kbDataSourceId: env.HOMEBASE_KB_DATA_SOURCE_ID || null,
+    // Vault worker (git source of truth). Writes go to the worker's internal API;
+    // reads stay on the S3 mirror. Both optional so chat-only and tests run without.
+    // The shared secret is read from Secrets Manager at cold start (by ARN), like
+    // the origin secret; workerSecret is a direct value for local/tests.
+    workerUrl: env.HOMEBASE_VAULT_WORKER_URL || null,
+    workerSecret: env.HOMEBASE_WORKER_SHARED_SECRET || null,
+    workerSecretArn: env.HOMEBASE_WORKER_SECRET_ARN || null,
   };
 }

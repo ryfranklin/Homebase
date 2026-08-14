@@ -129,10 +129,12 @@ async function mapPool(items, limit, fn) {
   return out;
 }
 
-// store: { listKeys() -> string[], getObject(key) -> { content },
-//          putObject(key, body, contentType, metadata), deleteObject(key) }
-// reingest: () -> Promise (best-effort KB sync; may no-op)
-export function makeVault({ store, reingest = async () => {}, now = () => Date.now(), cacheTtlMs = 30000 }) {
+// store: { listKeys(), getObject(key[, versionId]) -> { content, metadata },
+//          listVersions(key) } - the S3 mirror, used for READS.
+// writer: { write(key, content, actor), remove(key, actor) } - the vault worker,
+//          used for WRITES (commits to the git source of truth). Null for chat-only
+//          deployments and tests without a worker, in which case writes 503.
+export function makeVault({ store, writer = null, now = () => Date.now(), cacheTtlMs = 30000 }) {
   // Warm-container cache of note contents for search/backlinks (content scans).
   let cache = null; // { at, notes: Map<key, {content, title}> }
 
@@ -156,19 +158,9 @@ export function makeVault({ store, reingest = async () => {}, now = () => Date.n
     cache = null;
   }
 
-  function metadataFor(content, actor, at) {
-    // A small, budget-safe subset of front matter as object metadata, so KB
-    // metadata filtering keeps working without the ingestion CLI's sidecar spill.
-    // Also stamp attribution (who/when) on the object: S3 user metadata is
-    // per-version, so this gives per-note AND per-history-entry authorship.
-    const { frontMatter } = splitFrontMatter(content);
-    const meta = {};
-    if (frontMatter.title) meta.title = frontMatter.title.slice(0, 250);
-    if (frontMatter.tags) meta.tags = frontMatter.tags.slice(0, 250);
-    if (actor?.name) meta["updated-by"] = String(actor.name).slice(0, 250);
-    if (actor?.id) meta["updated-by-id"] = String(actor.id).slice(0, 250);
-    meta["updated-at"] = at || new Date(now()).toISOString();
-    return meta;
+  function requireWriter() {
+    if (!writer) throw httpError(503, "writes_unavailable", "the vault worker is not configured on this deployment");
+    return writer;
   }
 
   function attributionFrom(metadata = {}) {
@@ -204,17 +196,23 @@ export function makeVault({ store, reingest = async () => {}, now = () => Date.n
       if (typeof content !== "string") throw httpError(400, "invalid_content", "content must be a string");
       if (content.length > 5 * 1024 * 1024) throw httpError(413, "too_large", "note exceeds 5 MB");
       const at = new Date(now()).toISOString();
-      await store.putObject(key, content, "text/markdown", metadataFor(content, actor, at));
+      // Commit to git via the worker (which mirrors to S3 + re-grounds the KB).
+      const result = await requireWriter().write(key, content, actor);
       invalidate();
-      await reingest().catch(() => {});
-      return { ok: true, key, title: noteTitle(key, content), updatedBy: actor?.name || null, updatedAt: at };
+      return {
+        ok: true,
+        key,
+        title: noteTitle(key, content),
+        conflictPath: result?.conflictPath ?? null,
+        updatedBy: actor?.name || null,
+        updatedAt: at,
+      };
     },
 
     async del(key, actor) {
       assertSafeKey(key);
-      await store.deleteObject(key);
+      await requireWriter().remove(key, actor);
       invalidate();
-      await reingest().catch(() => {});
       return { ok: true, key, deletedBy: actor?.name || null };
     },
 
@@ -235,17 +233,16 @@ export function makeVault({ store, reingest = async () => {}, now = () => Date.n
       };
     },
 
-    // Restore a prior version by copying it forward to a new current version,
-    // attributed to whoever performed the restore.
+    // Restore a prior version by reading it from the mirror and committing it
+    // forward through the worker, attributed to whoever performed the restore.
     async restore(key, versionId, actor) {
       assertSafeKey(key);
       if (!versionId) throw httpError(400, "invalid_version", "versionId is required");
       const at = new Date(now()).toISOString();
       const { content } = await store.getObject(key, versionId);
-      await store.putObject(key, content ?? "", "text/markdown", metadataFor(content ?? "", actor, at));
+      const result = await requireWriter().write(key, content ?? "", actor);
       invalidate();
-      await reingest().catch(() => {});
-      return { ok: true, key, restoredFrom: versionId, updatedBy: actor?.name || null, updatedAt: at };
+      return { ok: true, key, restoredFrom: versionId, conflictPath: result?.conflictPath ?? null, updatedBy: actor?.name || null, updatedAt: at };
     },
 
     async search(query, limit = 30) {

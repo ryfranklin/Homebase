@@ -34,6 +34,21 @@ data "aws_ssm_parameter" "data_source_id" {
   name = "/${var.project_name}/${var.environment}/retrieval/data_source_id"
 }
 
+# Vault worker (git source of truth). The BFF joins the worker's client SG + private
+# subnet to reach the internal write API, and reads the worker URL + shared secret.
+data "aws_ssm_parameter" "vault_worker_url" {
+  name = "/${var.project_name}/${var.environment}/vault-worker/url"
+}
+data "aws_ssm_parameter" "vault_worker_secret_arn" {
+  name = "/${var.project_name}/${var.environment}/vault-worker/shared_secret_arn"
+}
+data "aws_ssm_parameter" "vault_worker_client_sg" {
+  name = "/${var.project_name}/${var.environment}/vault-worker/client_security_group_id"
+}
+data "aws_ssm_parameter" "vault_worker_private_subnet" {
+  name = "/${var.project_name}/${var.environment}/vault-worker/private_subnet_id"
+}
+
 locals {
   common_tags = merge({
     Project     = var.project_name
@@ -334,11 +349,47 @@ data "aws_iam_policy_document" "bff" {
   }
 
   # Saving a note best-effort re-grounds it: start a Knowledge Base ingestion sync.
+  # (Writes now go through the worker, which also re-grounds; kept for any direct use.)
   statement {
     sid       = "ReindexVaultOnSave"
     effect    = "Allow"
     actions   = ["bedrock:StartIngestionJob"]
     resources = [local.knowledge_base_arn]
+  }
+
+  # VPC networking: a VPC-attached Lambda manages its own ENIs (requires "*").
+  statement {
+    sid    = "VpcNetworking"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DeleteNetworkInterface",
+      "ec2:AssignPrivateIpAddresses",
+      "ec2:UnassignPrivateIpAddresses",
+    ]
+    resources = ["*"]
+  }
+
+  # Read the worker shared secret at cold start (presented to the worker's API).
+  statement {
+    sid       = "ReadWorkerSecret"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["${data.aws_ssm_parameter.vault_worker_secret_arn.value}*"]
+  }
+
+  # Decrypt the worker secret (encrypted with the worker's KMS key).
+  statement {
+    sid       = "DecryptWorkerSecret"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${var.aws_region}.amazonaws.com"]
+    }
   }
 }
 
@@ -376,12 +427,23 @@ resource "aws_lambda_function" "bff" {
       # The BFF reads the origin secret from Secrets Manager at runtime (current
       # and pending during rotation), so the secret rotates without a redeploy.
       HOMEBASE_ORIGIN_SECRET_ARN = aws_secretsmanager_secret.origin_secret.arn
-      # Vault workspace: the S3 corpus is the editable vault; on save the BFF starts
-      # a KB sync (kb id + data source id) so the note re-grounds for the agent.
+      # Vault workspace: reads from the S3 mirror (corpus bucket); writes go to the
+      # git worker (URL + shared secret ARN, fetched at cold start). The KB re-ground
+      # on save now happens in the worker, not here.
       HOMEBASE_CORPUS_BUCKET     = local.corpus_bucket_name
       HOMEBASE_KB_ID             = local.knowledge_base_id
       HOMEBASE_KB_DATA_SOURCE_ID = local.data_source_id
+      HOMEBASE_VAULT_WORKER_URL  = data.aws_ssm_parameter.vault_worker_url.value
+      HOMEBASE_WORKER_SECRET_ARN = data.aws_ssm_parameter.vault_worker_secret_arn.value
     }
+  }
+
+  # Join the VPC so the BFF can reach the private worker via Cloud Map. It uses the
+  # worker's client SG (which the worker allows in on 8080) and private subnet
+  # (egress via the NAT for Bedrock, Cognito JWKS, and Secrets Manager).
+  vpc_config {
+    subnet_ids         = [data.aws_ssm_parameter.vault_worker_private_subnet.value]
+    security_group_ids = [data.aws_ssm_parameter.vault_worker_client_sg.value]
   }
 
   depends_on = [aws_cloudwatch_log_group.bff, aws_iam_role_policy.bff]

@@ -117,6 +117,29 @@ function fakeStore(seed = {}) {
   };
 }
 
+// Fake vault worker: simulates the real worker by committing to the store (the S3
+// mirror) with attribution, so read-after-write and attribution assertions hold.
+function fakeWriter(store) {
+  const writes = [];
+  return {
+    writes,
+    async write(key, content, actor) {
+      await store.putObject(key, content, "text/markdown", {
+        "updated-by": actor?.name,
+        "updated-by-id": actor?.id,
+        "updated-at": new Date().toISOString(),
+      });
+      writes.push({ op: "write", key, content, actor });
+      return { ok: true, changed: true };
+    },
+    async remove(key, actor) {
+      await store.deleteObject(key);
+      writes.push({ op: "remove", key, actor });
+      return { ok: true, changed: true };
+    },
+  };
+}
+
 test("tree lists markdown keys as a nested tree", async () => {
   const vault = makeVault({ store: fakeStore({ "a/one.md": "# One", "two.md": "# Two" }) });
   const { tree, count } = await vault.tree();
@@ -132,32 +155,37 @@ test("get returns content, title, and wikilinks", async () => {
   assert.deepEqual(note.links, ["a", "b"]);
 });
 
-test("put writes the note and triggers reingest", async () => {
+test("put commits through the worker", async () => {
   const store = fakeStore();
-  let reingested = 0;
-  const vault = makeVault({ store, reingest: async () => { reingested++; } });
-  const res = await vault.put("new/note.md", "# New\n[[x]]");
+  const writer = fakeWriter(store);
+  const vault = makeVault({ store, writer });
+  const res = await vault.put("new/note.md", "# New\n[[x]]", { id: "u1", name: "ryan" });
   assert.equal(res.ok, true);
   assert.equal(res.key, "new/note.md");
   assert.equal(res.title, "New");
-  assert.equal(store.map.get("new/note.md"), "# New\n[[x]]");
-  assert.equal(reingested, 1);
+  assert.equal(store.map.get("new/note.md"), "# New\n[[x]]"); // worker mirrored it
+  assert.equal(writer.writes[0].op, "write");
+});
+
+test("put 503s when no worker is configured", async () => {
+  const vault = makeVault({ store: fakeStore() });
+  await assert.rejects(() => vault.put("n.md", "x"), { code: "writes_unavailable" });
 });
 
 test("put rejects unsafe keys before writing", async () => {
   const store = fakeStore();
-  const vault = makeVault({ store });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   await assert.rejects(() => vault.put("../evil.md", "x"), { code: "invalid_key" });
   assert.equal(store.puts.length, 0);
 });
 
-test("del removes the note and triggers reingest", async () => {
+test("del removes the note through the worker", async () => {
   const store = fakeStore({ "gone.md": "bye" });
-  let reingested = 0;
-  const vault = makeVault({ store, reingest: async () => { reingested++; } });
+  const writer = fakeWriter(store);
+  const vault = makeVault({ store, writer });
   await vault.del("gone.md");
   assert.equal(store.map.has("gone.md"), false);
-  assert.equal(reingested, 1);
+  assert.equal(writer.writes[0].op, "remove");
 });
 
 test("search matches title and body, ranking title hits higher", async () => {
@@ -185,7 +213,7 @@ test("backlinks finds notes whose wikilinks resolve to the target", async () => 
 
 test("corpus cache is invalidated on write so search sees new notes", async () => {
   const store = fakeStore({ "a.md": "alpha" });
-  const vault = makeVault({ store });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   assert.equal((await vault.search("beta")).results.length, 0);
   await vault.put("b.md", "beta content");
   assert.equal((await vault.search("beta")).results.length, 1);
@@ -199,7 +227,8 @@ const alice = { id: "u-alice", name: "alice@example.com" };
 const bob = { id: "u-bob", name: "bob@example.com" };
 
 test("put stamps the author, and get returns attribution", async () => {
-  const vault = makeVault({ store: fakeStore() });
+  const store = fakeStore();
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   await vault.put("n.md", "# hi", alice);
   const note = await vault.get("n.md");
   assert.equal(note.updatedBy, "alice@example.com");
@@ -208,7 +237,8 @@ test("put stamps the author, and get returns attribution", async () => {
 });
 
 test("history lists versions newest-first with authors and a current flag", async () => {
-  const vault = makeVault({ store: fakeStore() });
+  const store = fakeStore();
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   await vault.put("n.md", "v1", alice);
   await vault.put("n.md", "v2", bob);
   const { versions } = await vault.history("n.md");
@@ -220,8 +250,8 @@ test("history lists versions newest-first with authors and a current flag", asyn
 
 test("restore copies an old version forward, attributed to the restorer", async () => {
   const store = fakeStore();
-  let reingested = 0;
-  const vault = makeVault({ store, reingest: async () => { reingested++; } });
+  const writer = fakeWriter(store);
+  const vault = makeVault({ store, writer });
   await vault.put("n.md", "original", alice);
   await vault.put("n.md", "changed", bob);
   const { versions } = await vault.history("n.md");
@@ -229,14 +259,14 @@ test("restore copies an old version forward, attributed to the restorer", async 
   const res = await vault.restore("n.md", oldest.versionId, alice);
   assert.equal(res.ok, true);
   assert.equal(res.restoredFrom, oldest.versionId);
-  assert.equal(store.map.get("n.md"), "original"); // content reverted
+  assert.equal(store.map.get("n.md"), "original"); // content reverted via the worker
   const note = await vault.get("n.md");
   assert.equal(note.updatedBy, "alice@example.com"); // attributed to who restored
-  assert.ok(reingested >= 1);
 });
 
 test("restore requires a versionId", async () => {
-  const vault = makeVault({ store: fakeStore({ "n.md": "x" }) });
+  const store = fakeStore({ "n.md": "x" });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   await assert.rejects(() => vault.restore("n.md", "", alice), { code: "invalid_version" });
 });
 
@@ -287,7 +317,7 @@ test("GET /api/vault/tree dispatches to the vault", async () => {
 
 test("PUT /api/vault/note writes via the body", async () => {
   const store = fakeStore();
-  const vault = makeVault({ store });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   const { rec } = await route({ method: "PUT", path: "/api/vault/note", body: { key: "n.md", content: "# hi" }, vault });
   assert.equal(rec.statusCode, 200);
   assert.equal(store.map.get("n.md"), "# hi");
@@ -306,7 +336,8 @@ test("unsafe key over the route surfaces a 400", async () => {
 });
 
 test("route stamps the verified user as author and history reflects it", async () => {
-  const vault = makeVault({ store: fakeStore() });
+  const store = fakeStore();
+  const vault = makeVault({ store, writer: fakeWriter(store) });
   await route({ method: "PUT", path: "/api/vault/note", body: { key: "n.md", content: "# hi" }, vault });
   const read = await route({ path: "/api/vault/note", query: { key: "n.md" }, vault });
   assert.equal(read.json().updatedBy, "user-1"); // verifyToken() returns sub "user-1", no email

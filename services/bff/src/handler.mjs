@@ -15,20 +15,31 @@ import { verifyJwt } from "./jwt.mjs";
 import { cachedOriginSecrets } from "./secrets.mjs";
 import { makeVault } from "./vault.mjs";
 import { makeVaultDeps } from "./vaultstore.mjs";
+import { makeWorkerClient } from "./worker.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
 
-// Vault workspace over the S3 corpus, enabled when the bucket is configured.
+// Vault workspace: reads from the S3 mirror, writes through the git worker.
 let vault = null;
 if (config.corpusBucket) {
-  const { store, reingest } = await makeVaultDeps({
+  const { store } = await makeVaultDeps({
     region: config.region,
     bucket: config.corpusBucket,
     kbId: config.kbId,
     dataSourceId: config.kbDataSourceId,
   });
-  vault = makeVault({ store, reingest });
+  // The worker shared secret: a direct value (local/tests) or fetched once from
+  // Secrets Manager at cold start (deployed).
+  let workerSecret = config.workerSecret;
+  if (!workerSecret && config.workerSecretArn) {
+    const { SecretsManagerClient, GetSecretValueCommand } = await import("@aws-sdk/client-secrets-manager");
+    const sm = new SecretsManagerClient({ region: config.region });
+    const out = await sm.send(new GetSecretValueCommand({ SecretId: config.workerSecretArn }));
+    workerSecret = out.SecretString;
+  }
+  const writer = config.workerUrl ? makeWorkerClient({ url: config.workerUrl, secret: workerSecret }) : null;
+  vault = makeVault({ store, writer });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
