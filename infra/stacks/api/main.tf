@@ -67,7 +67,6 @@ locals {
   corpus_kms_key_arn = data.aws_ssm_parameter.corpus_kms_key_arn.value
   knowledge_base_id  = data.aws_ssm_parameter.knowledge_base_id.value
   data_source_id     = data.aws_ssm_parameter.data_source_id.value
-  knowledge_base_arn = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:knowledge-base/${data.aws_ssm_parameter.knowledge_base_id.value}"
   corpus_bucket_arn  = "arn:${data.aws_partition.current.partition}:s3:::${data.aws_ssm_parameter.corpus_bucket_name.value}"
 }
 
@@ -321,8 +320,8 @@ data "aws_iam_policy_document" "bff" {
     resources = [module.api_kms.key_arn]
   }
 
-  # Vault workspace: browse / read / edit the Markdown corpus. List the bucket and
-  # read/write objects; scoped to exactly the corpus bucket.
+  # Vault workspace: browse / read the Markdown corpus. Writes (and the KB re-ground)
+  # now go through the vault worker, so the BFF is read-only on the corpus bucket.
   statement {
     sid       = "ListVaultBucket"
     effect    = "Allow"
@@ -330,31 +329,22 @@ data "aws_iam_policy_document" "bff" {
     resources = [local.corpus_bucket_arn]
   }
 
-  # Read/write current objects, plus read prior versions for note history/restore
+  # Read current objects, plus read prior versions for note history/restore
   # (the corpus bucket is versioned).
   statement {
-    sid       = "ReadWriteVaultObjects"
+    sid       = "ReadVaultObjects"
     effect    = "Allow"
-    actions   = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject"]
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
     resources = ["${local.corpus_bucket_arn}/*"]
   }
 
-  # The corpus bucket is SSE-KMS with the storage CMK; read needs Decrypt and write
-  # needs GenerateDataKey on that key.
+  # The corpus bucket is SSE-KMS with the storage CMK; reads need Decrypt only
+  # (the worker owns writes, so no GenerateDataKey here).
   statement {
     sid       = "CorpusKmsForVault"
     effect    = "Allow"
-    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    actions   = ["kms:Decrypt"]
     resources = [local.corpus_kms_key_arn]
-  }
-
-  # Saving a note best-effort re-grounds it: start a Knowledge Base ingestion sync.
-  # (Writes now go through the worker, which also re-grounds; kept for any direct use.)
-  statement {
-    sid       = "ReindexVaultOnSave"
-    effect    = "Allow"
-    actions   = ["bedrock:StartIngestionJob"]
-    resources = [local.knowledge_base_arn]
   }
 
   # VPC networking: a VPC-attached Lambda manages its own ENIs (requires "*").
