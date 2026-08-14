@@ -42,5 +42,8 @@ export function loadConfig(env = process.env) {
     workerUrl: env.HOMEBASE_VAULT_WORKER_URL || null,
     workerSecret: env.HOMEBASE_WORKER_SHARED_SECRET || null,
     workerSecretArn: env.HOMEBASE_WORKER_SECRET_ARN || null,
+    // Prefix of the connector shim Lambdas (<prefix>-connector-<key>), used to probe
+    // connection status. When set, /api/connectors/status is enabled.
+    connectorPrefix: env.HOMEBASE_CONNECTOR_PREFIX || null,
   };
 }

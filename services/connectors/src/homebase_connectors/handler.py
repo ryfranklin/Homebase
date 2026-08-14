@@ -94,6 +94,13 @@ def handle(event, context=None, *, shim=None):
     """Core, testable handler. `shim` is injected in tests; production builds one
     from the environment (identity provider ARN, connector)."""
     tool_name, params, tenant_id, confirm_token, caller = _extract(event, context)
+
+    # Connection-status probe: report whether this connector has a vaulted token for
+    # the tenant (drives the UI's "what's connected" display). No tool, no vendor call.
+    if tool_name in ("status", "__status__"):
+        active = shim or build_shim(os.environ.get("CONNECTOR", ""))
+        return active.status(tenant_id)
+
     catalog_name = _catalog_name(tool_name)
     tool = TOOLS.get(catalog_name)
     if tool is None:

@@ -16,6 +16,7 @@ import { cachedOriginSecrets } from "./secrets.mjs";
 import { makeVault } from "./vault.mjs";
 import { makeVaultDeps } from "./vaultstore.mjs";
 import { makeWorkerClient } from "./worker.mjs";
+import { makeConnectorStatus } from "./connectorstatus.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -40,6 +41,12 @@ if (config.corpusBucket) {
   }
   const writer = config.workerUrl ? makeWorkerClient({ url: config.workerUrl, secret: workerSecret }) : null;
   vault = makeVault({ store, writer });
+}
+
+// Connector connection status, enabled when the shim Lambda prefix is configured.
+let connectorStatus = null;
+if (config.connectorPrefix) {
+  connectorStatus = await makeConnectorStatus({ region: config.region, prefix: config.connectorPrefix });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
@@ -106,5 +113,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     agentStream,
     completeConnectorAuth,
     vault,
+    connectorStatus,
   });
 });

@@ -229,6 +229,17 @@ export async function handleRequest(event, respond, deps) {
     return handleVault(vaultMatch[1], method, event, body, respond, cors, deps, actor);
   }
 
+  // Connector connection status (what's actually connected), scoped to the tenant.
+  if (method === "GET" && path.endsWith("/connectors/status")) {
+    if (!deps.connectorStatus) return writeJson(respond, cors, 200, { connectors: {} });
+    try {
+      return writeJson(respond, cors, 200, await deps.connectorStatus.statuses(tenantId));
+    } catch (err) {
+      console.error(JSON.stringify({ event: "connector_status_error", message: String(err?.message || "").slice(0, 200) }));
+      return writeError(respond, cors, 502, "connector_status_error", "could not read connector status");
+    }
+  }
+
   const sessionId = body.session_id || `${tenantId}:${userId}`;
   const prompt = body.input ?? body.prompt ?? "";
 

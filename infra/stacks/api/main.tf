@@ -379,6 +379,14 @@ data "aws_iam_policy_document" "bff" {
     resources = ["${data.aws_ssm_parameter.vault_worker_secret_arn.value}*"]
   }
 
+  # Probe connector connection status by invoking each connector shim Lambda.
+  statement {
+    sid       = "ProbeConnectorStatus"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name_prefix}-connector-*"]
+  }
+
   # Decrypt the worker secret (encrypted with the worker's KMS key).
   statement {
     sid       = "DecryptWorkerSecret"
@@ -435,6 +443,8 @@ resource "aws_lambda_function" "bff" {
       HOMEBASE_KB_DATA_SOURCE_ID = local.data_source_id
       HOMEBASE_VAULT_WORKER_URL  = data.aws_ssm_parameter.vault_worker_url.value
       HOMEBASE_WORKER_SECRET_ARN = data.aws_ssm_parameter.vault_worker_secret_arn.value
+      # Connector shim Lambda prefix (<prefix>-connector-<key>) for status probes.
+      HOMEBASE_CONNECTOR_PREFIX = local.name_prefix
     }
   }
 

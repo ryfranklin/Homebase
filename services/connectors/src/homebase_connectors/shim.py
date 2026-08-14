@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .gate import WriteGate
 from .identity import ConnectorCredentials
+from .lambda_identity import AuthorizationRequiredError
 
 
 class ConnectorShim:
@@ -18,6 +19,16 @@ class ConnectorShim:
         self._credentials = credentials
         self._api = api
         self._gate = gate or WriteGate()
+
+    def status(self, tenant_id):
+        """Connection status for this connector's tenant: 'connected' when a token is
+        vaulted, else 'needs_auth' with a consent URL. Runs the same token fetch the
+        real tools use (so it is accurate), but makes no vendor call."""
+        try:
+            self._credentials.get_access_token(tenant_id, self._connector)
+            return {"connector": self._connector, "status": "connected"}
+        except AuthorizationRequiredError as exc:
+            return {"connector": self._connector, "status": "needs_auth", "authorization_url": exc.authorization_url}
 
     def call(self, tenant_id, tool_name, parameters, *, confirm_token=None, caller=None):
         # Resolve the per-tenant token lazily; a gated write never fetches nor uses

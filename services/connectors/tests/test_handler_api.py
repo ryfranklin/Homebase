@@ -64,6 +64,23 @@ class HandlerGateTests(unittest.TestCase):
         out = handle({"name": "bogus_tool", "arguments": {}}, shim=_shim("slack", []))
         self.assertEqual(out["error"], "unknown_tool")
 
+    def test_status_connected(self):
+        out = handle({"name": "status", "arguments": {"tenant_id": "t1"}}, shim=_shim("slack", []))
+        self.assertEqual(out, {"connector": "slack", "status": "connected"})
+
+    def test_status_needs_auth(self):
+        from homebase_connectors.lambda_identity import AuthorizationRequiredError
+
+        class _NeedsAuthIdentity:
+            def get_token(self, key):
+                raise AuthorizationRequiredError("https://consent.example/authorize?x=1")
+
+        shim = ConnectorShim("gmail", ConnectorCredentials(_NeedsAuthIdentity()), lambda *a: {})
+        out = handle({"name": "status", "arguments": {"tenant_id": "t1"}}, shim=shim)
+        self.assertEqual(out["connector"], "gmail")
+        self.assertEqual(out["status"], "needs_auth")
+        self.assertEqual(out["authorization_url"], "https://consent.example/authorize?x=1")
+
     def test_authorization_required_is_surfaced(self):
         from homebase_connectors.lambda_identity import AuthorizationRequiredError
 
