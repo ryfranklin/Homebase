@@ -14,6 +14,21 @@ output "service_name" {
 }
 
 output "worker_secret_arn" {
-  description = "ARN of the generated BFF -> worker shared secret (wired to the BFF in a later step)."
+  description = "ARN of the generated BFF -> worker shared secret."
   value       = aws_secretsmanager_secret.worker_secret.arn
+}
+
+output "worker_url" {
+  description = "Internal URL the BFF calls (Cloud Map DNS)."
+  value       = "http://worker.${var.dns_namespace}:8080"
+}
+
+output "client_security_group_id" {
+  description = "SG the BFF attaches to so the worker can allow it in by reference."
+  value       = aws_security_group.client.id
+}
+
+output "private_subnet_id" {
+  description = "Private subnet the BFF's VPC config should use (egresses via the NAT)."
+  value       = aws_subnet.private.id
 }

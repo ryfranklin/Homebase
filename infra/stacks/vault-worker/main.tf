@@ -32,6 +32,11 @@ data "aws_secretsmanager_secret" "github_token" {
   name = var.github_token_secret_name
 }
 
+# Latest AL2023 arm64 AMI for the NAT instance (matches the workstation NAT).
+data "aws_ssm_parameter" "al2023" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+}
+
 locals {
   common_tags = merge({
     Project     = var.project_name
@@ -65,44 +70,172 @@ module "worker_kms" {
 }
 
 # ---------------------------------------------------------------------------
-# Networking: a public subnet routed to the VPC's existing IGW. The worker gets a
-# public IP for OUTBOUND traffic only; the security group allows no inbound.
+# Networking (internal architecture). A public subnet holds only an always-on NAT
+# instance; the worker and the BFF run PRIVATE and egress through it (GitHub, AWS).
+# The worker has no public IP and no inbound except port 8080 from the BFF.
 # ---------------------------------------------------------------------------
-resource "aws_subnet" "worker" {
+resource "aws_subnet" "public" {
   vpc_id                  = var.vpc_id
-  cidr_block              = var.worker_subnet_cidr
+  cidr_block              = var.public_subnet_cidr
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
-  tags                    = merge(local.common_tags, { Name = "${local.name_prefix}-public", Tier = "public" })
+  tags                    = merge(local.common_tags, { Name = "${local.name_prefix}-nat-public", Tier = "public" })
 }
 
-resource "aws_route_table" "worker" {
+resource "aws_route_table" "public" {
   vpc_id = var.vpc_id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = data.aws_internet_gateway.this.id
   }
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-rt" })
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-public-rt" })
 }
 
-resource "aws_route_table_association" "worker" {
-  subnet_id      = aws_subnet.worker.id
-  route_table_id = aws_route_table.worker.id
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
 }
 
-# No inbound (the internal write API is wired to the BFF in a later step, which
-# will add a scoped ingress rule). Egress 443 covers GitHub, S3, Bedrock, and ECR.
-resource "aws_security_group" "worker" {
-  name        = local.name_prefix
-  description = "vault-worker: no inbound; egress 443 for GitHub + AWS"
+resource "aws_subnet" "private" {
+  vpc_id            = var.vpc_id
+  cidr_block        = var.private_subnet_cidr
+  availability_zone = data.aws_availability_zones.available.names[0]
+  tags              = merge(local.common_tags, { Name = "${local.name_prefix}-private", Tier = "private" })
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = var.vpc_id
+  route {
+    cidr_block           = "0.0.0.0/0"
+    network_interface_id = aws_instance.nat.primary_network_interface_id
+  }
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-private-rt" })
+}
+
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+
+# NAT instance: forwards the private subnet's traffic to the internet. AL2023 has
+# no iptables by default, so install + persist the rules (same as the workstation).
+resource "aws_security_group" "nat" {
+  name        = "${local.name_prefix}-nat"
+  description = "NAT instance: inbound from the private subnet, egress anywhere"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description = "From the private subnet"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.private_subnet_cidr]
+  }
+  egress {
+    description = "Outbound anywhere"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-nat" })
+}
+
+resource "aws_instance" "nat" {
+  ami                         = data.aws_ssm_parameter.al2023.value
+  instance_type               = var.nat_instance_type
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.nat.id]
+  associate_public_ip_address = true
+  source_dest_check           = false
+
+  metadata_options {
+    http_tokens = "required"
+  }
+
+  root_block_device {
+    encrypted   = true
+    kms_key_id  = module.worker_kms.key_arn
+    volume_size = 8
+  }
+
+  user_data = <<-EOT
+    #!/bin/bash
+    set -euo pipefail
+    echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-nat.conf
+    sysctl -w net.ipv4.ip_forward=1
+    dnf install -y iptables-services
+    IFACE=$(ip route show default | awk '/default/ {print $5; exit}')
+    iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+    iptables -A FORWARD -i "$IFACE" -o "$IFACE" -j ACCEPT
+    iptables-save > /etc/sysconfig/iptables
+    systemctl enable iptables
+  EOT
+
+  user_data_replace_on_change = true
+  tags                        = merge(local.common_tags, { Name = "${local.name_prefix}-nat" })
+}
+
+# The BFF attaches to this SG so the worker can allow it in by reference (the BFF's
+# source IP is not stable). Egress-only; it also lets the BFF reach the NAT and AWS.
+resource "aws_security_group" "client" {
+  name        = "${local.name_prefix}-client"
+  description = "BFF -> worker client SG (egress only)"
   vpc_id      = var.vpc_id
 
   egress {
-    description = "HTTPS egress (GitHub, S3, Bedrock, ECR)"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
+    description = "Outbound anywhere (worker, NAT, AWS)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = local.common_tags
+}
+
+# Worker: inbound 8080 only from the client SG; egress anywhere (via the NAT).
+resource "aws_security_group" "worker" {
+  name        = local.name_prefix
+  description = "vault-worker: inbound 8080 from the BFF client SG; egress via NAT"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description     = "Internal write API from the BFF"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.client.id]
+  }
+  egress {
+    description = "Outbound anywhere (GitHub, S3, Bedrock, ECR, DNS) via the NAT"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# Cloud Map service discovery: the worker registers as worker.<namespace>, a
+# stable name the BFF resolves to the current task IP.
+# ---------------------------------------------------------------------------
+resource "aws_service_discovery_private_dns_namespace" "this" {
+  name = var.dns_namespace
+  vpc  = var.vpc_id
+  tags = local.common_tags
+}
+
+resource "aws_service_discovery_service" "worker" {
+  name = "worker"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.this.id
+    dns_records {
+      type = "A"
+      ttl  = 15
+    }
+    routing_policy = "MULTIVALUE"
   }
 
   tags = local.common_tags
@@ -370,10 +503,16 @@ resource "aws_ecs_service" "this" {
   launch_type            = "FARGATE"
   enable_execute_command = true
 
+  # Private subnet, no public IP: egress is via the NAT, ingress only from the BFF.
   network_configuration {
-    subnets          = [aws_subnet.worker.id]
+    subnets          = [aws_subnet.private.id]
     security_groups  = [aws_security_group.worker.id]
-    assign_public_ip = true
+    assign_public_ip = false
+  }
+
+  # Register the task in Cloud Map (worker.<namespace>) for the BFF to resolve.
+  service_registries {
+    registry_arn = aws_service_discovery_service.worker.arn
   }
 
   tags = local.common_tags
@@ -397,5 +536,27 @@ resource "aws_ssm_parameter" "worker_secret_arn" {
   name  = "/${var.project_name}/${var.environment}/vault-worker/shared_secret_arn"
   type  = "String"
   value = aws_secretsmanager_secret.worker_secret.arn
+  tags  = local.common_tags
+}
+
+# Cross-stack wiring for the BFF (api stack reads these).
+resource "aws_ssm_parameter" "worker_url" {
+  name  = "/${var.project_name}/${var.environment}/vault-worker/url"
+  type  = "String"
+  value = "http://worker.${var.dns_namespace}:8080"
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "client_sg_id" {
+  name  = "/${var.project_name}/${var.environment}/vault-worker/client_security_group_id"
+  type  = "String"
+  value = aws_security_group.client.id
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "private_subnet_id" {
+  name  = "/${var.project_name}/${var.environment}/vault-worker/private_subnet_id"
+  type  = "String"
+  value = aws_subnet.private.id
   tags  = local.common_tags
 }

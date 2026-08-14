@@ -35,10 +35,28 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "worker_subnet_cidr" {
-  description = "CIDR for the worker's public subnet. Must not overlap foundation (10.0.0/24) or workstation (10.0.20/24, 10.0.21/24)."
+variable "public_subnet_cidr" {
+  description = "CIDR for the public subnet that holds only the NAT instance. Must not overlap foundation or workstation subnets."
   type        = string
   default     = "10.0.30.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR for the private subnet where the worker (and, egressing through the NAT, the BFF) run. Must not overlap other subnets."
+  type        = string
+  default     = "10.0.31.0/24"
+}
+
+variable "nat_instance_type" {
+  description = "Instance type for the always-on NAT instance (egress for the worker + BFF). t4g.nano is cheapest."
+  type        = string
+  default     = "t4g.nano"
+}
+
+variable "dns_namespace" {
+  description = "Private DNS namespace for service discovery (the worker registers as worker.<namespace>)."
+  type        = string
+  default     = "homebase.internal"
 }
 
 # ---------------------------------------------------------------------------
