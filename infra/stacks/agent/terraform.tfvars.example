@@ -31,3 +31,6 @@ long_term_memory_strategy_type = "SEMANTIC"
 
 # Observability
 enable_transaction_search_log_policy = true
+
+# IANA timezone the agent resolves "today"/"now" in (falls back to UTC).
+agent_timezone = "America/Chicago"

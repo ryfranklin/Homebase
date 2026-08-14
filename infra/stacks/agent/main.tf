@@ -53,6 +53,8 @@ locals {
     HOMEBASE_MODEL_ID         = var.model_id
     HOMEBASE_RERANK_MODEL_ARN = local.rerank_model_arn
     HOMEBASE_MEMORY_ID        = aws_bedrockagentcore_memory.this.id
+    # IANA timezone the agent resolves 'today'/'now' in (falls back to UTC).
+    HOMEBASE_TIMEZONE = var.agent_timezone
     # Enables the connector tool-use loop: the shim function name prefix. The agent
     # invokes homebase-<env>-connector-<connector> for each read tool.
     HOMEBASE_CONNECTOR_PREFIX   = local.name_prefix

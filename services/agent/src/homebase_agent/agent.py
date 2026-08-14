@@ -8,8 +8,10 @@ Contract the harness and tests rely on:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .llm import MockLLMClient
 from .memory import NullMemory
@@ -21,17 +23,27 @@ NO_SOURCES_MESSAGE = (
 )
 
 
-def _now_preamble(now=None) -> str:
+def _resolve_zone(tz_name):
+    if tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            pass  # unknown tz -> fall back to UTC rather than fail the answer
+    return timezone.utc
+
+
+def _now_preamble(now=None, tz_name=None) -> str:
     """A fresh date/time line prepended to the system prompt each request, so the
     model resolves 'today', 'this week', 'now', etc. against the real current date
-    instead of a date from its training data. Calendar/date questions depend on this.
+    (in the configured timezone) instead of a date from its training data. Calendar
+    and other relative-time questions depend on this.
     """
-    now = now or datetime.now(timezone.utc)
+    now = (now or datetime.now(timezone.utc)).astimezone(_resolve_zone(tz_name))
+    label = now.strftime("%Z") or "UTC"
     return (
-        f"Current date and time: {now.strftime('%Y-%m-%d %H:%M')} UTC ({now.strftime('%A')}). "
+        f"Current date and time: {now.strftime('%Y-%m-%d %H:%M')} {label} ({now.strftime('%A')}). "
         "Resolve relative times ('today', 'tomorrow', 'this week', 'now') against this "
-        "current date and time, never a date from your training data. Times are UTC "
-        "unless the user gives a timezone."
+        f"current date and time (timezone {label}), never a date from your training data."
     )
 
 # The knowledge-base search tool, added alongside the connector tools in the loop.
@@ -93,6 +105,9 @@ class Agent:
         self._llm = llm or MockLLMClient()
         self._memory = memory or NullMemory()
         self._system_prompt = system_prompt if system_prompt is not None else load_system_prompt()
+        # IANA timezone for resolving 'today'/'now' (e.g. America/Chicago). Set on the
+        # runtime via HOMEBASE_TIMEZONE; falls back to UTC when unset/unknown.
+        self._timezone = os.environ.get("HOMEBASE_TIMEZONE")
         # When set, answer() runs a tool-use loop with the knowledge base AND the
         # connector read tools; otherwise it uses the single-shot RAG path below.
         self._connectors = connectors
@@ -141,7 +156,7 @@ class Agent:
 
     def _system(self, suffix: str = "") -> str:
         # Fresh date/time preamble each request so relative-time questions resolve.
-        return _now_preamble() + "\n\n" + self._system_prompt + suffix
+        return _now_preamble(tz_name=self._timezone) + "\n\n" + self._system_prompt + suffix
 
     def _answer_with_tools(self, session, question) -> AnswerResult:
         loop = run_tool_loop(

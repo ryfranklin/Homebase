@@ -33,6 +33,12 @@ variable "model_id" {
   default     = "anthropic.claude-placeholder-model-id"
 }
 
+variable "agent_timezone" {
+  description = "IANA timezone the agent resolves 'today'/'now' in (for example America/Chicago). Falls back to UTC when unset."
+  type        = string
+  default     = "UTC"
+}
+
 variable "additional_model_arns" {
   description = "Extra Bedrock model/inference-profile ARNs the agent may invoke (for example a cross-region inference profile). Kept least-privilege: empty by default."
   type        = list(string)
