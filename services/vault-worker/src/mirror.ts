@@ -4,6 +4,7 @@
 // view of the vault, so it is unit-testable with fakes.
 
 export interface MirrorStore {
+  listKeys(): Promise<string[]>;
   putObject(key: string, body: string): Promise<void>;
   deleteObject(key: string): Promise<void>;
   reingest(): Promise<void>;
@@ -30,12 +31,22 @@ export class Mirror {
     await this.store.deleteObject(path);
   }
 
-  // Mirror every note (used after pulling external commits). Sequential: the vault
-  // is small and this runs off the request path.
-  async full(): Promise<number> {
+  // Make S3 faithfully reflect git: delete objects that no longer exist in git
+  // (prune), then put every git note. Sequential: the vault is small and this runs
+  // off the request path. The subsequent reingest removes pruned docs from the KB.
+  async full(): Promise<{ mirrored: number; pruned: number }> {
     const files = await this.vault.list();
+    const gitSet = new Set(files);
+    const s3Keys = await this.store.listKeys();
+    let pruned = 0;
+    for (const key of s3Keys) {
+      if (!gitSet.has(key)) {
+        await this.store.deleteObject(key);
+        pruned += 1;
+      }
+    }
     for (const f of files) await this.put(f);
-    return files.length;
+    return { mirrored: files.length, pruned };
   }
 
   // Best-effort KB sync; a lagging or already-running ingestion never fails a write.

@@ -91,9 +91,9 @@ export function createServer({ config, vault, mirror }: ServerDeps): Server {
 
       if (method === "POST" && path === "/pull") {
         await vault.pull();
-        const mirrored = await mirror.full();
+        const result = await mirror.full();
         await mirror.reingest();
-        return json(res, 200, { ok: true, mirrored });
+        return json(res, 200, { ok: true, ...result });
       }
 
       return json(res, 404, { error: "not_found" });

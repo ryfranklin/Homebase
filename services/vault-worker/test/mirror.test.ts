@@ -2,16 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import { Mirror, type MirrorStore, type VaultView } from "../src/mirror.ts";
 
-function fakeStore() {
+function fakeStore(existing: string[] = []) {
   const puts: [string, string][] = [];
   const deletes: string[] = [];
   let reingests = 0;
   let throwOnReingest = false;
-  const store: MirrorStore & { puts: typeof puts; deletes: typeof deletes; reingests: () => number; setThrow: (v: boolean) => void } = {
+  const store: MirrorStore & {
+    puts: typeof puts;
+    deletes: typeof deletes;
+    reingests: () => number;
+    setThrow: (v: boolean) => void;
+  } = {
     puts,
     deletes,
     reingests: () => reingests,
     setThrow: (v) => (throwOnReingest = v),
+    async listKeys() {
+      return existing;
+    },
     async putObject(key, body) {
       puts.push([key, body]);
     },
@@ -55,9 +63,20 @@ describe("Mirror", () => {
   it("full sync mirrors every note", async () => {
     const store = fakeStore();
     const m = new Mirror(store, fakeVault({ "a.md": "A", "b/c.md": "C" }));
-    const n = await m.full();
-    expect(n).toBe(2);
+    const { mirrored } = await m.full();
+    expect(mirrored).toBe(2);
     expect(store.puts.map(([k]) => k).sort()).toEqual(["a.md", "b/c.md"]);
+  });
+
+  it("full sync prunes S3 objects that no longer exist in git", async () => {
+    // S3 has two stale notes; git has only a.md.
+    const store = fakeStore(["a.md", "old/gone.md", "stale.md"]);
+    const m = new Mirror(store, fakeVault({ "a.md": "A" }));
+    const { mirrored, pruned } = await m.full();
+    expect(mirrored).toBe(1);
+    expect(pruned).toBe(2);
+    expect(store.deletes.sort()).toEqual(["old/gone.md", "stale.md"]);
+    expect(store.puts.map(([k]) => k)).toEqual(["a.md"]);
   });
 
   it("reingest is best-effort and never throws", async () => {

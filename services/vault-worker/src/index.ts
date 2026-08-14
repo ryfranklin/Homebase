@@ -26,10 +26,10 @@ async function main(): Promise<void> {
   });
   const mirror = new Mirror(store, vault);
 
-  // Initial sync so the KB reflects the current git state.
-  const n = await mirror.full();
+  // Initial sync so the KB reflects the current git state (prune + put).
+  const { mirrored, pruned } = await mirror.full();
   await mirror.reingest();
-  console.log(JSON.stringify({ event: "vault_ready", mirrored: n, branch: config.branch }));
+  console.log(JSON.stringify({ event: "vault_ready", mirrored, pruned, branch: config.branch }));
 
   createServer({ config, vault, mirror }).listen(config.port, () => {
     console.log(JSON.stringify({ event: "listening", port: config.port }));

@@ -11,7 +11,7 @@ export async function makeStore(opts: {
   kbDataSourceId: string | null;
 }): Promise<MirrorStore> {
   // @ts-ignore optional runtime dependency, present in the container image
-  const { S3Client, PutObjectCommand, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+  const { S3Client, ListObjectsV2Command, PutObjectCommand, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
   const s3 = new S3Client({ region: opts.region });
 
   let reingest = async (): Promise<void> => {};
@@ -35,6 +35,16 @@ export async function makeStore(opts: {
   }
 
   return {
+    async listKeys(): Promise<string[]> {
+      const keys: string[] = [];
+      let ContinuationToken: string | undefined;
+      do {
+        const out = await s3.send(new ListObjectsV2Command({ Bucket: opts.bucket, ContinuationToken }));
+        for (const obj of out.Contents ?? []) if (obj.Key) keys.push(obj.Key);
+        ContinuationToken = out.IsTruncated ? out.NextContinuationToken : undefined;
+      } while (ContinuationToken);
+      return keys;
+    },
     async putObject(key: string, body: string) {
       await s3.send(new PutObjectCommand({ Bucket: opts.bucket, Key: key, Body: body, ContentType: "text/markdown" }));
     },
