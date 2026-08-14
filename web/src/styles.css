@@ -258,6 +258,7 @@ button {
 /* ---------- Transcript ---------- */
 .transcript {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 22px 20px 8px;
   display: flex;
@@ -1876,6 +1877,7 @@ button.fb-row:hover { background: var(--surface); }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* let the transcript scroll inside instead of growing the page */
 }
 
 /* ---------- Live source tree ---------- */
@@ -1907,6 +1909,7 @@ button.fb-row:hover { background: var(--surface); }
   border-radius: 50%;
   background: var(--white);
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+  animation: pulse-dot 3s var(--ease) infinite;
 }
 .cs-idle-label {
   font-size: 0.68rem;
@@ -1935,6 +1938,29 @@ button.fb-row:hover { background: var(--surface); }
   list-style: none;
   margin: 0;
   padding: 0;
+  position: relative;
+}
+/* Ambient "data pulse" flowing down the tree guide, so it always feels live. */
+.cs-tree::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  width: 3px;
+  height: 34px;
+  border-radius: 3px;
+  background: linear-gradient(var(--pending-soft), transparent);
+  pointer-events: none;
+  animation: cs-scan 4.5s var(--ease) infinite;
+}
+@keyframes cs-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.7; }
+  88% { opacity: 0.7; }
+  100% { transform: translateY(calc(100% - 34px)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-tree::before { animation: none; opacity: 0; }
 }
 .cs-node {
   position: relative;
