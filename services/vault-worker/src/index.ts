@@ -48,7 +48,14 @@ async function main(): Promise<void> {
         await mirror.reingest();
       })
       .catch((err) => {
-        console.error(JSON.stringify({ event: "pull_error", message: String((err as Error)?.message).slice(0, 300) }));
+        // Enrich the log: transient S3/network errors often carry their detail in
+        // name/code/cause rather than message (an empty message told us nothing).
+        const e = err as { message?: string; name?: string; code?: string; cause?: unknown };
+        const cause = e?.cause as { message?: string; code?: string } | undefined;
+        const detail = e?.message || e?.code || cause?.message || cause?.code || String(err);
+        console.error(
+          JSON.stringify({ event: "pull_error", name: e?.name, code: e?.code, message: String(detail).slice(0, 300) }),
+        );
       });
   }, config.pullIntervalMs);
 }
