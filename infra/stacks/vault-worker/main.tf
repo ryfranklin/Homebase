@@ -197,7 +197,7 @@ resource "aws_instance" "nat" {
 # source IP is not stable). Egress-only; it also lets the BFF reach the NAT and AWS.
 resource "aws_security_group" "client" {
   name        = "${local.name_prefix}-client"
-  description = "BFF -> worker client SG (egress only)"
+  description = "BFF to worker client SG (egress only)"
   vpc_id      = var.vpc_id
 
   egress {
