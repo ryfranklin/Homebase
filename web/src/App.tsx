@@ -14,8 +14,9 @@ import { useConnectorCallback } from "./connectors/useConnectorCallback";
 // chat chunk loads once the user is authenticated.
 const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ default: m.VaultView })));
 const ChatView = lazy(() => import("./components/ChatView").then((m) => ({ default: m.ChatView })));
+const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
 
-type Mode = "vault" | "chat";
+type Mode = "vault" | "chat" | "plan";
 
 export function App() {
   const config = useMemo(() => loadConfig(), []);
@@ -50,7 +51,9 @@ export function App() {
       <ConnectorBanner status={connector.status} onDismiss={connector.dismiss} />
       <Suspense fallback={<div className="app-loading" aria-label="Loading" />}>
         {mode === "vault" ? (
-          <VaultView vault={vault} onOpenChat={() => setMode("chat")} onSignOut={auth.logout} />
+          <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} />
+        ) : mode === "plan" ? (
+          <FlightPlanner onNavigate={setMode} onSignOut={auth.logout} />
         ) : (
           <ChatView
             messages={chat.messages}
@@ -58,7 +61,7 @@ export function App() {
             onSend={(text) => void chat.send(text)}
             onStop={chat.stop}
             onSignOut={auth.logout}
-            onOpenVault={() => setMode("vault")}
+            onNavigate={setMode}
             connectors={connStatus.connectors}
             onConnect={(url) => window.location.assign(url)}
           />

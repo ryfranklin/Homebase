@@ -6,6 +6,7 @@ import { ChatSources } from "./ChatSources";
 import { ChatConnections } from "./ChatConnections";
 import { DocsOverlay } from "./DocsOverlay";
 import { ServiceNetwork } from "./ServiceNetwork";
+import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 
 // Markdown pulls in react-markdown + highlight.js. Lazy-load it into its own chunk
@@ -19,7 +20,7 @@ export interface ChatViewProps {
   onSend: (input: string) => void;
   onStop?: () => void;
   onSignOut?: () => void;
-  onOpenVault?: () => void;
+  onNavigate?: (mode: AppMode) => void;
   connectors?: ConnectorStatuses;
   onConnect?: (url: string) => void;
 }
@@ -41,7 +42,7 @@ function Thinking() {
 
 // Presentational streaming chat. A single centered column: a minimal header, a
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
-export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpenVault, connectors = {}, onConnect }: ChatViewProps) {
+export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNavigate, connectors = {}, onConnect }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -71,16 +72,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpe
           Homebase
         </span>
         <div className="header-actions">
-          {onOpenVault && (
-            <div className="mode-switch" role="tablist" aria-label="Workspace">
-              <button type="button" onClick={onOpenVault} aria-selected="false">
-                Vault
-              </button>
-              <button type="button" className="mode-active" aria-selected="true">
-                Chat
-              </button>
-            </div>
-          )}
+          {onNavigate && <ModeSwitch active="chat" onNavigate={onNavigate} />}
           <button type="button" className="link-button" onClick={() => setShowDocs(true)}>
             Docs
           </button>

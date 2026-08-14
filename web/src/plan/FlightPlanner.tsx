@@ -4,6 +4,7 @@ import { FlightBoard } from "../components/FlightBoard";
 import { FlightPlanView } from "../components/FlightPlanView";
 import { PreflightModal } from "../components/PreflightModal";
 import { AddSourceModal } from "../components/AddSourceModal";
+import { ModeSwitch, type AppMode } from "../components/ModeSwitch";
 import type { GateAction } from "../components/AcCard";
 import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
@@ -19,11 +20,18 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-// Self-contained, backend-free prototype of the Flight Planner: the board, a plan
-// with its review gate + copilot + grounded sources, source ingest (vault /
-// Confluence / upload / create), and the pre-flight clearance + Jira materialize
-// preview. All state is local so every flow is clickable.
-export function FlightPlanner() {
+// The Flight Planner: the board, a plan with its review gate + copilot + grounded
+// sources, source ingest (vault / Confluence / upload / create), and the pre-flight
+// clearance + Jira materialize preview. Plan state is still local (no persistence
+// backend yet); wiring live sources in and Jira out is the next step. When mounted
+// as a real workspace view it carries the shared nav; the dev preview passes none.
+export function FlightPlanner({
+  onNavigate,
+  onSignOut,
+}: {
+  onNavigate?: (mode: AppMode) => void;
+  onSignOut?: () => void;
+} = {}) {
   const [plans, setPlans] = useState<FlightPlan[]>(SAMPLE_PLANS);
   const [extraDocs, setExtraDocs] = useState<VaultDoc[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -102,10 +110,9 @@ export function FlightPlanner() {
     setPreflight(false);
   };
 
-  if (!selected) {
-    return <FlightBoard plans={plans} onOpen={setSelectedId} />;
-  }
-  return (
+  const content = !selected ? (
+    <FlightBoard plans={plans} onOpen={setSelectedId} />
+  ) : (
     <>
       <FlightPlanView
         plan={selected}
@@ -128,5 +135,25 @@ export function FlightPlanner() {
         />
       )}
     </>
+  );
+
+  return (
+    <div className="plan">
+      <header className="chat-header">
+        <span className="wordmark">
+          <span className="wordmark-dot" aria-hidden="true"></span>
+          Homebase
+        </span>
+        <div className="header-actions">
+          {onNavigate && <ModeSwitch active="plan" onNavigate={onNavigate} />}
+          {onSignOut && (
+            <button type="button" className="link-button" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="plan-body">{content}</div>
+    </div>
   );
 }

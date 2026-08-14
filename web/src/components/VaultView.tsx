@@ -6,17 +6,18 @@ import { timeAgo } from "../vault/format";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
 import { VaultHistory } from "./VaultHistory";
+import { ModeSwitch, type AppMode } from "./ModeSwitch";
 
 export interface VaultViewProps {
   vault: UseVault;
-  onOpenChat: () => void;
+  onNavigate: (mode: AppMode) => void;
   onSignOut?: () => void;
 }
 
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
+export function VaultView({ vault, onNavigate, onSignOut }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -66,14 +67,7 @@ export function VaultView({ vault, onOpenChat, onSignOut }: VaultViewProps) {
           Homebase
         </span>
         <div className="header-actions">
-          <div className="mode-switch" role="tablist" aria-label="Workspace">
-            <button type="button" className="mode-active" aria-selected="true">
-              Vault
-            </button>
-            <button type="button" onClick={onOpenChat} aria-selected="false">
-              Chat
-            </button>
-          </div>
+          <ModeSwitch active="vault" onNavigate={onNavigate} />
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
               Sign out
