@@ -1864,3 +1864,181 @@ button.fb-row:hover { background: var(--surface); }
 .mz-dod ul { margin: 8px 0 0; padding-left: 18px; }
 .mz-dod li { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
 .mz-go { margin-top: 12px; width: 100%; }
+
+/* ---------- Chat two-column layout (transcript + live source tree) ---------- */
+.chat-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.chat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------- Live source tree ---------- */
+.chat-sources {
+  width: 268px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 16px;
+  overflow-y: auto;
+}
+.cs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.cs-hub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.cs-hub-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+.cs-idle-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+}
+.cs-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pending);
+}
+.cs-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pending);
+  animation: cs-pulse 1s var(--ease) infinite;
+}
+
+.cs-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cs-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 9px 6px 9px 22px;
+}
+/* Vertical tree guide + horizontal connector per node. */
+.cs-branch {
+  position: absolute;
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.cs-branch.last {
+  bottom: 50%;
+}
+.cs-connector {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 11px;
+  height: 1px;
+  background: var(--border);
+}
+.cs-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--faint);
+  transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.cs-label {
+  font-size: 0.86rem;
+  color: var(--muted);
+  transition: color 0.3s;
+}
+.cs-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--faint);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* States */
+.cs-node.used .cs-dot { background: var(--white); }
+.cs-node.used .cs-label { color: var(--text); }
+.cs-node.used .cs-connector { background: var(--border-strong); }
+
+.cs-node.active .cs-dot {
+  background: var(--pending);
+  box-shadow: 0 0 0 4px var(--pending-soft), 0 0 10px 1px rgba(224, 168, 58, 0.6);
+  animation: cs-pulse 1s var(--ease) infinite;
+}
+.cs-node.active .cs-label { color: var(--pending); }
+.cs-node.active .cs-connector { background: var(--pending); }
+.cs-node.active .cs-count { color: var(--pending); }
+
+.cs-node.idle .cs-dot { opacity: 0.5; }
+
+/* Cited vault docs as leaves under the Vault node */
+.cs-leaves {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  width: 100%;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cs-leaf {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  padding-left: 12px;
+}
+.cs-leaf::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+@keyframes cs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (max-width: 900px) {
+  .chat-sources { display: none; }
+}

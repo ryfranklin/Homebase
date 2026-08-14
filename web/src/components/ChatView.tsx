@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
+import { ChatSources } from "./ChatSources";
 import { DocsOverlay } from "./DocsOverlay";
 import { ServiceNetwork } from "./ServiceNetwork";
 
@@ -89,7 +90,9 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpe
 
       {showDocs && <DocsOverlay onClose={() => setShowDocs(false)} />}
 
-      <main className="transcript" aria-live="polite">
+      <div className="chat-body">
+        <div className="chat-col">
+          <main className="transcript" aria-live="polite">
         {messages.length === 0 && (
           <div className="empty">
             <ServiceNetwork />
@@ -157,7 +160,11 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpe
           )}
         </div>
         <p className="composer-hint">Homebase can read your connected accounts. Answers are grounded in your sources.</p>
-      </form>
+          </form>
+        </div>
+
+        <ChatSources messages={messages} streaming={streaming} />
+      </div>
     </div>
   );
 }

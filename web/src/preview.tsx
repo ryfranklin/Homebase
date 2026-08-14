@@ -46,7 +46,7 @@ const SAMPLE: ChatMessage[] = [
     role: "assistant",
     text: "",
     citations: [],
-    toolEvents: [],
+    toolEvents: ["gcal_list_events"],
     streaming: true,
   },
 ];
