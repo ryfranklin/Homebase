@@ -108,6 +108,34 @@ describe("GitVault", () => {
     expect(await v2.read("dup.conflict-S.md")).toBe("LOCAL"); // caller's content saved
   });
 
+  it("log returns per-file history newest-first with authors, and readAt reads a prior version", async () => {
+    const { root, remote } = makeRemote();
+    const v1 = new GitVault({ workDir: join(root, "v1"), remoteUrl: remote, branch: "main" });
+    await v1.init();
+    await v1.writeNote({ path: "h.md", content: "v1", author: { name: "alice", email: "alice@test" }, message: "first" });
+    await v1.writeNote({ path: "h.md", content: "v2", author: { name: "bob", email: "bob@test" }, message: "second" });
+
+    const log = await v1.log("h.md");
+    expect(log.length).toBe(2);
+    expect(log[0].authorName).toBe("bob"); // newest first
+    expect(log[0].isCurrent).toBe(true);
+    expect(log[1].authorName).toBe("alice");
+    expect(log[1].isCurrent).toBe(false);
+
+    // readAt the older commit returns the original content; current read returns v2.
+    expect(await v1.readAt("h.md", log[1].commit)).toBe("v1");
+    expect(await v1.read("h.md")).toBe("v2");
+  });
+
+  it("readAt rejects a non-hash ref (no option/path injection)", async () => {
+    const { root, remote } = makeRemote();
+    const v1 = new GitVault({ workDir: join(root, "v1"), remoteUrl: remote, branch: "main" });
+    await v1.init();
+    await v1.writeNote({ path: "h.md", content: "x", author, message: "add" });
+    await expect(v1.readAt("h.md", "--output=/tmp/pwn")).rejects.toMatchObject({ code: "invalid_version" });
+    await expect(v1.readAt("h.md", "HEAD")).rejects.toMatchObject({ code: "invalid_version" });
+  });
+
   it("deletes a note", async () => {
     const { root, remote } = makeRemote();
     const v1 = new GitVault({ workDir: join(root, "v1"), remoteUrl: remote, branch: "main" });

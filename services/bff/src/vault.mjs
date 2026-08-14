@@ -129,11 +129,12 @@ async function mapPool(items, limit, fn) {
   return out;
 }
 
-// store: { listKeys(), getObject(key[, versionId]) -> { content, metadata },
-//          listVersions(key) } - the S3 mirror, used for READS.
-// writer: { write(key, content, actor), remove(key, actor) } - the vault worker,
-//          used for WRITES (commits to the git source of truth). Null for chat-only
-//          deployments and tests without a worker, in which case writes 503.
+// store: { listKeys(), getObject(key) -> { content } } - the S3 mirror, used for
+//          content READS (current note bodies + the search corpus).
+// writer: the vault worker. Used for WRITES (commits to the git source of truth)
+//          AND for authorship: { write, remove, log(key,limit) -> [commit], readAt
+//          (key, ref) -> content }. Null for chat-only deployments and tests without
+//          a worker, in which case writes 503 and attribution/history is empty.
 export function makeVault({ store, writer = null, now = () => Date.now(), cacheTtlMs = 30000 }) {
   // Warm-container cache of note contents for search/backlinks (content scans).
   let cache = null; // { at, notes: Map<key, {content, title}> }
@@ -163,12 +164,17 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
     return writer;
   }
 
-  function attributionFrom(metadata = {}) {
-    return {
-      updatedBy: metadata["updated-by"] || null,
-      updatedById: metadata["updated-by-id"] || null,
-      updatedAt: metadata["updated-at"] || null,
-    };
+  // Latest authorship for a note, read from git (durable) via the worker. Best
+  // effort: a missing worker or a not-yet-committed note yields nulls, never an error.
+  async function latestAttribution(key) {
+    if (!writer?.log) return { updatedBy: null, updatedById: null, updatedAt: null };
+    try {
+      const [head] = await writer.log(key, 1);
+      if (!head) return { updatedBy: null, updatedById: null, updatedAt: null };
+      return { updatedBy: head.authorName || null, updatedById: head.authorEmail || null, updatedAt: head.date || null };
+    } catch {
+      return { updatedBy: null, updatedById: null, updatedAt: null };
+    }
   }
 
   return {
@@ -179,7 +185,7 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
 
     async get(key) {
       assertSafeKey(key);
-      const { content, metadata } = await store.getObject(key);
+      const { content } = await store.getObject(key);
       const { frontMatter } = splitFrontMatter(content || "");
       return {
         key,
@@ -187,7 +193,7 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
         title: noteTitle(key, content || ""),
         frontMatter,
         links: extractWikilinks(content || ""),
-        ...attributionFrom(metadata),
+        ...(await latestAttribution(key)),
       };
     },
 
@@ -216,30 +222,31 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
       return { ok: true, key, deletedBy: actor?.name || null };
     },
 
-    // Version history via S3 object versioning: each save is a restorable point,
-    // and each version carries its own author metadata.
+    // Version history straight from git: each commit that touched the note is a
+    // restorable point, carrying its real author. The commit hash is the versionId.
     async history(key, limit = 50) {
       assertSafeKey(key);
-      const versions = await store.listVersions(key, limit);
+      if (!writer?.log) return { key, versions: [] };
+      const entries = await writer.log(key, limit);
       return {
         key,
-        versions: versions.map((v) => ({
-          versionId: v.versionId,
-          updatedAt: v.updatedAt || v.lastModified || null,
-          updatedBy: v.updatedBy || null,
-          size: v.size ?? null,
-          isCurrent: !!v.isCurrent,
+        versions: entries.map((e) => ({
+          versionId: e.commit,
+          updatedAt: e.date || null,
+          updatedBy: e.authorName || null,
+          size: null,
+          isCurrent: !!e.isCurrent,
         })),
       };
     },
 
-    // Restore a prior version by reading it from the mirror and committing it
-    // forward through the worker, attributed to whoever performed the restore.
+    // Restore a prior version by reading the file at that commit from git and
+    // committing it forward through the worker, attributed to whoever restored it.
     async restore(key, versionId, actor) {
       assertSafeKey(key);
       if (!versionId) throw httpError(400, "invalid_version", "versionId is required");
       const at = new Date(now()).toISOString();
-      const { content } = await store.getObject(key, versionId);
+      const content = await requireWriter().readAt(key, versionId);
       const result = await requireWriter().write(key, content ?? "", actor);
       invalidate();
       return { ok: true, key, restoredFrom: versionId, conflictPath: result?.conflictPath ?? null, updatedBy: actor?.name || null, updatedAt: at };

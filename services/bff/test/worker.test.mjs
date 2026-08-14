@@ -51,6 +51,26 @@ test("derives an email when the name is not one, and omits the header without a 
   assert.equal(calls[0].init.headers["x-worker-secret"], undefined);
 });
 
+test("log GETs /log with the path and returns the entries", async () => {
+  const calls = [];
+  const entries = [{ commit: "c1", authorName: "ryan", authorEmail: "ryan@x.com", date: "2026-01-01T00:00:00Z", isCurrent: true }];
+  const client = makeWorkerClient({ url: "http://worker:8080", secret: "s", fetchImpl: fakeFetch(calls, { ok: true, status: 200, body: { path: "n.md", entries } }) });
+  const out = await client.log("dir/n.md", 10);
+  assert.equal(calls[0].url, "http://worker:8080/log?path=dir%2Fn.md&limit=10");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers["x-worker-secret"], "s");
+  assert.deepEqual(out, entries);
+});
+
+test("readAt GETs /file with the ref and returns the content", async () => {
+  const calls = [];
+  const client = makeWorkerClient({ url: "http://worker:8080", secret: "s", fetchImpl: fakeFetch(calls, { ok: true, status: 200, body: { path: "n.md", content: "old" } }) });
+  const content = await client.readAt("n.md", "abc1234");
+  assert.equal(calls[0].url, "http://worker:8080/file?path=n.md&ref=abc1234");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(content, "old");
+});
+
 test("remove posts to /delete", async () => {
   const calls = [];
   const client = makeWorkerClient({ url: "http://worker:8080", secret: "s", fetchImpl: fakeFetch(calls) });

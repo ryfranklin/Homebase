@@ -117,18 +117,27 @@ function fakeStore(seed = {}) {
   };
 }
 
-// Fake vault worker: simulates the real worker by committing to the store (the S3
-// mirror) with attribution, so read-after-write and attribution assertions hold.
+// Fake vault worker: mirrors content to the store (so read-after-write holds) AND
+// keeps a per-file git-log, so attribution/history/restore read from git the way
+// the real worker serves them. Authorship is the commit author (name + email).
 function fakeWriter(store) {
   const writes = [];
+  const logs = new Map(); // key -> [{ commit, authorName, authorEmail, date, content }] newest-first
+  let seq = 0;
+  const commit = (key, content, actor) => {
+    seq += 1;
+    const name = actor?.name || "Homebase";
+    const email = actor?.email || (name.includes("@") ? name : `${actor?.id || "homebase"}@homebase.local`);
+    const list = logs.get(key) || [];
+    list.unshift({ commit: `c${String(seq).padStart(39, "0")}`, authorName: name, authorEmail: email, date: `2026-01-01T00:00:0${seq % 10}Z`, content });
+    logs.set(key, list);
+  };
   return {
     writes,
+    logs,
     async write(key, content, actor) {
-      await store.putObject(key, content, "text/markdown", {
-        "updated-by": actor?.name,
-        "updated-by-id": actor?.id,
-        "updated-at": new Date().toISOString(),
-      });
+      await store.putObject(key, content, "text/markdown", {});
+      commit(key, content, actor);
       writes.push({ op: "write", key, content, actor });
       return { ok: true, changed: true };
     },
@@ -136,6 +145,21 @@ function fakeWriter(store) {
       await store.deleteObject(key);
       writes.push({ op: "remove", key, actor });
       return { ok: true, changed: true };
+    },
+    async log(key, limit = 50) {
+      return (logs.get(key) || []).slice(0, limit).map((e, i) => ({
+        commit: e.commit,
+        authorName: e.authorName,
+        authorEmail: e.authorEmail,
+        date: e.date,
+        subject: `update ${key}`,
+        isCurrent: i === 0,
+      }));
+    },
+    async readAt(key, ref) {
+      const e = (logs.get(key) || []).find((x) => x.commit === ref);
+      if (!e) throw Object.assign(new Error("version_not_found"), { status: 404, code: "version_not_found" });
+      return e.content;
     },
   };
 }
@@ -231,8 +255,8 @@ test("put stamps the author, and get returns attribution", async () => {
   const vault = makeVault({ store, writer: fakeWriter(store) });
   await vault.put("n.md", "# hi", alice);
   const note = await vault.get("n.md");
-  assert.equal(note.updatedBy, "alice@example.com");
-  assert.equal(note.updatedById, "u-alice");
+  assert.equal(note.updatedBy, "alice@example.com"); // git author name
+  assert.equal(note.updatedById, "alice@example.com"); // git author email (no Cognito sub in git)
   assert.ok(note.updatedAt);
 });
 

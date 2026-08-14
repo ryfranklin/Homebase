@@ -14,14 +14,13 @@ function toGitAuthor(actor) {
 
 export function makeWorkerClient({ url, secret, fetchImpl = fetch }) {
   const base = url.replace(/\/$/, "");
-  async function call(path, body) {
+  const authHeader = secret ? { "x-worker-secret": secret } : {};
+
+  async function request(method, path, body) {
     const res = await fetchImpl(`${base}${path}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(secret ? { "x-worker-secret": secret } : {}),
-      },
-      body: JSON.stringify(body),
+      method,
+      headers: { "content-type": "application/json", ...authHeader },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -32,12 +31,24 @@ export function makeWorkerClient({ url, secret, fetchImpl = fetch }) {
     }
     return res.json();
   }
+  const call = (path, body) => request("POST", path, body);
+
   return {
     async write(key, content, actor) {
       return call("/write", { path: key, content, author: toGitAuthor(actor), message: `update ${key}` });
     },
     async remove(key, actor) {
       return call("/delete", { path: key, author: toGitAuthor(actor), message: `delete ${key}` });
+    },
+    // Per-file commit history from git (authoritative authorship), newest first.
+    async log(key, limit = 50) {
+      const out = await request("GET", `/log?path=${encodeURIComponent(key)}&limit=${limit}`);
+      return out.entries ?? [];
+    },
+    // File content at a specific commit (for restoring a prior version).
+    async readAt(key, ref) {
+      const out = await request("GET", `/file?path=${encodeURIComponent(key)}&ref=${encodeURIComponent(ref)}`);
+      return out.content ?? "";
     },
   };
 }

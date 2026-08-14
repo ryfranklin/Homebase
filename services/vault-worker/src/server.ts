@@ -57,19 +57,22 @@ export function createServer({ config, vault, mirror, mutex }: ServerDeps): Serv
     try {
       if (method === "GET" && path === "/file") {
         const p = url.searchParams.get("path") ?? "";
-        return json(res, 200, { path: p, content: await vault.read(p) });
+        const ref = url.searchParams.get("ref");
+        const content = ref ? await vault.readAt(p, ref) : await vault.read(p);
+        return json(res, 200, { path: p, content });
+      }
+
+      // Per-file commit history. Authorship is read from git (durable) rather than
+      // the S3 mirror, which is rebuilt on every sync and would lose the metadata.
+      if (method === "GET" && path === "/log") {
+        const p = url.searchParams.get("path") ?? "";
+        const limit = Number(url.searchParams.get("limit") || 50);
+        return json(res, 200, { path: p, entries: await vault.log(p, limit) });
       }
 
       if (method === "POST" && path === "/write") {
         const body = await readBody(req);
         const author = (body.author as { name: string; email: string; id?: string }) ?? config.committer;
-        // Attribute the mirrored object to the caller so the vault UI can show who
-        // last changed a note (git stays the authoritative record of authorship).
-        const meta = {
-          "updated-by": author.name ?? "",
-          "updated-by-id": author.id ?? "",
-          "updated-at": new Date().toISOString(),
-        };
         const result = await mutex.run(async () => {
           const r = await vault.writeNote({
             path: String(body.path ?? ""),
@@ -78,8 +81,8 @@ export function createServer({ config, vault, mirror, mutex }: ServerDeps): Serv
             message: String(body.message ?? "update note"),
           });
           if (r.changed) {
-            await mirror.put(r.conflictPath ?? String(body.path), meta);
-            if (r.conflictPath) await mirror.put(String(body.path), meta);
+            await mirror.put(r.conflictPath ?? String(body.path));
+            if (r.conflictPath) await mirror.put(String(body.path));
             await mirror.reingest();
           }
           return r;

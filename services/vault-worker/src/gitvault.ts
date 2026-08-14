@@ -29,6 +29,15 @@ export interface WriteResult {
   conflictPath?: string;
 }
 
+export interface CommitEntry {
+  commit: string;
+  authorName: string;
+  authorEmail: string;
+  date: string;
+  subject: string;
+  isCurrent: boolean;
+}
+
 export interface GitVaultOptions {
   workDir: string;
   remoteUrl: string;
@@ -46,6 +55,16 @@ function assertSafePath(path: string): string {
     throw Object.assign(new Error("invalid path"), { code: "invalid_path", status: 400 });
   }
   return path;
+}
+
+// A git ref supplied by a caller (a version id) becomes part of a `git show`
+// argument, so constrain it to a commit-hash shape. execFile avoids shell
+// injection, but this also stops a ref from being read as a git option.
+function assertSafeRef(ref: string): string {
+  if (!/^[0-9a-f]{7,40}$/.test(ref)) {
+    throw Object.assign(new Error("invalid version id"), { code: "invalid_version", status: 400 });
+  }
+  return ref;
 }
 
 function conflictName(path: string, stamp: string): string {
@@ -129,6 +148,34 @@ export class GitVault {
   async read(path: string): Promise<string> {
     assertSafePath(path);
     return readFile(join(this.workDir, path), "utf8");
+  }
+
+  // Read a file as it existed at a specific commit (for restoring a prior version).
+  async readAt(path: string, ref: string): Promise<string> {
+    assertSafePath(path);
+    const safeRef = assertSafeRef(ref);
+    const r = await this.git(["show", `${safeRef}:${path}`]);
+    if (r.code !== 0) {
+      throw Object.assign(new Error("version not found"), { code: "version_not_found", status: 404 });
+    }
+    return r.stdout;
+  }
+
+  // Commit history for a single file: authorship comes straight from git (durable),
+  // not the S3 mirror. --follow tracks the file across renames. Fields are split on
+  // the unit separator (0x1f) so commit subjects can contain any other character.
+  async log(path: string, limit = 50): Promise<CommitEntry[]> {
+    assertSafePath(path);
+    const fmt = ["%H", "%an", "%ae", "%aI", "%s"].join("%x1f");
+    const r = await this.git(["log", `--max-count=${Math.max(1, Math.min(limit, 200))}`, "--follow", `--format=${fmt}`, "--", path]);
+    if (r.code !== 0) return [];
+    return r.stdout
+      .split("\n")
+      .filter(Boolean)
+      .map((line, i) => {
+        const [commit, authorName, authorEmail, date, subject] = line.split("\x1f");
+        return { commit, authorName, authorEmail, date, subject, isCurrent: i === 0 };
+      });
   }
 
   async list(): Promise<string[]> {
