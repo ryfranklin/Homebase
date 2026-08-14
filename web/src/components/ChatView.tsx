@@ -3,8 +3,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../chat/messages";
 import { Citations } from "./Citations";
 import { ChatSources } from "./ChatSources";
+import { ChatConnections } from "./ChatConnections";
 import { DocsOverlay } from "./DocsOverlay";
 import { ServiceNetwork } from "./ServiceNetwork";
+import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 
 // Markdown pulls in react-markdown + highlight.js. Lazy-load it into its own chunk
 // so the initial bundle stays lean; it's preloaded on mount (below) so the chunk is
@@ -18,6 +20,8 @@ export interface ChatViewProps {
   onStop?: () => void;
   onSignOut?: () => void;
   onOpenVault?: () => void;
+  connectors?: ConnectorStatuses;
+  onConnect?: (url: string) => void;
 }
 
 // A small pulsing indicator shown while the agent is working but hasn't streamed
@@ -37,7 +41,7 @@ function Thinking() {
 
 // Presentational streaming chat. A single centered column: a minimal header, a
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
-export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpenVault }: ChatViewProps) {
+export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpenVault, connectors = {}, onConnect }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -98,6 +102,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpe
             <ServiceNetwork />
             <h1 className="empty-title">Ask a question about your knowledge base.</h1>
             <p className="empty-sub">Your notes, mail, calendar, Drive, Slack, Jira, and Confluence — one place.</p>
+            <ChatConnections connectors={connectors} onConnect={onConnect} />
           </div>
         )}
         {messages.map((m) => (
@@ -163,7 +168,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onOpe
           </form>
         </div>
 
-        <ChatSources messages={messages} streaming={streaming} />
+        <ChatSources messages={messages} streaming={streaming} connectors={connectors} onConnect={onConnect} />
       </div>
     </div>
   );

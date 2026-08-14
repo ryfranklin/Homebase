@@ -1,10 +1,11 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "./auth/useAuth";
 import { LoginScreen } from "./components/LoginScreen";
 import { loadConfig } from "./config";
 import { useChat } from "./chat/useChat";
 import { useVault } from "./vault/useVault";
+import { useConnectorStatus } from "./chat/useConnectorStatus";
 import { ConnectorBanner } from "./connectors/ConnectorBanner";
 import { useConnectorCallback } from "./connectors/useConnectorCallback";
 
@@ -27,6 +28,12 @@ export function App() {
   const [mode, setMode] = useState<Mode>("vault");
   // Finalize a connector consent if the browser returned with ?session_id=.
   const connector = useConnectorCallback(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
+  // What's actually connected (from the token vault), for the chat's source display.
+  const connStatus = useConnectorStatus(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
+  // Re-check after a consent finalize so a freshly linked account shows connected.
+  useEffect(() => {
+    void connStatus.refresh();
+  }, [connector.status, connStatus.refresh]);
 
   if (!auth.authenticated) {
     return (
@@ -52,6 +59,8 @@ export function App() {
             onStop={chat.stop}
             onSignOut={auth.logout}
             onOpenVault={() => setMode("vault")}
+            connectors={connStatus.connectors}
+            onConnect={(url) => window.location.assign(url)}
           />
         )}
       </Suspense>

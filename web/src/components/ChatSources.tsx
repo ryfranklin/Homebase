@@ -1,5 +1,6 @@
 import { dedupeCitations, type ChatMessage } from "../chat/messages";
 import { computeSourceStates } from "../chat/sources";
+import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 
 function baseName(path: string): string {
   return path.split("/").pop() ?? path;
@@ -7,8 +8,19 @@ function baseName(path: string): string {
 
 // A live "network tree" beside the chat: the Homebase hub branching to each source,
 // lighting up as the agent pulls from them (active = pulling now, used = pulled this
-// conversation). The cited vault docs hang under the Vault node as leaves.
-export function ChatSources({ messages, streaming }: { messages: ChatMessage[]; streaming: boolean }) {
+// conversation) and showing which are connected. The cited vault docs hang under the
+// Vault node as leaves.
+export function ChatSources({
+  messages,
+  streaming,
+  connectors = {},
+  onConnect,
+}: {
+  messages: ChatMessage[];
+  streaming: boolean;
+  connectors?: ConnectorStatuses;
+  onConnect?: (url: string) => void;
+}) {
   const states = computeSourceStates(messages, streaming);
   const citations = dedupeCitations(messages.flatMap((m) => m.citations));
   const pulling = states.some((s) => s.active);
@@ -34,13 +46,23 @@ export function ChatSources({ messages, streaming }: { messages: ChatMessage[]; 
         {states.map((s, i) => {
           const state = s.active ? "active" : s.used ? "used" : "idle";
           const last = i === states.length - 1;
+          // Vault has no external connector; the rest reflect the token vault.
+          const conn = s.id === "kb" ? undefined : connectors[s.id];
           return (
             <li key={s.id} className={`cs-node ${state}`}>
               <span className={`cs-branch${last ? " last" : ""}`} aria-hidden="true" />
               <span className="cs-connector" aria-hidden="true" />
               <span className="cs-dot" aria-hidden="true" />
               <span className="cs-label">{s.label}</span>
-              {s.count > 0 && <span className="cs-count">{s.count}</span>}
+              <span className="cs-node-right">
+                {s.count > 0 && <span className="cs-count">{s.count}</span>}
+                {conn?.status === "connected" && <span className="cs-connected" title="Connected" aria-label="Connected">●</span>}
+                {conn?.status === "needs_auth" && conn.authorizationUrl && onConnect && (
+                  <button type="button" className="cs-connect" onClick={() => onConnect(conn.authorizationUrl!)}>
+                    Connect
+                  </button>
+                )}
+              </span>
 
               {s.id === "kb" && citations.length > 0 && (
                 <ul className="cs-leaves">

@@ -2003,14 +2003,93 @@ button.fb-row:hover { background: var(--surface); }
   color: var(--muted);
   transition: color 0.3s;
 }
-.cs-count {
+.cs-node-right {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cs-count {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--faint);
   background: var(--surface);
   border-radius: 999px;
   padding: 1px 7px;
+}
+.cs-connected {
+  font-size: 0.5rem;
+  color: #35c07d;
+}
+.cs-connect {
+  border: 1px solid rgba(224, 168, 58, 0.4);
+  background: var(--pending-soft);
+  color: var(--pending);
+  font-family: inherit;
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+.cs-connect:hover {
+  background: rgba(224, 168, 58, 0.2);
+}
+
+/* Empty-state connections strip */
+.chat-connections {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.cc-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.cc-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  margin-right: 2px;
+}
+.cc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: inherit;
+}
+.cc-chip.connected {
+  color: var(--text);
+}
+.cc-chip.connected .cc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #35c07d;
+}
+.cc-chip.needs-auth {
+  color: var(--pending);
+  border-color: rgba(224, 168, 58, 0.4);
+  background: var(--pending-soft);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.cc-chip.needs-auth:hover:not(:disabled) {
+  background: rgba(224, 168, 58, 0.2);
+}
+.cc-chip:disabled {
+  opacity: 0.5;
 }
 
 /* States */
