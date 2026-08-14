@@ -74,6 +74,23 @@ module "worker_kms" {
 # instance; the worker and the BFF run PRIVATE and egress through it (GitHub, AWS).
 # The worker has no public IP and no inbound except port 8080 from the BFF.
 # ---------------------------------------------------------------------------
+
+# The public subnet + route table were renamed from *.worker to *.public when the
+# worker moved to its own private subnet. Treat them as the SAME resources so
+# Terraform updates them in place instead of destroy/recreate.
+moved {
+  from = aws_subnet.worker
+  to   = aws_subnet.public
+}
+moved {
+  from = aws_route_table.worker
+  to   = aws_route_table.public
+}
+moved {
+  from = aws_route_table_association.worker
+  to   = aws_route_table_association.public
+}
+
 resource "aws_subnet" "public" {
   vpc_id                  = var.vpc_id
   cidr_block              = var.public_subnet_cidr
@@ -194,9 +211,11 @@ resource "aws_security_group" "client" {
 }
 
 # Worker: inbound 8080 only from the client SG; egress anywhere (via the NAT).
+# The description is immutable on AWS SGs, so it is kept at its original applied value
+# to avoid a ForceNew replacement of this in-use SG; only the rules below change.
 resource "aws_security_group" "worker" {
   name        = local.name_prefix
-  description = "vault-worker: inbound 8080 from the BFF client SG; egress via NAT"
+  description = "vault-worker: no inbound; egress 443 for GitHub + AWS"
   vpc_id      = var.vpc_id
 
   ingress {
