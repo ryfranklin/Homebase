@@ -123,6 +123,9 @@ def run_tool_loop_stream(llm, *, system, question, tools, execute, max_turns=8):
             tool_use = block.get("toolUse")
             if not tool_use:
                 continue
+            # Announce which source is being pulled so the UI's live source tree lights
+            # up (search_knowledge_base -> Vault, gcal_list_events -> Calendar, etc.).
+            yield {"type": "tool_call", "name": tool_use["name"]}
             outcome = execute(tool_use["name"], tool_use.get("input") or {})
 
             if outcome.authorization_url:

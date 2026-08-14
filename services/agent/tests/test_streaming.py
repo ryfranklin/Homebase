@@ -109,6 +109,8 @@ class StreamingToolLoopTests(unittest.TestCase):
         self.assertEqual(tokens, "In general: hi")
         self.assertEqual(events[-1], {"type": "done"})
         self.assertEqual(connectors.calls[0], ("slack_read_messages", {"channel": "general"}, "homebase"))
+        # A tool_call event announces the source pulled, so the UI source tree lights up.
+        self.assertIn({"type": "tool_call", "name": "slack_read_messages"}, events)
 
     def test_knowledge_base_emits_citation(self):
         llm = StreamingLLM([
