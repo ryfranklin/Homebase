@@ -3,19 +3,29 @@
 // the tenant, so the UI can show what is actually connected and offer a Connect link.
 // Kept out of bff.mjs so that stays testable; the real Lambda client is built here.
 
-// Connector keys (match services/connectors catalog). gmail/gcal/gdrive share the
-// Google provider but each shim is scoped separately, so we probe each.
-export const CONNECTOR_KEYS = ["slack", "gmail", "gcal", "gdrive", "jira", "confluence"];
+// UI-facing connector key -> deployed shim Lambda suffix. They match except Jira,
+// whose shim is deployed under the Atlassian provider name (homebase-*-connector-atlassian).
+// gmail/gcal/gdrive share the Google provider but each shim is scoped separately, so we
+// probe each. The UI keys these by `key` (see web/src/chat/sources.ts), so the returned
+// map must use `key`, not the Lambda suffix.
+export const CONNECTOR_FUNCTIONS = [
+  { key: "slack", fn: "slack" },
+  { key: "gmail", fn: "gmail" },
+  { key: "gcal", fn: "gcal" },
+  { key: "gdrive", fn: "gdrive" },
+  { key: "jira", fn: "atlassian" },
+  { key: "confluence", fn: "confluence" },
+];
 
 export async function makeConnectorStatus({ region, prefix }) {
   const { LambdaClient, InvokeCommand } = await import("@aws-sdk/client-lambda");
   const lambda = new LambdaClient({ region });
 
-  async function probe(key, tenantId) {
+  async function probe({ key, fn }, tenantId) {
     try {
       const out = await lambda.send(
         new InvokeCommand({
-          FunctionName: `${prefix}-connector-${key}`,
+          FunctionName: `${prefix}-connector-${fn}`,
           Payload: Buffer.from(JSON.stringify({ name: "status", arguments: { tenant_id: tenantId } })),
         }),
       );
@@ -28,7 +38,7 @@ export async function makeConnectorStatus({ region, prefix }) {
 
   return {
     async statuses(tenantId) {
-      const results = await Promise.all(CONNECTOR_KEYS.map((k) => probe(k, tenantId)));
+      const results = await Promise.all(CONNECTOR_FUNCTIONS.map((c) => probe(c, tenantId)));
       const connectors = {};
       for (const r of results) connectors[r.key] = { status: r.status, authorizationUrl: r.authorizationUrl };
       return { connectors };

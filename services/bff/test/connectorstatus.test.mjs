@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { handleRequest } from "../src/bff.mjs";
+import { CONNECTOR_FUNCTIONS } from "../src/connectorstatus.mjs";
 
 const CFG = { issuer: "i", audience: "a", agentRuntimeArn: "arn", allowedOrigin: "https://app.example.invalid" };
 
@@ -48,6 +49,17 @@ test("GET /api/connectors/status returns the tenant's connector statuses", async
   assert.equal(json().connectors.slack.status, "connected");
   assert.equal(json().connectors.gmail.authorizationUrl, "https://x");
   assert.deepEqual(seen, ["tenant-1"]); // scoped to the verified tenant
+});
+
+test("connector map probes the atlassian shim but reports it under the ui key 'jira'", () => {
+  // The frontend keys Jira as 'jira' (web/src/chat/sources.ts), but its shim Lambda is
+  // deployed as ...-connector-atlassian. If these drift, the Jira probe silently 404s
+  // and Jira never shows connected. Keys must equal the UI ids; the atlassian fn is the
+  // one exception where fn != key.
+  const jira = CONNECTOR_FUNCTIONS.find((c) => c.key === "jira");
+  assert.equal(jira.fn, "atlassian");
+  const uiKeys = ["slack", "gmail", "gcal", "gdrive", "jira", "confluence"];
+  assert.deepEqual(CONNECTOR_FUNCTIONS.map((c) => c.key), uiKeys);
 });
 
 test("status route degrades to an empty map when not configured", async () => {
