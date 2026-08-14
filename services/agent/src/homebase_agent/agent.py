@@ -9,6 +9,7 @@ Contract the harness and tests rely on:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from .llm import MockLLMClient
 from .memory import NullMemory
@@ -18,6 +19,20 @@ from .toolloop import Outcome, run_tool_loop, run_tool_loop_stream
 NO_SOURCES_MESSAGE = (
     "I do not have a relevant source in your knowledge base for that, so I cannot answer it."
 )
+
+
+def _now_preamble(now=None) -> str:
+    """A fresh date/time line prepended to the system prompt each request, so the
+    model resolves 'today', 'this week', 'now', etc. against the real current date
+    instead of a date from its training data. Calendar/date questions depend on this.
+    """
+    now = now or datetime.now(timezone.utc)
+    return (
+        f"Current date and time: {now.strftime('%Y-%m-%d %H:%M')} UTC ({now.strftime('%A')}). "
+        "Resolve relative times ('today', 'tomorrow', 'this week', 'now') against this "
+        "current date and time, never a date from your training data. Times are UTC "
+        "unless the user gives a timezone."
+    )
 
 # The knowledge-base search tool, added alongside the connector tools in the loop.
 SEARCH_KB_TOOL = {
@@ -124,10 +139,14 @@ class Agent:
     def _tools(self):
         return [SEARCH_KB_TOOL, *self._connectors.tool_specs()]
 
+    def _system(self, suffix: str = "") -> str:
+        # Fresh date/time preamble each request so relative-time questions resolve.
+        return _now_preamble() + "\n\n" + self._system_prompt + suffix
+
     def _answer_with_tools(self, session, question) -> AnswerResult:
         loop = run_tool_loop(
             self._llm,
-            system=self._system_prompt + _TOOL_SYSTEM_SUFFIX,
+            system=self._system(_TOOL_SYSTEM_SUFFIX),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -160,7 +179,7 @@ class Agent:
         text_parts: list = []
         for event in run_tool_loop_stream(
             self._llm,
-            system=self._system_prompt + _TOOL_SYSTEM_SUFFIX,
+            system=self._system(_TOOL_SYSTEM_SUFFIX),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -192,7 +211,7 @@ class Agent:
             return result
 
         text = self._llm.generate(
-            system=self._system_prompt,
+            system=self._system(),
             question=question,
             passages=passages,
             session=session,
