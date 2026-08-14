@@ -43,12 +43,21 @@ export interface UseVault {
 export function useVault(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
+  getIdToken?: () => Promise<string>,
   fetchImpl: typeof fetch = fetch,
 ): UseVault {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const getIdTokenRef = useRef(getIdToken);
+  getIdTokenRef.current = getIdToken;
   const api = useMemo(
-    () => makeVaultApi(apiBaseUrl, () => getTokenRef.current(), fetchImpl),
+    () =>
+      makeVaultApi(
+        apiBaseUrl,
+        () => getTokenRef.current(),
+        getIdTokenRef.current ? () => getIdTokenRef.current!() : undefined,
+        fetchImpl,
+      ),
     [apiBaseUrl, fetchImpl],
   );
 

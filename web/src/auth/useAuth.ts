@@ -28,6 +28,7 @@ export interface Auth {
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
   getAccessToken: () => Promise<string>;
+  getIdToken: () => Promise<string>;
 }
 
 export function useAuth(config: AppConfig): Auth {
@@ -63,17 +64,24 @@ export function useAuth(config: AppConfig): Auth {
     window.location.assign(logoutUrl(config));
   }, [config]);
 
-  // Always returns a valid access token, refreshing when close to expiry.
-  const getAccessToken = useCallback(async (): Promise<string> => {
+  // Returns a valid token set, refreshing when close to expiry. Shared by the
+  // access- and id-token accessors so a single refresh covers both (they rotate
+  // together), avoiding a double refresh when a request needs each.
+  const freshTokens = useCallback(async (): Promise<TokenSet> => {
     if (!tokens) throw new Error("not authenticated");
     const now = Math.floor(Date.now() / 1000);
-    if (tokens.expiresAt - REFRESH_SKEW_SECONDS > now) return tokens.accessToken;
+    if (tokens.expiresAt - REFRESH_SKEW_SECONDS > now) return tokens;
     if (!tokens.refreshToken) throw new Error("session expired");
     const refreshed = await refreshTokens(config, tokens.refreshToken);
     setTokens(refreshed);
     store(refreshed);
-    return refreshed.accessToken;
+    return refreshed;
   }, [config, tokens]);
+
+  const getAccessToken = useCallback(async (): Promise<string> => (await freshTokens()).accessToken, [freshTokens]);
+  // The ID token carries the user's profile claims (email/name); the BFF uses it to
+  // attribute vault writes to a person. Access token remains the authz Bearer.
+  const getIdToken = useCallback(async (): Promise<string> => (await freshTokens()).idToken, [freshTokens]);
 
   return {
     tokens,
@@ -83,5 +91,6 @@ export function useAuth(config: AppConfig): Auth {
     loginWithGoogle,
     logout,
     getAccessToken,
+    getIdToken,
   };
 }

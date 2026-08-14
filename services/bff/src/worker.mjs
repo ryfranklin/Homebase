@@ -2,12 +2,14 @@
 // worker so they commit to the git source of truth (and the worker mirrors to S3 +
 // re-grounds the KB synchronously before returning). Reads stay on the S3 mirror.
 
-// actor: { id, name } from the verified token. Git needs { name, email }; derive a
-// stable email from the name (if it looks like one) or the user id.
+// actor: { id, name, email? } from the verified token(s). Git needs { name, email };
+// prefer the verified email claim, else a name that looks like an email, else a
+// stable synthetic address from the user id. The id rides along for S3 attribution.
 function toGitAuthor(actor) {
   const name = actor?.name || actor?.id || "homebase";
-  const email = actor?.name && actor.name.includes("@") ? actor.name : `${actor?.id || "homebase"}@homebase.local`;
-  return { name, email };
+  const email =
+    actor?.email || (actor?.name && actor.name.includes("@") ? actor.name : `${actor?.id || "homebase"}@homebase.local`);
+  return { name, email, id: actor?.id ?? null };
 }
 
 export function makeWorkerClient({ url, secret, fetchImpl = fetch }) {

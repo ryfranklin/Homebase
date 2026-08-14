@@ -21,11 +21,30 @@ function constantTimeEqual(a, b) {
   return timingSafeEqual(bufA, bufB);
 }
 
+// Build the display identity used to attribute vault writes. The access token
+// (used for authz) carries no email/name for a federated user, so prefer the
+// verified ID token's profile claims when present, then the access-token username
+// claim (Cognito access tokens use `username`, not `cognito:username`), then the
+// opaque subject as a last resort.
+function deriveActor(accessClaims, idClaims) {
+  const id = accessClaims.sub;
+  const c = idClaims || {};
+  const email = c.email || null;
+  const name =
+    c.name ||
+    [c.given_name, c.family_name].filter(Boolean).join(" ").trim() ||
+    email ||
+    accessClaims.username ||
+    accessClaims["cognito:username"] ||
+    id;
+  return { id, name, email };
+}
+
 function corsHeaders(allowedOrigin) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Headers": "authorization, content-type, x-id-token",
     Vary: "Origin",
   };
 }
@@ -224,8 +243,21 @@ export async function handleRequest(event, respond, deps) {
   // the verified tenant (single-tenant seed: the whole corpus is the vault).
   const vaultMatch = /\/vault\/(tree|note|search|backlinks|history|restore)$/.exec(path);
   if (vaultMatch) {
-    // Attribution: stamp writes with the verified user (email if present, else sub).
-    const actor = { id: userId, name: claims.email || claims["cognito:username"] || userId };
+    // Attribution: the access token authorizes the request but, for a federated
+    // user, has no email/name. If the SPA also sent a verified ID token (x-id-token)
+    // for the SAME subject, use its profile claims for authorship.
+    let idClaims = null;
+    const headers = event.headers || {};
+    const idToken = headers["x-id-token"] ?? headers["X-Id-Token"];
+    if (idToken) {
+      try {
+        const verified = await deps.verifyToken(idToken);
+        if (verified.token_use === "id" && verified.sub === userId) idClaims = verified;
+      } catch {
+        /* ignore an unusable id token; fall back to the access-token identity */
+      }
+    }
+    const actor = deriveActor(claims, idClaims);
     return handleVault(vaultMatch[1], method, event, body, respond, cors, deps, actor);
   }
 

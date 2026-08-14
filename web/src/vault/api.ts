@@ -6,13 +6,20 @@ import type { Backlink, Note, NoteVersion, SearchResult, TreeNode } from "./type
 async function authed<T>(
   apiBaseUrl: string,
   token: string,
+  idToken: string | null,
   path: string,
   init: RequestInit,
   fetchImpl: typeof fetch,
 ): Promise<T> {
   const res = await fetchImpl(`${apiBaseUrl}/api/vault/${path}`, {
     ...init,
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      // The BFF reads the ID token's profile claims to attribute writes to a person.
+      ...(idToken ? { "x-id-token": idToken } : {}),
+      ...(init.headers ?? {}),
+    },
   });
   const text = await res.text();
   if (!res.ok) {
@@ -48,10 +55,13 @@ export interface VaultApi {
 export function makeVaultApi(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
+  getIdToken?: () => Promise<string>,
   fetchImpl: typeof fetch = fetch,
 ): VaultApi {
-  const call = async <T>(path: string, init: RequestInit = {}) =>
-    authed<T>(apiBaseUrl, await getToken(), path, init, fetchImpl);
+  const call = async <T>(path: string, init: RequestInit = {}) => {
+    const [token, idToken] = await Promise.all([getToken(), getIdToken?.() ?? Promise.resolve(null)]);
+    return authed<T>(apiBaseUrl, token, idToken, path, init, fetchImpl);
+  };
   const q = (key: string) => encodeURIComponent(key);
   return {
     tree: () => call("tree"),

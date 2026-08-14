@@ -62,16 +62,24 @@ export function createServer({ config, vault, mirror, mutex }: ServerDeps): Serv
 
       if (method === "POST" && path === "/write") {
         const body = await readBody(req);
+        const author = (body.author as { name: string; email: string; id?: string }) ?? config.committer;
+        // Attribute the mirrored object to the caller so the vault UI can show who
+        // last changed a note (git stays the authoritative record of authorship).
+        const meta = {
+          "updated-by": author.name ?? "",
+          "updated-by-id": author.id ?? "",
+          "updated-at": new Date().toISOString(),
+        };
         const result = await mutex.run(async () => {
           const r = await vault.writeNote({
             path: String(body.path ?? ""),
             content: String(body.content ?? ""),
-            author: (body.author as { name: string; email: string }) ?? config.committer,
+            author,
             message: String(body.message ?? "update note"),
           });
           if (r.changed) {
-            await mirror.put(r.conflictPath ?? String(body.path));
-            if (r.conflictPath) await mirror.put(String(body.path));
+            await mirror.put(r.conflictPath ?? String(body.path), meta);
+            if (r.conflictPath) await mirror.put(String(body.path), meta);
             await mirror.reingest();
           }
           return r;

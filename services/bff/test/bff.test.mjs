@@ -274,3 +274,85 @@ test("with origin secret configured, correct header -> streams", async () => {
   assert.equal(rec.statusCode, 200);
   assert.match(rec.chunks.join(""), /"type":"done"/);
 });
+
+// --- Vault write attribution (ID-token identity) ---
+
+function accessToken(overrides = {}) {
+  const now = nowSec();
+  return signJwt(
+    {
+      sub: "user-1",
+      "custom:tenant_id": "tenant-1",
+      iss: ISSUER,
+      aud: AUDIENCE,
+      token_use: "access",
+      username: "google_123",
+      iat: now,
+      exp: now + 3600,
+      ...overrides,
+    },
+    key,
+  );
+}
+
+function idToken(overrides = {}) {
+  const now = nowSec();
+  return signJwt(
+    {
+      sub: "user-1",
+      "custom:tenant_id": "tenant-1",
+      iss: ISSUER,
+      aud: AUDIENCE,
+      token_use: "id",
+      iat: now,
+      exp: now + 3600,
+      ...overrides,
+    },
+    key,
+  );
+}
+
+async function putNote({ access, idTok }) {
+  let seenActor = null;
+  const vault = {
+    async put(k, content, actor) {
+      seenActor = actor;
+      return { ok: true, key: k };
+    },
+  };
+  const respond = makeRespond();
+  await handleRequest(
+    {
+      headers: { authorization: `Bearer ${access}`, ...(idTok ? { "x-id-token": idTok } : {}) },
+      body: JSON.stringify({ key: "n.md", content: "# hi" }),
+      rawPath: "/api/vault/note",
+      requestContext: { http: { method: "PUT", path: "/api/vault/note" } },
+    },
+    respond,
+    { verifyToken, config, vault },
+  );
+  return { rec: respond.calls[0], actor: seenActor };
+}
+
+test("vault write attributes the caller from the verified id token", async () => {
+  const { rec, actor } = await putNote({
+    access: accessToken(),
+    idTok: idToken({ email: "ryan@x.com", name: "Ryan Franklin" }),
+  });
+  assert.equal(rec.statusCode, 200);
+  assert.deepEqual(actor, { id: "user-1", name: "Ryan Franklin", email: "ryan@x.com" });
+});
+
+test("vault write ignores an id token for a different subject", async () => {
+  const { actor } = await putNote({
+    access: accessToken(),
+    idTok: idToken({ sub: "someone-else", email: "evil@x.com", name: "Mallory" }),
+  });
+  // Falls back to the access-token username, never the mismatched id token.
+  assert.deepEqual(actor, { id: "user-1", name: "google_123", email: null });
+});
+
+test("vault write falls back to the access-token username without an id token", async () => {
+  const { actor } = await putNote({ access: accessToken() });
+  assert.deepEqual(actor, { id: "user-1", name: "google_123", email: null });
+});

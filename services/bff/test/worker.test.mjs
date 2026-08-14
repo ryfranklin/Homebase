@@ -29,7 +29,17 @@ test("write posts to /write with the secret and derived git author", async () =>
   assert.equal(init.headers["x-worker-secret"], "s3cr3t");
   const body = JSON.parse(init.body);
   assert.equal(body.path, "notes/a.md");
-  assert.deepEqual(body.author, { name: "ryan@x.com", email: "ryan@x.com" });
+  // The verified email is used verbatim; the id rides along for S3 attribution.
+  assert.deepEqual(body.author, { name: "ryan@x.com", email: "ryan@x.com", id: "u1" });
+});
+
+test("prefers the verified email claim over a synthetic address", async () => {
+  const calls = [];
+  const client = makeWorkerClient({ url: "http://worker:8080", secret: "s", fetchImpl: fakeFetch(calls) });
+  // A display name plus a distinct verified email (from the ID token).
+  await client.write("a.md", "x", { id: "u2", name: "Ryan Franklin", email: "ryan@x.com" });
+  const body = JSON.parse(calls[0].init.body);
+  assert.deepEqual(body.author, { name: "Ryan Franklin", email: "ryan@x.com", id: "u2" });
 });
 
 test("derives an email when the name is not one, and omits the header without a secret", async () => {
@@ -37,7 +47,7 @@ test("derives an email when the name is not one, and omits the header without a 
   const client = makeWorkerClient({ url: "http://worker:8080", secret: null, fetchImpl: fakeFetch(calls) });
   await client.write("a.md", "x", { id: "user-1", name: "user-1" });
   const body = JSON.parse(calls[0].init.body);
-  assert.deepEqual(body.author, { name: "user-1", email: "user-1@homebase.local" });
+  assert.deepEqual(body.author, { name: "user-1", email: "user-1@homebase.local", id: "user-1" });
   assert.equal(calls[0].init.headers["x-worker-secret"], undefined);
 });
 

@@ -3,9 +3,13 @@
 // injected store (the real S3 + Bedrock client lives in store.ts) and a minimal
 // view of the vault, so it is unit-testable with fakes.
 
+// S3 user metadata stamped on a mirrored object so the vault UI can attribute a
+// note to a person (read back by the BFF as updated-by / updated-by-id / updated-at).
+export type ObjectMeta = Record<string, string>;
+
 export interface MirrorStore {
   listKeys(): Promise<string[]>;
-  putObject(key: string, body: string): Promise<void>;
+  putObject(key: string, body: string, metadata?: ObjectMeta): Promise<void>;
   deleteObject(key: string): Promise<void>;
   reingest(): Promise<void>;
 }
@@ -21,10 +25,12 @@ export class Mirror {
     private readonly vault: VaultView,
   ) {}
 
-  // Mirror a single changed file (git -> S3).
-  async put(path: string): Promise<void> {
+  // Mirror a single changed file (git -> S3). Optional metadata attributes the
+  // change to a person; the periodic full() sync passes none (git remains the
+  // source of truth for authorship, S3 metadata is a best-effort convenience).
+  async put(path: string, metadata?: ObjectMeta): Promise<void> {
     const content = await this.vault.read(path);
-    await this.store.putObject(path, content);
+    await this.store.putObject(path, content, metadata);
   }
 
   async remove(path: string): Promise<void> {

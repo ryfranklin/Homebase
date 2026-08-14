@@ -45,8 +45,23 @@ export async function makeStore(opts: {
       } while (ContinuationToken);
       return keys;
     },
-    async putObject(key: string, body: string) {
-      await s3.send(new PutObjectCommand({ Bucket: opts.bucket, Key: key, Body: body, ContentType: "text/markdown" }));
+    async putObject(key: string, body: string, metadata?: Record<string, string>) {
+      // S3 user metadata must be US-ASCII header-safe; sanitize values defensively
+      // (names/emails can carry non-ASCII) and drop empties.
+      let Metadata: Record<string, string> | undefined;
+      if (metadata) {
+        Metadata = {};
+        for (const [k, v] of Object.entries(metadata)) {
+          const clean = String(v)
+            .replace(/[^\x20-\x7E]/g, "")
+            .trim()
+            .slice(0, 256);
+          if (clean) Metadata[k] = clean;
+        }
+      }
+      await s3.send(
+        new PutObjectCommand({ Bucket: opts.bucket, Key: key, Body: body, ContentType: "text/markdown", Metadata }),
+      );
     },
     async deleteObject(key: string) {
       await s3.send(new DeleteObjectCommand({ Bucket: opts.bucket, Key: key }));
