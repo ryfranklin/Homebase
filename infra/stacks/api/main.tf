@@ -49,6 +49,16 @@ data "aws_ssm_parameter" "vault_worker_private_subnet" {
   name = "/${var.project_name}/${var.environment}/vault-worker/private_subnet_id"
 }
 
+# Mission Control (the execution engine): the BFF reaches it over Cloud Map and
+# presents the bearer token (read from Secrets Manager at cold start). Published by
+# the mission-control stack, which must be applied before this stack.
+data "aws_ssm_parameter" "mission_control_url" {
+  name = "/${var.project_name}/${var.environment}/mission-control/url"
+}
+data "aws_ssm_parameter" "mission_control_token_secret_arn" {
+  name = "/${var.project_name}/${var.environment}/mission-control/api_token_secret_arn"
+}
+
 locals {
   common_tags = merge({
     Project     = var.project_name
@@ -369,6 +379,15 @@ data "aws_iam_policy_document" "bff" {
     resources = ["${data.aws_ssm_parameter.vault_worker_secret_arn.value}*"]
   }
 
+  # Read the Mission Control bearer token at cold start (presented on /runs etc.).
+  # KMS decrypt is covered by DecryptWorkerSecret's ViaService=secretsmanager rule.
+  statement {
+    sid       = "ReadMissionControlToken"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["${data.aws_ssm_parameter.mission_control_token_secret_arn.value}*"]
+  }
+
   # Probe connector connection status by invoking each connector shim Lambda.
   statement {
     sid       = "ProbeConnectorStatus"
@@ -435,6 +454,11 @@ resource "aws_lambda_function" "bff" {
       HOMEBASE_WORKER_SECRET_ARN = data.aws_ssm_parameter.vault_worker_secret_arn.value
       # Connector shim Lambda prefix (<prefix>-connector-<key>) for status probes.
       HOMEBASE_CONNECTOR_PREFIX = local.name_prefix
+      # Mission Control execution seam: the BFF launches flight-plan units as runs,
+      # streams telemetry, and drives the go/no-go gate over this URL, presenting the
+      # bearer token (ARN; read from Secrets Manager at cold start). Enables /api/missions/*.
+      HOMEBASE_MISSION_CONTROL_URL       = data.aws_ssm_parameter.mission_control_url.value
+      HOMEBASE_MISSION_CONTROL_TOKEN_ARN = data.aws_ssm_parameter.mission_control_token_secret_arn.value
     }
   }
 
