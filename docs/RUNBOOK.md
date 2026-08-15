@@ -58,10 +58,12 @@ outputs it consumes (via SSM parameters, or Terraform variables sourced from a p
 | 9 | **workstation** | The dev box invokes the agent and needs outbound egress. Adds the VPC's internet gateway + NAT. Needs the bedrock-agentcore endpoint for agent calls. | var: `vpc_id` (foundation output); Secrets Manager: shell secret; SSM: dotfiles URL (created from tfvars) |
 | 10 | **connectors** | AgentCore Gateway authorizes with the same Cognito JWT; needs the bedrock-agentcore endpoint for in-VPC targets. | SSM: `identity/issuer_url`, `identity/app_client_id`; Secrets Manager / tfvars: per-connector client secrets |
 | 11 | **monitoring** | Wires alarms to the P2 budget SNS and dashboards to resources created by earlier stacks. Apply last. | SSM: `foundation/budget_sns_topic_arn`, `foundation/kms_key_arn`; vars: `workstation_instance_id`, `cloudfront_distribution_id` |
+| 12 | **slackbot** (optional door) | A private Fargate Socket Mode app that invokes the agent from Slack. Independent add-on: apply any time after agent + vault-worker. Needs the shared NAT (outbound WebSocket to Slack). | SSM: `agent/runtime_arn`, `vault-worker/private_subnet_id`; var: `vpc_id`; Secrets Manager (by hand): Slack bot + app tokens; SSM SecureString (by hand): `slackbot/allowed-emails` |
 
 Dependency summary: foundation before everything; retrieval after storage; agent after retrieval;
 api after agent and identity; web after api; the agent-invoking stacks (agent, ssh-chat, workstation,
-connectors) after the `bedrock-agentcore` endpoint exists; monitoring last.
+connectors, slackbot) after the `bedrock-agentcore` endpoint exists; monitoring last; slackbot is an
+optional add-on door needing only agent + vault-worker.
 
 ---
 

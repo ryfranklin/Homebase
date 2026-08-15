@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder. The real terraform.tfvars is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "prod"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# The shared foundation VPC id (same value the vault-worker and mission-control use).
+vpc_id = "<YOUR_VPC_ID>"
+
+# Tenant the bridge presents to the agent for every Slack user (single-tenant seed).
+tenant_id = "homebase"
+
+# Names of the BY-HAND Secrets Manager secrets holding the Slack tokens. The token
+# values are never in tfvars or state; create the secrets first, then reference by name:
+#   aws secretsmanager create-secret --name homebase/slackbot/bot-token --secret-string 'xoxb-...'
+#   aws secretsmanager create-secret --name homebase/slackbot/app-token --secret-string 'xapp-...'
+slack_bot_token_secret_name = "homebase/slackbot/bot-token"
+slack_app_token_secret_name = "homebase/slackbot/app-token"
+
+image_tag     = "latest"
+task_cpu      = 256
+task_memory   = 512
+desired_count = 1
+
+# CPU architecture (ARM64 default; build the image for linux/arm64 to match).
+task_cpu_architecture = "ARM64"
