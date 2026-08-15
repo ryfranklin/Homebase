@@ -83,7 +83,7 @@ export interface PlanDraft {
   context?: string;
   target?: string;
   criteria?: { statement: string; status?: string; links?: string[] }[];
-  route?: (string | { title: string; phase?: string })[];
+  route?: (string | { title: string; phase?: string; criteria?: string[] })[];
   sources?: string[];
   risks?: string[];
 }
@@ -126,7 +126,12 @@ export function planFromDraft(draft: PlanDraft, owner: Contributor, at: string):
   const route: (string | Waypoint)[] = (draft.route || []).map((r) => {
     if (typeof r === "string") return r;
     const phase: Phase | undefined = r.phase === "INCEPTION" || r.phase === "CONSTRUCTION" ? r.phase : undefined;
-    return phase ? { title: r.title, phase } : { title: r.title };
+    // Preserve any per-unit acceptance criteria the planner attached (its own DoD).
+    const criteria = Array.isArray(r.criteria) && r.criteria.length ? r.criteria.map(String) : undefined;
+    const wp: Waypoint = { title: r.title };
+    if (phase) wp.phase = phase;
+    if (criteria) wp.criteria = criteria;
+    return wp;
   });
   return {
     ...base,

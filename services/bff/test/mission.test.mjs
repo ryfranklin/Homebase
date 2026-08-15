@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { makeMissionControl, mapUnitToLaunch, buildPrompt, acceptanceCriteria, parseSse } from "../src/mission.mjs";
+import { makeMissionControl, mapUnitToLaunch, buildPrompt, acceptanceCriteria, unitAcceptanceCriteria, parseSse } from "../src/mission.mjs";
 
 const PLAN = {
   target: "git@github.com:acme/app.git",
@@ -62,6 +62,23 @@ test("acceptanceCriteria / mapUnitToLaunch carry only the approved criteria acro
     mapUnitToLaunch(PLAN, { title: "Build it", phase: "CONSTRUCTION" }).acceptance_criteria,
     ["Engineers authenticate via a Cognito JWT."],
   );
+});
+
+test("a unit's own acceptance criteria override the plan's; blank/absent fall back", () => {
+  const own = { title: "Build", phase: "CONSTRUCTION", criteria: ["Create returns 201", "Missing id returns 404"] };
+  assert.deepEqual(unitAcceptanceCriteria(PLAN, own), ["Create returns 201", "Missing id returns 404"]);
+  assert.deepEqual(mapUnitToLaunch(PLAN, own).acceptance_criteria, ["Create returns 201", "Missing id returns 404"]);
+  // no unit criteria → the plan's approved DoD (prior behavior, unchanged)
+  assert.deepEqual(unitAcceptanceCriteria(PLAN, { title: "Build" }), ["Engineers authenticate via a Cognito JWT."]);
+  // blank-only criteria don't count as the unit having its own
+  assert.deepEqual(unitAcceptanceCriteria(PLAN, { title: "Build", criteria: ["  "] }), ["Engineers authenticate via a Cognito JWT."]);
+});
+
+test("buildPrompt uses the unit's criteria as the definition of done when present", () => {
+  const p = buildPrompt(PLAN, { title: "Build", criteria: ["Create returns 201"], instruction: "do it" });
+  assert.ok(p.includes("## Definition of done"));
+  assert.ok(p.includes("- Create returns 201"));
+  assert.ok(!p.includes("Engineers authenticate")); // the unit DoD overrides the plan DoD
 });
 
 test("buildPrompt is deterministic and carries the approved acceptance criteria", () => {

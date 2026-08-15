@@ -32,9 +32,16 @@ export type Phase = "INCEPTION" | "CONSTRUCTION";
 // A unit of work in the plan's route. Persisted plans and the sample data use bare
 // title strings; the agent draft (and launch) use { title, phase }, so consumers
 // accept both via waypointTitle / waypointPhase.
+//
+// criteria is the unit's OWN definition of done (acceptance-criterion statements). When
+// present it scopes what this unit is judged against, overriding the plan-wide approved
+// criteria at launch; absent, the unit falls back to the plan's approved criteria. These
+// are plain statements: the plan-level `criteria` stay the governed, approval-tracked
+// plan contract, while unit criteria are the finer-grained per-unit DoD.
 export interface Waypoint {
   title: string;
   phase?: Phase;
+  criteria?: string[];
 }
 
 export interface FlightPlan {
@@ -69,6 +76,12 @@ export function waypointTitle(wp: string | Waypoint): string {
 }
 export function waypointPhase(wp: string | Waypoint): Phase | undefined {
   return typeof wp === "string" ? undefined : wp.phase;
+}
+// The unit's own acceptance criteria (its definition of done), or undefined when the
+// waypoint carries none (a bare-string unit, or one that inherits the plan's DoD).
+export function waypointCriteria(wp: string | Waypoint): string[] | undefined {
+  if (typeof wp === "string") return undefined;
+  return wp.criteria && wp.criteria.length ? wp.criteria : undefined;
 }
 
 // Preview of the work a materializer would create from a cleared plan (schema:

@@ -11,7 +11,7 @@ import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
 import { newPlan, slugify } from "./persist";
 import type { PlanStore } from "./store";
-import { waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
+import { waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 import { materializePlan } from "./materialize";
@@ -217,7 +217,11 @@ export function FlightPlanner({
       criteria: selected.criteria,
     };
     try {
-      await missionsApi.launchUnit(planCtx, { title: waypointTitle(wp), phase: waypointPhase(wp) });
+      await missionsApi.launchUnit(planCtx, {
+        title: waypointTitle(wp),
+        phase: waypointPhase(wp),
+        criteria: waypointCriteria(wp),
+      });
       onNavigate?.("mission");
     } catch {
       /* the Mission deck surfaces run/launch errors */

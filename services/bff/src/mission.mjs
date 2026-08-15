@@ -15,11 +15,20 @@
 // Mission Control's verification node can score the burn's output against them (the
 // same criteria already embedded in the prompt as the definition of done).
 
-// The approved acceptance-criteria statements for a plan: the definition of done, both
-// embedded in the worker prompt (human-readable) AND sent structured across the seam so
-// Mission Control's verify node can judge the output against them. One source, two uses.
+// The approved acceptance-criteria statements for a plan: the plan-wide definition of
+// done. Sent structured across the seam so Mission Control's verify node can judge the
+// output against them, and embedded in the worker prompt. One source, two uses.
 export function acceptanceCriteria(plan) {
   return (plan.criteria || []).filter((c) => c.status === "approved").map((c) => c.statement);
+}
+
+// The acceptance criteria a single unit is judged against: the unit's OWN definition of
+// done when it carries one, else the plan's approved criteria. So a unit can scope (or
+// tighten) what "done" means for it, and units without their own criteria inherit the
+// plan-wide DoD (the prior behavior). This is the single resolver the seam + prompt share.
+export function unitAcceptanceCriteria(plan, unit) {
+  const own = unit && Array.isArray(unit.criteria) ? unit.criteria.filter((s) => String(s).trim()) : [];
+  return own.length ? own.map(String) : acceptanceCriteria(plan);
 }
 
 // The unit shape Homebase sends across the seam (a normalized flight-plan waypoint).
@@ -31,22 +40,22 @@ export function mapUnitToLaunch(plan, unit) {
     target: plan.target,
     task_type,
     prompt: buildPrompt(plan, unit),
-    acceptance_criteria: acceptanceCriteria(plan),
+    acceptance_criteria: unitAcceptanceCriteria(plan, unit),
     slack_profile: plan.slackProfile ?? null,
   };
 }
 
-// Compose the worker prompt from the plan's narrative and the unit, plus the
-// approved acceptance criteria as the definition of done. Deterministic so the same
-// plan+unit always produces the same instruction (diffable, testable).
+// Compose the worker prompt from the plan's narrative and the unit, plus the unit's
+// acceptance criteria (its own, else the plan's approved) as the definition of done.
+// Deterministic so the same plan+unit always produces the same instruction.
 export function buildPrompt(plan, unit) {
   const lines = [];
   lines.push(`# ${unit.title}`);
   if (plan.title) lines.push("", `Flight plan: ${plan.title}`);
   if (plan.objective) lines.push("", `## Objective`, plan.objective);
   if (plan.context) lines.push("", `## Context`, plan.context);
-  const dod = acceptanceCriteria(plan).map((s) => `- ${s}`);
-  if (dod.length) lines.push("", `## Definition of done (approved acceptance criteria)`, ...dod);
+  const dod = unitAcceptanceCriteria(plan, unit).map((s) => `- ${s}`);
+  if (dod.length) lines.push("", `## Definition of done (acceptance criteria)`, ...dod);
   if (unit.instruction) lines.push("", `## This unit`, unit.instruction);
   return lines.join("\n");
 }

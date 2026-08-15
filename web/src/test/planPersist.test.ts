@@ -90,6 +90,29 @@ describe("agent plan drafts", () => {
     // round-trips through the vault format
     expect(planFromMarkdown(planToMarkdown(plan))).toEqual(plan);
   });
+
+  it("preserves a unit's own acceptance criteria from the draft and round-trips them", () => {
+    const draftReply = [
+      "```homebase-plan-draft",
+      JSON.stringify({
+        title: "CRUD service",
+        route: [
+          { title: "Build the API", phase: "CONSTRUCTION", criteria: ["Create returns 201", "Missing id returns 404"] },
+          { title: "Investigate schema", phase: "INCEPTION" }, // no unit criteria → inherits the plan DoD
+          "Plain string unit", // bare string stays a string, carries no criteria
+        ],
+      }),
+      "```",
+    ].join("\n");
+    const plan = planFromDraft(planDraftFromMarkdown(draftReply)!, owner, "2026-08-15T00:00:00Z");
+    expect(plan.route).toEqual([
+      { title: "Build the API", phase: "CONSTRUCTION", criteria: ["Create returns 201", "Missing id returns 404"] },
+      { title: "Investigate schema", phase: "INCEPTION" },
+      "Plain string unit",
+    ]);
+    // the per-unit criteria survive the vault (JSON block) round-trip
+    expect(planFromMarkdown(planToMarkdown(plan))).toEqual(plan);
+  });
 });
 
 describe("planOwnerFromIdToken", () => {
