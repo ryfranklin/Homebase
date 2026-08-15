@@ -275,7 +275,16 @@ jobs:
           WEB_BUCKET: ${{ secrets.WEB_BUCKET }}
           CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
-          aws s3 sync web/dist "s3://$WEB_BUCKET/" --delete
+          # Hashed assets are immutable: cache them forever so the browser reuses them.
+          # index.html must NEVER be stale-cached, or it references deleted chunk hashes
+          # and lazy imports 404 -> the SPA fallback returns HTML -> "MIME text/html"
+          # module errors. So upload assets first (long cache), then index.html no-cache.
+          aws s3 sync web/dist "s3://$WEB_BUCKET/" --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 cp web/dist/index.html "s3://$WEB_BUCKET/index.html" \
+            --cache-control "no-cache,must-revalidate" \
+            --content-type "text/html"
           aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*"
