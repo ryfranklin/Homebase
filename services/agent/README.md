@@ -15,7 +15,10 @@ retrieved from the P5 Knowledge Base and attaching source citations to every gro
 - `prompts/system_prompt.md`: the versioned system prompt (the source of truth; `prompts.py` reads it
   and its `Version:` marker).
 - `llm.py`: `BedrockLLMClient` (Converse; model id is a variable, so Opus vs Sonnet is config) and
-  `MockLLMClient` for offline runs.
+  `MockLLMClient` for offline runs. Every Converse call carries the Bedrock Guardrail (created by the
+  `agent` stack), so one governance layer protects all doors (GUI, CLI, Slack) at the model boundary:
+  prompt-attack detection on input, hate/insults/sexual/violence/misconduct content filters, and one
+  DENY topic (credential exfiltration). PII detection is deliberately off (this is a personal assistant).
 - `memory.py`: AgentCore Memory wrappers (short-term events + long-term recall), with `NullMemory`
   default. The actor id is namespaced by tenant.
 - `agent.py`: orchestration. A grounded answer always carries citations; when retrieval finds

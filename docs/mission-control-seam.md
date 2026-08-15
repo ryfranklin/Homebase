@@ -3,7 +3,8 @@
 Homebase is the ground station: it plans (the AI-DLC interview, conducted by the
 Homebase agent) and observes. Mission Control is the execution engine: it takes a
 unit of work as a run, executes it with a coding agent in an isolated git worktree,
-pauses at a go/no-go gate, applies and pushes on approval, and streams priced
+verifies it (the target repo's own tests/build plus a judged acceptance-criteria
+pass), pauses at a go/no-go gate, applies and pushes on approval, and streams priced
 telemetry. This document is the contract between them.
 
 ## Direction of the seam
@@ -20,11 +21,12 @@ flowchart LR
   subgraph MC [Mission Control: execute]
     runs[POST /runs]
     engine[worktree + coding agent]
+    verify[verify: tests/build + AC judge]
     mcgate[go/no-go]
     sse[SSE telemetry]
   end
   agent --> plan --> bff
-  bff -- launch unit --> runs --> engine --> mcgate
+  bff -- launch unit + per-unit ACs --> runs --> engine --> verify --> mcgate
   sse -- node_transition, step_metric, gate_waiting --> bff --> deck
   gate -- approve/reject --> bff -- POST approve/reject --> mcgate
 ```
@@ -43,11 +45,34 @@ INCEPTION and CONSTRUCTION items). Each unit becomes one Mission Control run.
 | `phase: CONSTRUCTION` | `task_type: "burn"` (side-effectful, pauses at the gate) |
 | `plan.target` | `target` (the git repo the run works against) |
 | unit title + plan objective/context + approved ACs + unit instruction | `prompt` (composed deterministically, see `buildPrompt`) |
+| unit acceptance criteria (per-unit definition of done) | `acceptance_criteria` (judged by the verify node against that unit) |
 
 The mapping lives in the BFF (`services/bff/src/mission.mjs`, `mapUnitToLaunch`),
 because the BFF is the trusted server that holds the Mission Control token and calls
 the engine. A `burn` run is gated by default; Homebase's review gate approves or
 rejects it, honoring the flight-plan schema's "governed on commit" rule.
+
+## Acceptance criteria and the verify node
+
+Acceptance criteria are per-unit: each flight-plan unit (route waypoint) carries its
+own definition of done, editable in the Flight Planner UI. The BFF sends them across
+the seam on `POST /runs` as `acceptance_criteria`, so Mission Control judges each unit
+against its own criteria, not a plan-wide list.
+
+Mission Control's state machine runs `dispatch -> run_worker -> verify -> gate ->
+apply_burn | teardown`. The `verify` node sits between `run_worker` and the go/no-go
+gate and has two fail-closed axes:
+
+1. **Deterministic checks.** Verify auto-detects the target repo's own test/build
+   commands (pytest, npm, go, cargo, make, or a `.mission-control/verify.yml`
+   override) and runs them in the worktree.
+2. **Judged acceptance criteria.** An LLM judge scores the worktree against the unit's
+   `acceptance_criteria` (advisory by default, enforcing when configured).
+
+The gate honors the verdict: a red build auto-blocks without needing a human, an
+unverified build still needs the human gate, and verification can only ADD a block,
+never flip a no-go to a go. Builds go to a git remote (each project's own target
+repo), never to S3.
 
 ## Endpoints
 

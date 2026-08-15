@@ -9,6 +9,9 @@ Backend services for Homebase.
 - `ingestion/`: the pipeline that loads and updates the Bedrock Knowledge Base (with S3 Vectors)
   from source documents.
 - `connectors/`: six connectors exposed as MCP tools via AgentCore Gateway and AgentCore Identity.
+- `slackbot/`: the Slack bridge, a slack-bolt Socket Mode service on Fargate (VPC-internal, no inbound).
+  Resolves the Slack user's verified email, gates on an allow-list, invokes the agent runtime with that
+  identity (the ssh-chat task-role pattern), and answers back in a thread.
 
 ## Conventions
 

@@ -109,10 +109,12 @@ flowchart TB
       subgraph privs["Private subnets"]
         WS["EC2 workstation<br/>no public IP"]
         CLI["Fargate chat CLI<br/>ECS Exec only"]
+        SLACK["Fargate Slack bridge<br/>Socket Mode, no inbound"]
       end
       VPCE["Interface endpoint<br/>bedrock-agentcore"]
       WS --> NAT
       CLI --> NAT
+      SLACK --> NAT
       NAT --> IGW
     end
 
@@ -123,6 +125,7 @@ flowchart TB
     end
     subgraph br["Amazon Bedrock"]
       Claude["Claude · inference profile"]
+      Guardrail["Guardrail · on every Converse call"]
       Rerank["Cohere Rerank"]
       Titan["Titan Embeddings"]
     end
@@ -144,7 +147,10 @@ flowchart TB
 
   BFF --> RT
   BFF --> SM
-  RT --> Claude
+  SLACK -->|"InvokeAgentRuntime (task role)"| RT
+  SLACK --> SM
+  RT -->|"Converse + Guardrail"| Claude
+  Claude -. applies .- Guardrail
   RT --> MEM
   RT --> KB
   KB --> Rerank
@@ -318,7 +324,8 @@ sequenceDiagram
   BFF-->>SPA: SSE open (keepalives)
   BFF->>RT: InvokeAgentRuntime (SSE)
   loop until no tool call
-    RT->>LLM: converse_stream(messages, tools)
+    RT->>LLM: converse_stream(messages, tools, guardrail)
+    Note over LLM: Bedrock Guardrail screens input + output
     LLM-->>RT: text deltas (streamed)
     RT-->>SPA: token events
     LLM-->>RT: tool_use
@@ -358,4 +365,57 @@ sequenceDiagram
   AC-->>BFF: ok (token vaulted)
   BFF-->>SPA: ok
   Note over SPA,AC: future reads fetch the vaulted token, no user prompt
+```
+
+---
+
+## Sequence: Slack front door
+
+Homebase is one brain behind multiple front doors (Vault, Chat, Plan, Mission, and
+Slack). The Slack bridge runs Socket Mode (an outbound WebSocket, no inbound), resolves
+the Slack user's verified email, gates on a by-hand allow-list, then invokes the same
+agent runtime with that identity (the ssh-chat task-role pattern) and answers in a thread.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Slack user
+  participant SL as Slack
+  participant SB as Slack bridge (Fargate)
+  participant RT as AgentCore Runtime
+  participant AL as SSM allow-list
+
+  U->>SL: app_mention / DM
+  SL-->>SB: event (outbound WebSocket)
+  SB->>SL: resolve user's verified email
+  SB->>AL: check /homebase/{env}/slackbot/allowed-emails
+  AL-->>SB: allowed
+  SB->>RT: InvokeAgentRuntime (task-role identity)
+  Note over RT: Bedrock Guardrail on every model call
+  RT-->>SB: answer (+ sources / auth link)
+  SB->>SL: post in thread
+  SL-->>U: reply
+```
+
+---
+
+## Sequence: plan to execution (verify + gate)
+
+A Flight Plan carries acceptance criteria per unit. The BFF maps each unit to a
+Mission Control run and sends its criteria as `acceptance_criteria`. Mission Control's
+state machine runs `dispatch -> run_worker -> verify -> gate -> apply_burn | teardown`:
+the `verify` node runs the target repo's own tests/build plus a judged acceptance pass,
+and can only ADD a block, never flip a no-go to a go. Builds land on a git remote (each
+project's own target repo), not S3.
+
+```mermaid
+flowchart LR
+  FP["Flight Planner<br/>per-unit acceptance criteria"] --> BFF["BFF /api/missions/runs"]
+  BFF -->|"POST /runs + acceptance_criteria"| DISP["dispatch"]
+  DISP --> RUN["run_worker<br/>coding agent in worktree"]
+  RUN --> VER["verify<br/>tests/build + AC judge per unit"]
+  VER --> GATE{"go/no-go gate"}
+  GATE -->|approve| APPLY["apply_burn<br/>push to git remote"]
+  GATE -->|reject| TEAR["teardown"]
+  VER -. "red build auto-blocks;<br/>unverified still needs human" .-> GATE
 ```

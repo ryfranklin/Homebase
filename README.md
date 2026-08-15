@@ -13,7 +13,8 @@ full conventions.
 ## Architecture
 
 - Agent runtime on Amazon Bedrock AgentCore, running a tool-use loop over knowledge-base search and
-  the live connectors, streaming its answer token by token
+  the live connectors, streaming its answer token by token, with a Bedrock Guardrail applied to every
+  model (Converse) call so one governance layer protects all doors at the model boundary
 - Retrieval via Bedrock Knowledge Base with S3 Vectors, using semantic retrieval plus Bedrock Rerank
   (S3 Vectors is semantic-only; hybrid is the gated OpenSearch Serverless seam, ADR-002)
 - Authentication via Amazon Cognito with Google federation
@@ -21,6 +22,10 @@ full conventions.
 - Streaming backend for frontend (BFF) as a Lambda Function URL with response streaming (SSE), fronted
   by CloudFront; not behind API Gateway
 - A thin chat CLI running as a Fargate container
+- A Slack bridge as an optional front door: a slack-bolt Socket Mode service on Fargate, VPC-internal
+  in the shared vault-worker private subnet, with no inbound (Socket Mode is an outbound WebSocket) and
+  NAT egress only; it resolves the Slack user's verified email, gates on an allow-list, invokes the same
+  agent runtime with that identity (the ssh-chat task-role pattern), and answers back in a thread
 - A separate EC2 workstation reached over SSM (no public SSH)
 - Six live connectors (Gmail, Calendar, Drive, Slack, Jira, Confluence): read-first and write-gated,
   each with per-user OAuth via AgentCore Identity (an AgentCore Gateway also exposes them as MCP tools);
@@ -28,8 +33,11 @@ full conventions.
 - A git-authoritative vault: a Fargate vault worker owns the clone and commits every write, so notes
   and flight plans are versioned and attributed from git; the S3 corpus is the derived KB mirror
 - A Flight Planner where the agent runs an AI-DLC INCEPTION interview to produce reviewed flight plans,
-  handed to Mission Control (a durable, cost-metered coding-agent orchestrator on Fargate + RDS, its own
-  repo) for execution, with live per-step telemetry and a go/no-go gate surfaced in the GUI Mission deck
+  each unit carrying its own acceptance criteria, handed to Mission Control (a durable, cost-metered
+  coding-agent orchestrator on Fargate + RDS, its own repo) for execution, with live per-step telemetry
+  and a go/no-go gate surfaced in the GUI Mission deck; before the gate a verify node runs the target
+  repo's own tests/build and judges each unit against its acceptance criteria, and can only add a block,
+  never flip a no-go to a go
 - Confluence design pages as grounded plan sources, and Jira materialization of a cleared plan (an epic
   plus a story per unit) through the write-gated connector: design in, tickets out
 - All infrastructure defined as Terraform IaC
@@ -44,6 +52,7 @@ flowchart TB
     subgraph doors["Access planes"]
         SPA["Web GUI (React SPA)"]
         CLI["Thin chat CLI (Fargate)"]
+        SLACK["Slack bridge (Fargate, Socket Mode)"]
         WS["Workstation (EC2)"]
     end
 
@@ -57,7 +66,7 @@ flowchart TB
         SSM["SSM only: no key pair,<br/>no inbound, no public IP"] --> ROLES["Least-privilege roles<br/>(assume-role for broad ops)"]
     end
 
-    CORE["AgentCore Runtime<br/>Claude on Bedrock · tool-use loop · streaming · Memory"]
+    CORE["AgentCore Runtime<br/>Claude on Bedrock · tool-use loop · streaming · Memory<br/>Bedrock Guardrail on every model call"]
 
     subgraph retrieval["Retrieval (semantic + rerank)"]
         direction TB
@@ -71,13 +80,15 @@ flowchart TB
 
     subgraph exec["Planning &amp; execution"]
         direction TB
-        FP["Flight Planner<br/>(AI-DLC interview)"] --> PLAN["Flight plan<br/>(git vault, reviewed)"] --> MC["Mission Control<br/>Fargate + RDS · worktree · Bedrock · gate"]
-        MC --> JIRA["Jira epic + stories<br/>(materialize, write-gated)"]
+        FP["Flight Planner<br/>(AI-DLC interview, per-unit ACs)"] --> PLAN["Flight plan<br/>(git vault, reviewed)"] --> MC["Mission Control<br/>Fargate + RDS · worktree · Bedrock"]
+        MC --> VERIFY["verify<br/>tests/build + AC judge per unit"] --> GATE["go/no-go gate"]
+        GATE --> JIRA["Jira epic + stories<br/>(materialize, write-gated)"]
     end
 
     SPA --> CF
     CLI --> SSM
     WS --> SSM
+    SLACK --> CORE
     BFF --> CORE
     ROLES --> CORE
     CORE --> retrieval
@@ -100,6 +111,7 @@ services/       Backend services
   ingestion/    Knowledge base ingestion pipeline
   connectors/   Six live connectors (read-first shim Lambdas + catalog)
   vault-worker/ Fargate service that owns the git vault clone (writes commit to git)
+  slackbot/     Slack bridge (slack-bolt Socket Mode service on Fargate, allow-list gated)
 web/            React SPA (Vault · Chat · Plan · Mission surfaces)
 cli/            Thin chat CLI container
 workstation/    EC2 workstation bootstrap

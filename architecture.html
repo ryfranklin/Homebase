@@ -166,11 +166,12 @@
         <span class="tag">single-tenant seed, multi-tenant ready</span>
       </header>
       <p class="lede">
-        An authenticated web GUI plus an SSH plane over a private knowledge base. Two ways in, one
-        agent core. The agent answers by running a tool-use loop over knowledge-base search and the
-        live connectors, and streams its response token by token. Retrieval is semantic with
-        reranking; connectors are live and write-gated; the perimeter is layered. Every value shown
-        here is a placeholder.
+        An authenticated web GUI, an SSH plane, and a Slack bridge over a private knowledge base.
+        Several ways in, one agent core. The agent answers by running a tool-use loop over
+        knowledge-base search and the live connectors, and streams its response token by token.
+        Retrieval is semantic with reranking; connectors are live and write-gated; the perimeter is
+        layered and a Bedrock Guardrail governs every model call. Every value shown here is a
+        placeholder.
       </p>
 
       <nav class="tabs" id="tabs" role="tablist">
@@ -184,8 +185,8 @@
 
       <!-- ============ SYSTEM CONTEXT ============ -->
       <section class="view active" id="context" role="tabpanel">
-        <h2>System context and the two access planes</h2>
-        <p class="sub">The GUI door and the SSH door both reach the same agent runtime. Nothing shares long-lived keys.</p>
+        <h2>System context and the access planes</h2>
+        <p class="sub">The GUI door, the SSH door, and the Slack bridge all reach the same agent runtime. Nothing shares long-lived keys.</p>
 
         <div class="row">
           <div class="col">
@@ -204,6 +205,12 @@
             <div class="card">
               <h3>Workstation <span class="pill core">ssh-side</span></h3>
               <p>Isolated EC2 dev/ops box, SSM-only (no key pair, no inbound, no public IP), encrypted volumes, scoped non-admin role, auto-stop when idle.</p>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <h3>Slack bridge <span class="pill core">slack-side</span></h3>
+              <p>A slack-bolt Socket Mode service on Fargate, VPC-internal with no inbound (outbound WebSocket only). Resolves the sender's verified email, gates on an allow-list, invokes the agent via its task role, and answers in a thread.</p>
             </div>
           </div>
         </div>
@@ -225,14 +232,14 @@
             <span class="arrow">→</span>
             <div class="node"><span class="k">tools · connectors</span>AgentCore Identity<br />(per-user OAuth)</div>
             <span class="arrow">↕</span>
-            <div class="node"><span class="k">ssh door</span>chat CLI · workstation</div>
+            <div class="node"><span class="k">ssh · slack doors</span>chat CLI · workstation<br />· Slack bridge</div>
           </div>
         </div>
 
         <div class="grid2">
           <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime, running a tool-use loop over knowledge-base search and the connector read tools, streaming its answer token by token (SSE end to end). Knowledge-base answers cite their sources; AgentCore Memory (short + long term); OTEL observability to CloudWatch.</p></div>
           <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
-          <div class="card"><h3>Infrastructure</h3><p>Terraform across thirteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, and mission-control (the execution engine on Fargate + RDS). A vault-worker Fargate service owns the git source of truth.</p></div>
+          <div class="card"><h3>Infrastructure</h3><p>Terraform across fourteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, mission-control (the execution engine on Fargate + RDS), and slackbot (the optional Slack door). A vault-worker Fargate service owns the git source of truth.</p></div>
         </div>
       </section>
 
@@ -291,6 +298,21 @@
           <div class="layer ssh"><span class="n">C</span><span><span class="t">No long-lived keys on disk</span> <span class="d">— credentials come from the instance/task role and short-lived assume-role. Dotfiles secrets are pulled from Secrets Manager at session start, never baked in.</span></span></div>
         </div>
 
+        <h3 style="margin-top:18px">Slack door — an allow-list over Socket Mode</h3>
+        <div class="layers">
+          <div class="layer"><span class="n">S1</span><span><span class="t">No inbound</span> <span class="d">— Socket Mode is an outbound WebSocket, so the bridge runs VPC-internal with NAT egress only: no public endpoint, no webhook, no request signing to verify.</span></span></div>
+          <div class="layer"><span class="n">S2</span><span><span class="t">Verified-email allow-list</span> <span class="d">— the sender's Slack email must be on a by-hand SSM SecureString; an unknown or email-less user is refused. The identity presented to the agent is that verified email.</span></span></div>
+          <div class="layer"><span class="n">S3</span><span><span class="t">Least-privilege task role</span> <span class="d">— the bridge can invoke only the agent runtime and read the allow-list, mirroring the chat CLI. The two Slack tokens are injected from Secrets Manager, never baked in.</span></span></div>
+        </div>
+
+        <h3 style="margin-top:18px">Every door — one guardrail at the model call</h3>
+        <div class="note">
+          A <b>Bedrock Guardrail</b> is applied to every model (Converse) call, so the same governance
+          protects all doors (GUI, CLI, Slack) at the model boundary: prompt-attack detection on input,
+          content filters (hate, insults, sexual, violence, misconduct), and a denied topic (credential
+          exfiltration). PII detection is deliberately off for a personal assistant.
+        </div>
+
         <div class="note">
           Every environment-specific or secret value is an input (Terraform variable, env var, Secrets
           Manager, or SSM Parameter Store), never a literal. Terraform is never auto-applied by an
@@ -337,22 +359,24 @@
 
         <div class="row">
           <div class="col"><div class="card"><h3>Flight Planner <span class="pill core">plan</span></h3><p>The agent runs an AI-DLC INCEPTION interview (intent → requirements → acceptance criteria → a units work-list), grounded on the vault and Confluence. Plans persist as versioned notes in the git vault; every criterion is a proposal for the human review gate.</p></div></div>
-          <div class="col"><div class="card"><h3>Mission Control <span class="pill core">execute</span></h3><p>A durable, cost-metered orchestrator for coding agents (its own repo), deployed VPC-internal on Fargate + RDS. Each unit runs as an isolated git-worktree task, Claude via Bedrock, paused at a go/no-go gate, with priced per-step telemetry.</p></div></div>
-          <div class="col"><div class="card"><h3>Mission deck <span class="pill core">observe</span></h3><p>The ground-station view in the GUI: launch a unit, watch its live telemetry (node transitions + cost), and drive the gate. One brain, four front doors: Vault · Chat · Plan · Mission.</p></div></div>
+          <div class="col"><div class="card"><h3>Mission Control <span class="pill core">execute</span></h3><p>A durable, cost-metered orchestrator for coding agents (its own repo), deployed VPC-internal on Fargate + RDS. Each unit runs as an isolated git-worktree task, Claude via Bedrock, verified against the target repo's own checks plus its acceptance criteria, then paused at a go/no-go gate, with priced per-step telemetry.</p></div></div>
+          <div class="col"><div class="card"><h3>Mission deck <span class="pill core">observe</span></h3><p>The ground-station view in the GUI: launch a unit, watch its live telemetry (node transitions + cost), and drive the gate. One brain, five front doors: Vault · Chat · Plan · Mission · Slack.</p></div></div>
         </div>
 
         <div class="note">
           <div class="flow">
             <div class="node"><span class="k">confluence</span>design pages (grounding)</div>
             <span class="arrow">→</span>
-            <div class="node"><span class="k">flight plan</span>units + criteria<br />(git vault, reviewed)</div>
+            <div class="node"><span class="k">flight plan</span>units + per-unit criteria<br />(git vault, reviewed)</div>
             <span class="arrow">→</span>
             <div class="node"><span class="k">unit → run</span>BFF /api/missions<br />(INCEPTION→sim, CONSTRUCTION→burn)</div>
             <span class="arrow stream">→ SSE →</span>
-            <div class="node"><span class="k">mission control</span>worktree · Bedrock · gate</div>
+            <div class="node"><span class="k">mission control</span>worktree · Bedrock</div>
           </div>
           <div class="flow">
-            <div class="node"><span class="k">go/no-go</span>Homebase review gate</div>
+            <div class="node"><span class="k">verify</span>the unit's own checks<br />+ acceptance criteria</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">go/no-go</span>Homebase review gate<br />(red auto-blocks)</div>
             <span class="arrow">→</span>
             <div class="node"><span class="k">apply</span>burn merged + pushed</div>
             <span class="arrow">→</span>
@@ -361,7 +385,7 @@
         </div>
 
         <div class="grid2">
-          <div class="card"><h3>The seam</h3><p>The BFF reaches Mission Control over Cloud Map on the private VPC with a bearer token. A flight-plan unit maps to a run (task_type from the AI-DLC phase); telemetry streams back as SSE. See <code>docs/mission-control-seam.md</code>.</p></div>
+          <div class="card"><h3>The seam</h3><p>The BFF reaches Mission Control over Cloud Map on the private VPC with a bearer token. A flight-plan unit maps to a run (task_type from the AI-DLC phase), carrying the unit's acceptance criteria so Mission Control judges the build against its own definition of done before the gate; telemetry streams back as SSE. See <code>docs/mission-control-seam.md</code>.</p></div>
           <div class="card"><h3>Design in, tickets out</h3><p>Confluence pages become grounded plan sources; a cleared plan materializes into a Jira epic + a story per unit through the write-gated connector. Traceability: ticket → waypoint → AC → source. See <code>docs/confluence-jira-integration.md</code>.</p></div>
         </div>
       </section>
@@ -391,7 +415,7 @@
         <div class="layers">
           <div class="layer"><span class="n">igw</span><span><span class="t">Internet Gateway</span> <span class="d">— the only route to the internet; egress only.</span></span></div>
           <div class="layer"><span class="n">pub</span><span><span class="t">Public subnet · NAT instance</span> <span class="d">— a stoppable t4g.nano gives private hosts egress, then drops to $0 when idle.</span></span></div>
-          <div class="layer ssh"><span class="n">priv</span><span><span class="t">Private subnets · workstation + chat CLI</span> <span class="d">— EC2 workstation (no public IP) and the Fargate CLI. Egress via NAT; NO inbound, NO public IP.</span></span></div>
+          <div class="layer ssh"><span class="n">priv</span><span><span class="t">Private subnets · workstation + Fargate services</span> <span class="d">— EC2 workstation (no public IP) plus the Fargate services (chat CLI, vault-worker, mission-control, Slack bridge). Egress via NAT; NO inbound, NO public IP.</span></span></div>
           <div class="layer"><span class="n">vpce</span><span><span class="t">Interface endpoint · bedrock-agentcore</span> <span class="d">— private connectivity to AgentCore from inside the VPC.</span></span></div>
         </div>
 
@@ -401,7 +425,7 @@
           <div class="card"><h3>Amazon Bedrock <span class="pill core">models</span></h3><p>Claude via a cross-region inference profile, Cohere Rerank, Titan Embeddings. Reached by the Runtime and the Knowledge Base.</p></div>
           <div class="card"><h3>Retrieval store <span class="pill read">read</span></h3><p>Bedrock Knowledge Base over Amazon S3 Vectors (semantic index); rerank at query time.</p></div>
           <div class="card"><h3>Cognito <span class="pill core">identity</span></h3><p>User pool with Google federation, hosted UI, and a pre-sign-up allow-list Lambda. Tokens verified in the BFF.</p></div>
-          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI. EC2: workstation. AgentCore: the agent.</p></div>
+          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI, vault-worker, mission-control, and the Slack bridge. EC2: workstation. AgentCore: the agent.</p></div>
           <div class="card"><h3>Connector shims <span class="pill gate">write-gated</span></h3><p>One Lambda per connector; each resolves the tenant OAuth token from AgentCore Identity and calls the vendor API. Reached by <code>lambda:InvokeFunction</code>.</p></div>
         </div>
 
