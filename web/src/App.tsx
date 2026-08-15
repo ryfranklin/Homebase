@@ -26,7 +26,7 @@ export function App() {
   const config = useMemo(() => loadConfig(), []);
   const auth = useAuth(config);
   const chat = useChat(config.apiBaseUrl, auth.getAccessToken);
-  const vault = useVault(config.apiBaseUrl, auth.getAccessToken, auth.getIdToken);
+  const vault = useVault(config.apiBaseUrl, auth.getAccessToken, auth.getIdToken, auth.authenticated);
   // Vault-first: Homebase is primarily the knowledge-vault workspace, with the
   // agent chat one click away. Both hooks live here, so switching modes preserves
   // their state.

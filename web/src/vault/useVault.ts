@@ -44,6 +44,7 @@ export function useVault(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
   getIdToken?: () => Promise<string>,
+  enabled: boolean = true,
   fetchImpl: typeof fetch = fetch,
 ): UseVault {
   const getTokenRef = useRef(getToken);
@@ -84,9 +85,13 @@ export function useVault(
     }
   }, [api]);
 
+  // Load the tree only once authenticated. useVault runs at the App top level (before
+  // login), so an unconditional load would call getToken() with no token and fail with
+  // "not authenticated"; gating on `enabled` defers it and retries the moment the user
+  // signs in (enabled flips false -> true).
   useEffect(() => {
-    void refreshTree();
-  }, [refreshTree]);
+    if (enabled) void refreshTree();
+  }, [enabled, refreshTree]);
 
   const loadBacklinks = useCallback(
     (key: string) => {
