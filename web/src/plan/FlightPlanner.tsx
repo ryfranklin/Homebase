@@ -206,6 +206,26 @@ export function FlightPlanner({
     return result;
   };
 
+  // Edit a route unit's own acceptance criteria (its definition of done), persisting one
+  // change per edit. A bare-string unit with no phase and no criteria stays a bare string
+  // (minimal churn); otherwise it normalizes to a { title, phase?, criteria? } waypoint.
+  const onSetUnitCriteria = (index: number, criteria: string[]) => {
+    if (!selected) return;
+    mutate(selected.id, (p) => ({
+      ...p,
+      route: p.route.map((wp, i) => {
+        if (i !== index) return wp;
+        const title = waypointTitle(wp);
+        const phase = waypointPhase(wp);
+        if (!phase && criteria.length === 0) return title;
+        const next: Waypoint = { title };
+        if (phase) next.phase = phase;
+        if (criteria.length) next.criteria = criteria;
+        return next;
+      }),
+    }));
+  };
+
   // Launch a plan unit on Mission Control, then jump to the Mission deck to watch it.
   const onLaunchUnit = async (wp: string | Waypoint) => {
     if (!selected || !missionsApi || !selected.target) return;
@@ -256,6 +276,7 @@ export function FlightPlanner({
           onAddSource={() => setAdding(true)}
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
+          onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
         />
         {preflight && (
           <PreflightModal

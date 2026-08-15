@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { pendingCount, readyToClear, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
+import { pendingCount, readyToClear, waypointCriteria, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
 import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
 import { AcCard, type GateAction } from "./AcCard";
 import { PlanSources } from "./PlanSources";
@@ -58,6 +58,134 @@ function Copilot({
   );
 }
 
+// A route unit: its title + phase badge + Launch, and (when editable) an expandable
+// editor for the unit's OWN acceptance criteria. Manages only its expand state; the
+// criteria themselves live on the plan and persist through onSetCriteria.
+function RouteUnit({
+  wp,
+  index,
+  target,
+  onLaunch,
+  onSetCriteria,
+}: {
+  wp: string | Waypoint;
+  index: number;
+  target?: string;
+  onLaunch?: (wp: string | Waypoint) => void;
+  onSetCriteria?: (index: number, criteria: string[]) => void;
+}) {
+  const phase = waypointPhase(wp);
+  const criteria = waypointCriteria(wp) ?? [];
+  const [open, setOpen] = useState(false);
+  const count = criteria.length;
+  return (
+    <li className="fp-wp">
+      <div className="fp-wp-head">
+        <span className="fp-wp-title">
+          {waypointTitle(wp)}
+          {phase && <span className={`fp-phase ${phase.toLowerCase()}`}>{phase === "INCEPTION" ? "sim" : "burn"}</span>}
+        </span>
+        <div className="fp-wp-actions">
+          {onSetCriteria && (
+            <button
+              type="button"
+              className={`fp-crit-toggle${count ? " has" : ""}`}
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+              title="This unit's acceptance criteria (definition of done)"
+            >
+              {count ? `${count} criteri${count === 1 ? "on" : "a"}` : "acceptance criteria"}
+              <span aria-hidden="true"> {open ? "▾" : "▸"}</span>
+            </button>
+          )}
+          {onLaunch && target && (
+            <button type="button" className="fp-launch" onClick={() => onLaunch(wp)} title="Launch this unit on Mission Control">
+              Launch ↗
+            </button>
+          )}
+        </div>
+      </div>
+      {onSetCriteria && open && (
+        <UnitCriteria criteria={criteria} onChange={(next) => onSetCriteria(index, next)} />
+      )}
+    </li>
+  );
+}
+
+// Editor for one unit's acceptance criteria (its definition of done). Edits stay local
+// until a blur / add / remove commits the cleaned list upward (one persisted change per
+// commit, matching the plan's per-change git model). Empty means the unit inherits the
+// plan's approved criteria at launch.
+function UnitCriteria({ criteria, onChange }: { criteria: string[]; onChange: (next: string[]) => void }) {
+  const [items, setItems] = useState<string[]>(criteria);
+  const [draft, setDraft] = useState("");
+  // Re-sync when the unit (or plan) changes under us.
+  useEffect(() => setItems(criteria), [criteria]);
+
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const persist = (next: string[]) => {
+    const cleaned = next.map((s) => s.trim()).filter(Boolean);
+    setItems(cleaned);
+    if (!same(cleaned, criteria)) onChange(cleaned);
+  };
+  const add = () => {
+    const v = draft.trim();
+    if (!v) return;
+    persist([...items, v]);
+    setDraft("");
+  };
+
+  return (
+    <div className="fp-crit">
+      <p className="fp-crit-hint">
+        This unit&apos;s definition of done. Mission Control judges the build against these; leave empty to
+        inherit the plan&apos;s approved criteria.
+      </p>
+      {items.length > 0 && (
+        <ul className="fp-crit-list">
+          {items.map((c, i) => (
+            <li key={i} className="fp-crit-row">
+              <input
+                className="fp-crit-input"
+                value={c}
+                aria-label={`Acceptance criterion ${i + 1}`}
+                onChange={(e) => setItems(items.map((x, j) => (j === i ? e.target.value : x)))}
+                onBlur={() => persist(items)}
+              />
+              <button
+                type="button"
+                className="fp-crit-remove"
+                aria-label="Remove criterion"
+                onClick={() => persist(items.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="fp-crit-add">
+        <input
+          className="fp-crit-input"
+          value={draft}
+          placeholder="Add an acceptance criterion…"
+          aria-label="Add an acceptance criterion"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+        <button type="button" className="fp-crit-addbtn" onClick={add} disabled={!draft.trim()}>
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function FlightPlanView({
   plan,
   catalog,
@@ -68,6 +196,7 @@ export function FlightPlanView({
   onAddSource,
   onSetTarget,
   onLaunchUnit,
+  onSetUnitCriteria,
 }: {
   plan: FlightPlan;
   catalog: Record<string, VaultDoc>;
@@ -78,6 +207,7 @@ export function FlightPlanView({
   onAddSource: () => void;
   onSetTarget?: (target: string) => void;
   onLaunchUnit?: (wp: string | Waypoint) => void;
+  onSetUnitCriteria?: (index: number, criteria: string[]) => void;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
   const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
@@ -190,22 +320,16 @@ export function FlightPlanView({
               </div>
             )}
             <ol className="fp-route">
-              {plan.route.map((wp, i) => {
-                const phase = waypointPhase(wp);
-                return (
-                  <li key={i} className="fp-wp">
-                    <span>
-                      {waypointTitle(wp)}
-                      {phase && <span className={`fp-phase ${phase.toLowerCase()}`}>{phase === "INCEPTION" ? "sim" : "burn"}</span>}
-                    </span>
-                    {onLaunchUnit && plan.target && (
-                      <button type="button" className="fp-launch" onClick={() => onLaunchUnit(wp)} title="Launch this unit on Mission Control">
-                        Launch ↗
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
+              {plan.route.map((wp, i) => (
+                <RouteUnit
+                  key={i}
+                  wp={wp}
+                  index={i}
+                  target={plan.target}
+                  onLaunch={onLaunchUnit}
+                  onSetCriteria={onSetUnitCriteria}
+                />
+              ))}
             </ol>
           </section>
 

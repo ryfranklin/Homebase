@@ -1785,7 +1785,10 @@ button.fb-row:hover { background: var(--surface); }
 .fp-target label { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); }
 .fp-target-input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; color: var(--text); font: inherit; font-size: 0.85rem; }
 .fp-target-input:focus { outline: none; border-color: var(--border-strong); }
-.fp-wp { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fp-wp { display: flex; flex-direction: column; gap: 8px; padding: 3px 0; }
+.fp-wp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fp-wp-title { display: inline-flex; align-items: center; }
+.fp-wp-actions { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .fp-phase { margin-left: 8px; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; }
 .fp-phase.inception { color: var(--muted); }
 .fp-phase.construction { color: var(--pending); }
@@ -1795,6 +1798,42 @@ button.fb-row:hover { background: var(--surface); }
   transition: background 0.2s;
 }
 .fp-launch:hover { background: var(--surface-2); }
+
+/* Per-unit acceptance criteria (the unit's definition of done) */
+.fp-crit-toggle {
+  flex-shrink: 0; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px;
+  border: 1px dashed var(--border); background: transparent; color: var(--faint);
+  transition: color 0.2s, border-color 0.2s;
+}
+.fp-crit-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+.fp-crit-toggle.has { border-style: solid; color: var(--pending); border-color: currentColor; }
+.fp-crit {
+  margin: 0 0 4px; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.fp-crit-hint { margin: 0; font-size: 0.72rem; line-height: 1.5; color: var(--faint); }
+.fp-crit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fp-crit-row { display: flex; align-items: center; gap: 8px; }
+.fp-crit-input {
+  flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; color: var(--text); font: inherit; font-size: 0.82rem;
+}
+.fp-crit-input:focus { outline: none; border-color: var(--border-strong); }
+.fp-crit-remove {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; line-height: 1;
+  border: 1px solid var(--border); background: transparent; color: var(--faint);
+  transition: color 0.2s, border-color 0.2s;
+}
+.fp-crit-remove:hover { color: #e5657b; border-color: #e5657b; }
+.fp-crit-add { display: flex; gap: 8px; }
+.fp-crit-addbtn {
+  flex-shrink: 0; font-size: 0.76rem; padding: 6px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  transition: background 0.2s;
+}
+.fp-crit-addbtn:hover:not(:disabled) { background: var(--surface); }
+.fp-crit-addbtn:disabled { opacity: 0.45; cursor: default; }
 
 /* Live Confluence search in the add-source picker */
 .src-cf-search { display: flex; gap: 8px; margin-bottom: 8px; }
