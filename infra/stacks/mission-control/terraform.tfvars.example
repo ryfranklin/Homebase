@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in real values.
+# Every value here is a FAKE placeholder.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "prod"
+
+# The shared foundation VPC id (the same value your vault-worker / workstation use).
+vpc_id = "<YOUR_VPC_ID>"
+
+# Two FREE /24 CIDRs in that VPC for the RDS-only subnets (two different AZs, no
+# overlap with any existing subnet). Check existing subnets first:
+#   aws ec2 describe-subnets --filters Name=vpc-id,Values=<vpc> \
+#     --query 'Subnets[].CidrBlock' --output text
+rds_subnet_cidrs = ["10.0.30.0/24", "10.0.31.0/24"]
+
+# Name of the BY-HAND Secrets Manager secret holding the fine-grained GitHub token
+# (Contents read/write on the target repos). The token is never in tfvars or state.
+github_token_secret_name = "homebase/mission-control/github-token"
+
+# Bedrock model / inference profile the coding worker uses.
+worker_model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
