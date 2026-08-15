@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { makeMissionControl, mapUnitToLaunch, buildPrompt, parseSse } from "../src/mission.mjs";
+import { makeMissionControl, mapUnitToLaunch, buildPrompt, acceptanceCriteria, parseSse } from "../src/mission.mjs";
 
 const PLAN = {
   target: "git@github.com:acme/app.git",
@@ -54,6 +54,16 @@ test("mapUnitToLaunch derives task_type from the AI-DLC phase", () => {
   assert.equal(mapUnitToLaunch(PLAN, { title: "x" }).target, PLAN.target);
 });
 
+test("acceptanceCriteria / mapUnitToLaunch carry only the approved criteria across the seam", () => {
+  assert.deepEqual(acceptanceCriteria(PLAN), ["Engineers authenticate via a Cognito JWT."]);
+  // proposed criteria are excluded; the launch body carries the approved DoD structured
+  // so Mission Control's verify node can judge the burn's output against it.
+  assert.deepEqual(
+    mapUnitToLaunch(PLAN, { title: "Build it", phase: "CONSTRUCTION" }).acceptance_criteria,
+    ["Engineers authenticate via a Cognito JWT."],
+  );
+});
+
 test("buildPrompt is deterministic and carries the approved acceptance criteria", () => {
   const p = buildPrompt(PLAN, { title: "Define MCP tool schemas", instruction: "Write the tool specs." });
   assert.ok(p.includes("# Define MCP tool schemas"));
@@ -77,6 +87,7 @@ test("launchUnit POSTs the mapped run with the bearer token", async () => {
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.task_type, "burn");
   assert.equal(sent.target, PLAN.target);
+  assert.deepEqual(sent.acceptance_criteria, ["Engineers authenticate via a Cognito JWT."]);
 });
 
 test("get / list / changes issue the right GETs", async () => {

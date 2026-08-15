@@ -5,12 +5,22 @@
 // stays testable; the base URL + token are injected here.
 //
 // Seam contract (flight-plan unit -> Mission Control run):
-//   POST /runs  { target, task_type, prompt, slack_profile? }  -> RunDetail
+//   POST /runs  { target, task_type, prompt, acceptance_criteria?, slack_profile? }  -> RunDetail
 //   task_type is derived from the unit's AI-DLC phase:
 //     INCEPTION   -> "sim"  (read-only investigation; never mutates the repo)
 //     CONSTRUCTION-> "burn"  (side-effectful; pauses at the gate for approval)
 // A burn run pauses at Mission Control's go/no-go gate; Homebase approves/rejects it
 // through the same "governed on commit" review gate the flight-plan schema defines.
+// acceptance_criteria carries the plan's approved criteria as structured strings so
+// Mission Control's verification node can score the burn's output against them (the
+// same criteria already embedded in the prompt as the definition of done).
+
+// The approved acceptance-criteria statements for a plan: the definition of done, both
+// embedded in the worker prompt (human-readable) AND sent structured across the seam so
+// Mission Control's verify node can judge the output against them. One source, two uses.
+export function acceptanceCriteria(plan) {
+  return (plan.criteria || []).filter((c) => c.status === "approved").map((c) => c.statement);
+}
 
 // The unit shape Homebase sends across the seam (a normalized flight-plan waypoint).
 // Kept minimal and explicit so the mapping is the whole contract.
@@ -21,6 +31,7 @@ export function mapUnitToLaunch(plan, unit) {
     target: plan.target,
     task_type,
     prompt: buildPrompt(plan, unit),
+    acceptance_criteria: acceptanceCriteria(plan),
     slack_profile: plan.slackProfile ?? null,
   };
 }
@@ -34,7 +45,7 @@ export function buildPrompt(plan, unit) {
   if (plan.title) lines.push("", `Flight plan: ${plan.title}`);
   if (plan.objective) lines.push("", `## Objective`, plan.objective);
   if (plan.context) lines.push("", `## Context`, plan.context);
-  const dod = (plan.criteria || []).filter((c) => c.status === "approved").map((c) => `- ${c.statement}`);
+  const dod = acceptanceCriteria(plan).map((s) => `- ${s}`);
   if (dod.length) lines.push("", `## Definition of done (approved acceptance criteria)`, ...dod);
   if (unit.instruction) lines.push("", `## This unit`, unit.instruction);
   return lines.join("\n");
@@ -70,8 +81,10 @@ export function makeMissionControl({ baseUrl, token = null, fetchImpl = fetch })
       return request("POST", "/runs", { body: mapUnitToLaunch(plan, unit) });
     },
     // Launch a raw run (escape hatch / prototype): the caller supplies the MC shape.
-    async launch({ target, task_type, prompt, slack_profile = null }) {
-      return request("POST", "/runs", { body: { target, task_type, prompt, slack_profile } });
+    async launch({ target, task_type, prompt, acceptance_criteria = null, slack_profile = null }) {
+      return request("POST", "/runs", {
+        body: { target, task_type, prompt, acceptance_criteria, slack_profile },
+      });
     },
     async get(runId) {
       return request("GET", `/runs/${encodeURIComponent(runId)}`);
