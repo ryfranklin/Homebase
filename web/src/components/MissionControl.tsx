@@ -1,0 +1,187 @@
+import { useState } from "react";
+
+import { ModeSwitch, type AppMode } from "./ModeSwitch";
+import { isTerminal, type Run, type RunEvent } from "../missions/types";
+import type { UseMissions } from "../missions/useMissions";
+
+// The Mission Control observation deck: launch a run against a target repo, watch its
+// priced telemetry stream, and drive the go/no-go gate. The BFF relays to the
+// execution engine; this is Homebase's ground-station view of a mission in flight.
+
+function statusClass(status: string): string {
+  if (status === "awaiting_gate") return "mc-status gate";
+  if (status === "failed" || status === "scrubbed" || status === "merge_conflict" || status === "push_rejected") return "mc-status bad";
+  if (status === "applied" || status === "done") return "mc-status good";
+  return "mc-status live";
+}
+
+function money(n: number | null | undefined): string {
+  return typeof n === "number" ? `$${n.toFixed(4)}` : "—";
+}
+
+// One telemetry frame -> a compact line.
+function eventLine(evt: RunEvent): string {
+  const d = (evt.data ?? {}) as Record<string, unknown>;
+  if (evt.type === "step_metric") {
+    const step = (d.event ?? d) as Record<string, unknown>;
+    const cost = typeof step.cost_usd === "number" ? `$${(step.cost_usd as number).toFixed(4)}` : "";
+    return `step · ${step.model ?? ""} ${cost}`.trim();
+  }
+  if (evt.type === "node_transition") return `→ ${d.node ?? "node"}`;
+  if (evt.type === "gate_waiting") return "⏸ awaiting go/no-go";
+  if (evt.type === "error") return `error: ${d.message ?? ""}`;
+  return evt.type;
+}
+
+function LaunchForm({ onLaunch }: { onLaunch: (t: string, k: "sim" | "burn", p: string) => void }) {
+  const [target, setTarget] = useState("");
+  const [taskType, setTaskType] = useState<"sim" | "burn">("sim");
+  const [prompt, setPrompt] = useState("");
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!target.trim() || !prompt.trim()) return;
+    onLaunch(target.trim(), taskType, prompt.trim());
+  };
+  return (
+    <form className="mc-launch" onSubmit={submit}>
+      <input className="mc-input" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="target repo (https git url)" aria-label="Target repo" />
+      <div className="mc-launch-row">
+        <select className="mc-input mc-select" value={taskType} onChange={(e) => setTaskType(e.target.value as "sim" | "burn")} aria-label="Task type">
+          <option value="sim">sim (read-only)</option>
+          <option value="burn">burn (gated write)</option>
+        </select>
+        <button type="submit" className="vault-btn primary" disabled={!target.trim() || !prompt.trim()}>
+          Launch
+        </button>
+      </div>
+      <textarea className="mc-input mc-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="What should the worker do?" rows={2} aria-label="Prompt" />
+    </form>
+  );
+}
+
+function RunDetail({ run, events, onDecide }: { run: Run; events: RunEvent[]; onDecide: (d: "approve" | "reject") => void }) {
+  const gating = run.status === "awaiting_gate";
+  return (
+    <div className="mc-detail">
+      <div className="mc-detail-head">
+        <div>
+          <div className="mc-detail-title">{run.subject || run.run_id}</div>
+          <div className="mc-detail-sub">
+            {run.task_type} · {run.target}
+          </div>
+        </div>
+        <div className="mc-detail-meta">
+          <span className={statusClass(run.status)}>{run.status.replace(/_/g, " ")}</span>
+          <span className="mc-cost">{money(run.cost_usd)}</span>
+        </div>
+      </div>
+
+      {gating && (
+        <div className="mc-gate">
+          <span>This burn is paused at the go/no-go gate.</span>
+          <div className="mc-gate-actions">
+            <button type="button" className="vault-btn primary" onClick={() => onDecide("approve")}>
+              Approve (go)
+            </button>
+            <button type="button" className="vault-btn danger" onClick={() => onDecide("reject")}>
+              Reject (no-go)
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mc-telemetry">
+        <div className="mc-telemetry-head">Telemetry {!isTerminal(run.status) && <span className="mc-live-dot" aria-hidden="true" />}</div>
+        {events.length === 0 ? (
+          <p className="mc-empty">Waiting for the first event…</p>
+        ) : (
+          <ul className="mc-events">
+            {events.map((e, i) => (
+              <li key={i} className={`mc-event mc-${e.type}`}>
+                {eventLine(e)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {run.detail && isTerminal(run.status) && <div className="mc-result">{run.detail}</div>}
+    </div>
+  );
+}
+
+export function MissionControl({
+  missions,
+  onNavigate,
+  onSignOut,
+}: {
+  missions: UseMissions;
+  onNavigate?: (mode: AppMode) => void;
+  onSignOut?: () => void;
+}) {
+  return (
+    <div className="plan">
+      <header className="chat-header">
+        <span className="wordmark">
+          <span className="wordmark-dot" aria-hidden="true"></span>
+          Homebase
+        </span>
+        <div className="header-actions">
+          {missions.error && <span className="plan-save-error">{missions.error}</span>}
+          {onNavigate && <ModeSwitch active="mission" onNavigate={onNavigate} />}
+          {onSignOut && (
+            <button type="button" className="link-button" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
+        </div>
+      </header>
+
+      <div className="plan-body">
+        <div className="mc">
+          <aside className="mc-side">
+            <LaunchForm onLaunch={(t, k, p) => void missions.launch({ target: t, taskType: k, prompt: p })} />
+            <div className="mc-runs-head">
+              <span>Runs</span>
+              <button type="button" className="link-button" onClick={() => void missions.refresh()}>
+                Refresh
+              </button>
+            </div>
+            {missions.runs.length === 0 ? (
+              <p className="mc-empty">No runs yet. Launch one above.</p>
+            ) : (
+              <ul className="mc-runs">
+                {missions.runs.map((r) => (
+                  <li key={r.run_id}>
+                    <button
+                      type="button"
+                      className={`mc-run${missions.selected?.run_id === r.run_id ? " active" : ""}`}
+                      onClick={() => void missions.select(r.run_id)}
+                    >
+                      <span className="mc-run-title">{r.subject || r.target || r.run_id}</span>
+                      <span className="mc-run-meta">
+                        <span className={statusClass(r.status)}>{r.status.replace(/_/g, " ")}</span>
+                        <span className="mc-cost">{money(r.cost_usd)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+
+          <main className="mc-main">
+            {missions.selected ? (
+              <RunDetail run={missions.selected} events={missions.events} onDecide={(d) => void missions.decide(missions.selected!.run_id, d)} />
+            ) : (
+              <div className="mc-placeholder">
+                <h1>Mission Control</h1>
+                <p>Launch a run or select one to watch its telemetry and drive the go/no-go gate.</p>
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1656,6 +1656,87 @@ button.fb-row:hover { background: var(--surface); }
 .plan-loading { margin: auto; color: var(--muted); font-size: 0.9rem; padding: 40px; }
 .plan-save-error { color: var(--pending); font-size: 0.72rem; margin-right: 4px; }
 
+/* ---------- Mission Control deck ---------- */
+.mc { flex: 1; min-height: 0; display: flex; }
+.mc-side {
+  width: 340px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mc-main { flex: 1; min-width: 0; overflow-y: auto; padding: 24px 28px; }
+
+.mc-launch { display: flex; flex-direction: column; gap: 8px; }
+.mc-launch-row { display: flex; gap: 8px; }
+.mc-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  width: 100%;
+}
+.mc-input:focus { outline: none; border-color: var(--border-strong); }
+.mc-select { flex: 1; }
+.mc-prompt { resize: vertical; font-family: inherit; }
+
+.mc-runs-head, .mc-telemetry-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint);
+}
+.mc-runs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mc-run {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+}
+.mc-run:hover { background: var(--surface); }
+.mc-run.active { background: var(--surface-2); border-color: var(--border); }
+.mc-run-title { font-size: 0.84rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-run-meta { display: flex; align-items: center; gap: 8px; }
+
+.mc-status {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor;
+}
+.mc-status.live { color: var(--muted); }
+.mc-status.gate { color: var(--pending); }
+.mc-status.good { color: #35c07d; }
+.mc-status.bad { color: #e5657b; }
+.mc-cost { font-family: var(--font-mono); font-size: 0.72rem; color: var(--faint); }
+
+.mc-detail { max-width: 820px; }
+.mc-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.mc-detail-title { font-size: 1.15rem; font-weight: 600; }
+.mc-detail-sub { color: var(--muted); font-size: 0.82rem; margin-top: 3px; word-break: break-all; }
+.mc-detail-meta { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.mc-gate {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: var(--pending-soft); border: 1px solid rgba(224, 168, 58, 0.35);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; color: var(--pending); font-size: 0.86rem;
+}
+.mc-gate-actions { display: inline-flex; gap: 8px; }
+
+.mc-telemetry { border-top: 1px solid var(--border); padding-top: 14px; }
+.mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #35c07d; display: inline-block; animation: pulse 1.4s infinite; }
+.mc-events { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 0.78rem; }
+.mc-event { color: var(--muted); padding: 2px 0; }
+.mc-event.mc-step_metric { color: var(--text); }
+.mc-event.mc-gate_waiting { color: var(--pending); }
+.mc-event.mc-error { color: #e5657b; }
+
+.mc-result { margin-top: 18px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; white-space: pre-wrap; font-size: 0.86rem; color: var(--text); }
+.mc-empty { color: var(--faint); font-size: 0.84rem; }
+.mc-placeholder { margin: auto; text-align: center; max-width: 30rem; color: var(--muted); }
+.mc-placeholder h1 { font-size: 1.3rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+
 /* New-plan inline form + empty state on the board. */
 .fb-new { display: flex; gap: 8px; max-width: 980px; margin: 0 auto 18px; padding: 0 28px; width: 100%; }
 .fb-new-input {

@@ -10,6 +10,7 @@ import { ConnectorBanner } from "./connectors/ConnectorBanner";
 import { useConnectorCallback } from "./connectors/useConnectorCallback";
 import { makeVaultPlanStore } from "./plan/store";
 import { planOwnerFromIdToken } from "./plan/identity";
+import { useMissions } from "./missions/useMissions";
 
 // The workspace views carry the heavy Markdown/highlight/mermaid code. Lazy-load
 // them so the initial bundle is just the shell + login; the vault (default) or
@@ -17,8 +18,9 @@ import { planOwnerFromIdToken } from "./plan/identity";
 const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ default: m.VaultView })));
 const ChatView = lazy(() => import("./components/ChatView").then((m) => ({ default: m.ChatView })));
 const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
+const MissionControl = lazy(() => import("./components/MissionControl").then((m) => ({ default: m.MissionControl })));
 
-type Mode = "vault" | "chat" | "plan";
+type Mode = "vault" | "chat" | "plan" | "mission";
 
 export function App() {
   const config = useMemo(() => loadConfig(), []);
@@ -41,6 +43,8 @@ export function App() {
     [config.apiBaseUrl],
   );
   const planOwner = useMemo(() => planOwnerFromIdToken(auth.tokens?.idToken), [auth.tokens?.idToken]);
+  // Mission Control deck: only polls the engine while the Mission tab is open.
+  const missions = useMissions(config.apiBaseUrl, auth.getAccessToken, mode === "mission");
   // Finalize a connector consent if the browser returned with ?session_id=.
   const connector = useConnectorCallback(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
   // What's actually connected (from the token vault), for the chat's source display.
@@ -68,6 +72,8 @@ export function App() {
           <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} />
         ) : mode === "plan" ? (
           <FlightPlanner onNavigate={setMode} onSignOut={auth.logout} store={planStore} user={planOwner} />
+        ) : mode === "mission" ? (
+          <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} />
         ) : (
           <ChatView
             messages={chat.messages}
