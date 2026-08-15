@@ -197,6 +197,22 @@ class ApiDispatcherTests(unittest.TestCase):
         self.assertIn("accessible-resources", calls[0])
         self.assertIn("/ex/jira/cloud-123/rest/api/3/search/jql", calls[1])
 
+    def test_jira_create_resolves_cloud_id_and_posts_the_issue(self):
+        calls = []
+
+        def transport(method, url, headers, body):
+            calls.append((method, url))
+            if "accessible-resources" in url:
+                return [{"id": "cloud-123", "url": "https://ex.atlassian.net"}]
+            return {"id": "1", "key": "AIP-1"}
+
+        api = make_api(transport)
+        out = api("atlassian", "jira.create_issue", {"fields": {"project": {"key": "AIP"}, "issuetype": {"name": "Epic"}, "summary": "x"}}, "T")
+        self.assertIn("accessible-resources", calls[0][1])
+        self.assertEqual(calls[1][0], "POST")
+        self.assertIn("/ex/jira/cloud-123/rest/api/3/issue", calls[1][1])
+        self.assertEqual(out["key"], "AIP-1")
+
     def test_confluence_search_resolves_cloud_id_and_builds_cql(self):
         calls = []
 

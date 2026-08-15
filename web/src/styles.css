@@ -1800,6 +1800,11 @@ button.fb-row:hover { background: var(--surface); }
 .src-cf-search { display: flex; gap: 8px; margin-bottom: 8px; }
 .src-cf-search .vault-new-input { flex: 1; }
 .src-cf-error { color: #e5657b; font-size: 0.8rem; margin: 4px 0; }
+
+/* Materialize-to-Jira in the pre-flight modal */
+.preflight-jira { display: flex; align-items: center; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+.preflight-jira-result { font-size: 0.86rem; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+.preflight-jira-error { color: #e5657b; font-size: 0.8rem; }
 .fp-head {
   display: flex;
   align-items: center;

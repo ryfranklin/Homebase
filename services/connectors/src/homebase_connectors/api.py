@@ -179,6 +179,17 @@ def _jira_search_handler(params, token, send):
     return send(method, url, headers, body)
 
 
+def _jira_create_handler(params, token, send):
+    """Create an issue, resolving cloudId automatically when the caller omits it, so
+    the caller only supplies `fields` (project, issuetype, summary, description,
+    optional parent). The write gate has already confirmed by the time this runs."""
+    params = dict(params or {})
+    if not params.get("cloudId"):
+        params["cloudId"] = _atlassian_resolve_cloud_id(token, send)
+    method, url, headers, body = _jira_create(params, token)
+    return send(method, url, headers, body)
+
+
 def _confluence_search(params, token):
     cloud = urllib.parse.quote(params["cloudId"])
     qs = urllib.parse.urlencode({"cql": params.get("cql", ""), "limit": params.get("limit", 25)})
@@ -214,6 +225,7 @@ _BUILDERS = {
 _HANDLERS = {
     "slack.read_messages": _slack_read_handler,
     "jira.search_issues": _jira_search_handler,
+    "jira.create_issue": _jira_create_handler,
     "confluence.search": _confluence_search_handler,
 }
 

@@ -459,6 +459,10 @@ resource "aws_lambda_function" "bff" {
       # bearer token (ARN; read from Secrets Manager at cold start). Enables /api/missions/*.
       HOMEBASE_MISSION_CONTROL_URL       = data.aws_ssm_parameter.mission_control_url.value
       HOMEBASE_MISSION_CONTROL_TOKEN_ARN = data.aws_ssm_parameter.mission_control_token_secret_arn.value
+      # Flight Planner Confluence sources (link base) + Jira materialize target. When
+      # jira_project is set, POST /api/plan/materialize is enabled.
+      HOMEBASE_CONFLUENCE_SITE_URL = var.confluence_site_url
+      HOMEBASE_JIRA_PROJECT        = var.jira_project
     }
   }
 

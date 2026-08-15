@@ -49,6 +49,9 @@ export function loadConfig(env = process.env) {
     // absolute page links for Flight Planner sources. Optional; links degrade to the
     // relative path when unset.
     confluenceSiteUrl: env.HOMEBASE_CONFLUENCE_SITE_URL || null,
+    // Jira project key a cleared plan materializes into (epic + stories). When set,
+    // POST /api/plan/materialize is enabled.
+    jiraProject: env.HOMEBASE_JIRA_PROJECT || null,
     // Mission Control (the execution engine). When the base URL is set, the BFF
     // exposes /api/missions/* to launch runs from flight-plan units, stream live
     // telemetry, and drive the go/no-go gate. The bearer token authorizes mutations;

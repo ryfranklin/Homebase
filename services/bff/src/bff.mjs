@@ -354,6 +354,23 @@ export async function handleRequest(event, respond, deps) {
     }
   }
 
+  // Flight Planner: materialize a cleared plan into a Jira epic + stories. Each
+  // create is write-gated (two-hop confirm) inside the connector shim.
+  if (method === "POST" && path.endsWith("/plan/materialize")) {
+    if (!deps.materializer) return writeError(respond, cors, 503, "materialize_unconfigured", "Jira materialize is not enabled on this deployment");
+    if (!body.plan) return writeError(respond, cors, 400, "missing_plan", "plan is required");
+    try {
+      return writeJson(respond, cors, 200, await deps.materializer.materialize(tenantId, body.plan, body.project));
+    } catch (err) {
+      if (err?.code === "authorization_required") {
+        return writeJson(respond, cors, 200, { requires_authorization: true, authorization_url: err.authorization_url ?? null });
+      }
+      const status = err?.status && err.status < 500 ? err.status : 502;
+      console.error(JSON.stringify({ event: "materialize_error", message: String(err?.message || "").slice(0, 200) }));
+      return writeError(respond, cors, status, err?.code || "materialize_error", status >= 500 ? "could not materialize the plan" : err.message);
+    }
+  }
+
   // Flight Planner: search Confluence for design pages to add as plan sources.
   if (method === "GET" && path.endsWith("/plan/confluence/search")) {
     if (!deps.confluence) return writeJson(respond, cors, 200, { results: [] });

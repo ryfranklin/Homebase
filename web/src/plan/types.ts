@@ -51,7 +51,17 @@ export interface FlightPlan {
   route: (string | Waypoint)[]; // waypoints (string titles or { title, phase })
   risks: string[];
   target?: string; // the git repo Mission Control builds against (for launching units)
+  materialized?: Materialization[]; // record of external work created from this plan
   updatedAt: string;
+}
+
+// A record of a plan being materialized into an external tracker (Jira epic + stories).
+export interface Materialization {
+  target: "jira";
+  project?: string;
+  epic?: string;
+  stories: { key: string; title: string }[];
+  at: string;
 }
 
 export function waypointTitle(wp: string | Waypoint): string {

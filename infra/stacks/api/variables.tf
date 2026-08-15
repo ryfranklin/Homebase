@@ -66,3 +66,15 @@ variable "origin_secret_rotation_days" {
   type        = number
   default     = 30
 }
+
+variable "confluence_site_url" {
+  description = "Confluence site base URL (e.g. https://your-org.atlassian.net) for Flight Planner source links. Empty to omit."
+  type        = string
+  default     = ""
+}
+
+variable "jira_project" {
+  description = "Jira project key a cleared plan materializes into (epic + stories). Empty disables /api/plan/materialize."
+  type        = string
+  default     = ""
+}

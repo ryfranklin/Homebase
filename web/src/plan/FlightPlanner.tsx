@@ -14,6 +14,7 @@ import type { PlanStore } from "./store";
 import { waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
+import { materializePlan } from "./materialize";
 
 const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
   approve: "approved",
@@ -189,6 +190,22 @@ export function FlightPlanner({
     mutate(selected.id, (p) => ({ ...p, target: target || undefined, updatedAt: new Date().toISOString() }));
   };
 
+  // Materialize the cleared plan into Jira (epic + stories); record the keys on it.
+  const onMaterialize = async () => {
+    const result = await materializePlan(apiBaseUrl!, getToken!, selected);
+    if (result.epic && selected) {
+      mutate(selected.id, (p) => ({
+        ...p,
+        materialized: [
+          ...(p.materialized || []).filter((m) => m.target !== "jira"),
+          { target: "jira", project: result.project, epic: result.epic, stories: result.stories || [], at: new Date().toISOString() },
+        ],
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+    return result;
+  };
+
   // Launch a plan unit on Mission Control, then jump to the Mission deck to watch it.
   const onLaunchUnit = async (wp: string | Waypoint) => {
     if (!selected || !missionsApi || !selected.target) return;
@@ -236,7 +253,14 @@ export function FlightPlanner({
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
         />
-        {preflight && <PreflightModal plan={selected} onClear={onClear} onClose={() => setPreflight(false)} />}
+        {preflight && (
+          <PreflightModal
+            plan={selected}
+            onClear={onClear}
+            onClose={() => setPreflight(false)}
+            onMaterialize={canDraft ? onMaterialize : undefined}
+          />
+        )}
         {adding && (
           <AddSourceModal
             catalog={Object.values(catalog)}
