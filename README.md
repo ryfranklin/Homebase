@@ -25,11 +25,19 @@ full conventions.
 - Six live connectors (Gmail, Calendar, Drive, Slack, Jira, Confluence): read-first and write-gated,
   each with per-user OAuth via AgentCore Identity (an AgentCore Gateway also exposes them as MCP tools);
   the user links an account once through a self-service consent flow in the GUI
+- A git-authoritative vault: a Fargate vault worker owns the clone and commits every write, so notes
+  and flight plans are versioned and attributed from git; the S3 corpus is the derived KB mirror
+- A Flight Planner where the agent runs an AI-DLC INCEPTION interview to produce reviewed flight plans,
+  handed to Mission Control (a durable, cost-metered coding-agent orchestrator on Fargate + RDS, its own
+  repo) for execution, with live per-step telemetry and a go/no-go gate surfaced in the GUI Mission deck
+- Confluence design pages as grounded plan sources, and Jira materialization of a cleared plan (an epic
+  plus a story per unit) through the write-gated connector: design in, tickets out
 - All infrastructure defined as Terraform IaC
 
-For the full picture (the two access planes, the retrieval flow, the layered security perimeter, and
-the connector strategy), open the self-contained **[architecture.html](./architecture.html)** at the
-repository root (inline CSS and vanilla JS, no build step, no network).
+For the full picture (the two access planes, the retrieval flow, the layered security perimeter, the
+connector strategy, and the planning-to-execution loop), open the self-contained
+**[architecture.html](./architecture.html)** at the repository root (inline CSS and vanilla JS, no build
+step, no network).
 
 ```mermaid
 flowchart TB
@@ -61,6 +69,12 @@ flowchart TB
         GW["AgentCore Identity (per-user OAuth)<br/>+ Gateway (MCP)"] --> SIX["Gmail · Calendar · Drive · Slack · Jira · Confluence"]
     end
 
+    subgraph exec["Planning &amp; execution"]
+        direction TB
+        FP["Flight Planner<br/>(AI-DLC interview)"] --> PLAN["Flight plan<br/>(git vault, reviewed)"] --> MC["Mission Control<br/>Fargate + RDS · worktree · Bedrock · gate"]
+        MC --> JIRA["Jira epic + stories<br/>(materialize, write-gated)"]
+    end
+
     SPA --> CF
     CLI --> SSM
     WS --> SSM
@@ -68,6 +82,8 @@ flowchart TB
     ROLES --> CORE
     CORE --> retrieval
     CORE --> conn
+    CORE --> FP
+    BFF --> MC
 ```
 
 Retrieval on Amazon S3 Vectors is **semantic plus Bedrock Rerank, not hybrid**. Hybrid (dense plus
@@ -83,12 +99,17 @@ services/       Backend services
   bff/          Streaming Lambda BFF (Function URL, SSE)
   ingestion/    Knowledge base ingestion pipeline
   connectors/   Six live connectors (read-first shim Lambdas + catalog)
-web/            React single page application
+  vault-worker/ Fargate service that owns the git vault clone (writes commit to git)
+web/            React SPA (Vault · Chat · Plan · Mission surfaces)
 cli/            Thin chat CLI container
 workstation/    EC2 workstation bootstrap
 eval/           Retrieval and agent evaluation harness
 docs/           Project documentation
 ```
+
+Mission Control (the execution engine) is a separate repository, deployed into this account by the
+`mission-control` Terraform stack and reached over the private VPC. The contract between them is
+documented in `docs/mission-control-seam.md`.
 
 ## Setup prerequisites
 

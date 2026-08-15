@@ -178,6 +178,7 @@
         <button role="tab" aria-selected="false" data-view="retrieval">retrieval</button>
         <button role="tab" aria-selected="false" data-view="security">security perimeter</button>
         <button role="tab" aria-selected="false" data-view="connectors">connectors</button>
+        <button role="tab" aria-selected="false" data-view="planning">planning &amp; execution</button>
         <button role="tab" aria-selected="false" data-view="topology">aws topology</button>
       </nav>
 
@@ -231,7 +232,7 @@
         <div class="grid2">
           <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime, running a tool-use loop over knowledge-base search and the connector read tools, streaming its answer token by token (SSE end to end). Knowledge-base answers cite their sources; AgentCore Memory (short + long term); OTEL observability to CloudWatch.</p></div>
           <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
-          <div class="card"><h3>Infrastructure</h3><p>Terraform across twelve stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring.</p></div>
+          <div class="card"><h3>Infrastructure</h3><p>Terraform across thirteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, and mission-control (the execution engine on Fargate + RDS). A vault-worker Fargate service owns the git source of truth.</p></div>
         </div>
       </section>
 
@@ -326,6 +327,42 @@
           <div class="col"><div class="card"><h3>Write gate <span class="pill gate">confirm</span></h3><p>Any write (send, post, create, modify) returns a confirmation contract instead of executing. Only a re-invocation with the matching token proceeds. The gate lives at the tool layer, so the GUI and the SSH CLI both inherit it. Only read tools are offered to the agent.</p></div></div>
           <div class="col"><div class="card"><h3>Identity <span class="pill core">per-user</span></h3><p>OAuth tokens live in AgentCore Identity, keyed by the caller's tenant and connector. No tokens, client ids, or workspace ids in code; the agent reaches a connector with only the tenant it already carries. Independent auth, no borrowed tokens.</p></div></div>
           <div class="col"><div class="card"><h3>Never indexed <span class="pill deny">ADR-004</span></h3><p>Connector data is fetched live per query and is never written into the corpus / S3 Vectors store. There is no connector-to-corpus ingestion path.</p></div></div>
+        </div>
+      </section>
+
+      <!-- ============ PLANNING & EXECUTION ============ -->
+      <section class="view" id="planning" role="tabpanel">
+        <h2>Planning and execution: Flight Planner to Mission Control</h2>
+        <p class="sub">Homebase is the ground station: it plans and observes. Mission Control is the execution engine. The seam is data (an open flight plan in git), not a proprietary API.</p>
+
+        <div class="row">
+          <div class="col"><div class="card"><h3>Flight Planner <span class="pill core">plan</span></h3><p>The agent runs an AI-DLC INCEPTION interview (intent → requirements → acceptance criteria → a units work-list), grounded on the vault and Confluence. Plans persist as versioned notes in the git vault; every criterion is a proposal for the human review gate.</p></div></div>
+          <div class="col"><div class="card"><h3>Mission Control <span class="pill core">execute</span></h3><p>A durable, cost-metered orchestrator for coding agents (its own repo), deployed VPC-internal on Fargate + RDS. Each unit runs as an isolated git-worktree task, Claude via Bedrock, paused at a go/no-go gate, with priced per-step telemetry.</p></div></div>
+          <div class="col"><div class="card"><h3>Mission deck <span class="pill core">observe</span></h3><p>The ground-station view in the GUI: launch a unit, watch its live telemetry (node transitions + cost), and drive the gate. One brain, four front doors: Vault · Chat · Plan · Mission.</p></div></div>
+        </div>
+
+        <div class="note">
+          <div class="flow">
+            <div class="node"><span class="k">confluence</span>design pages (grounding)</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">flight plan</span>units + criteria<br />(git vault, reviewed)</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">unit → run</span>BFF /api/missions<br />(INCEPTION→sim, CONSTRUCTION→burn)</div>
+            <span class="arrow stream">→ SSE →</span>
+            <div class="node"><span class="k">mission control</span>worktree · Bedrock · gate</div>
+          </div>
+          <div class="flow">
+            <div class="node"><span class="k">go/no-go</span>Homebase review gate</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">apply</span>burn merged + pushed</div>
+            <span class="arrow">→</span>
+            <div class="node"><span class="k">materialize</span>cleared plan → Jira epic + stories<br />(write-gated)</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card"><h3>The seam</h3><p>The BFF reaches Mission Control over Cloud Map on the private VPC with a bearer token. A flight-plan unit maps to a run (task_type from the AI-DLC phase); telemetry streams back as SSE. See <code>docs/mission-control-seam.md</code>.</p></div>
+          <div class="card"><h3>Design in, tickets out</h3><p>Confluence pages become grounded plan sources; a cleared plan materializes into a Jira epic + a story per unit through the write-gated connector. Traceability: ticket → waypoint → AC → source. See <code>docs/confluence-jira-integration.md</code>.</p></div>
         </div>
       </section>
 
