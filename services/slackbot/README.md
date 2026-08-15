@@ -45,12 +45,21 @@ Guardrail on the agent governs it too, since governance lives at the model call.
 The two Slack tokens are injected from Secrets Manager by the execution role, so
 no secret is ever baked into the image.
 
-## Build
+## Build and redeploy
 
-Build for the task's CPU architecture (the stack pins ARM64):
+Once the stack is applied, redeploy image changes with one command (build → verify →
+push `:latest` → force a new ECS deployment; no Terraform, repo/cluster/service
+resolved from AWS so no account id is baked in):
 
 ```
-docker buildx build --platform linux/arm64 -t <ecr-repo-url>:<tag> --load .
+./scripts/deploy-slackbot.sh
+```
+
+Or build by hand for the task's CPU architecture (the stack pins ARM64 — always brace
+the tag, `${ECR}:latest`, or zsh's `:l` modifier mangles it):
+
+```
+docker buildx build --platform linux/arm64 -t "${ECR}:latest" --load .
 ```
 
 ## Test
