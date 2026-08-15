@@ -11,7 +11,8 @@ import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
 import { newPlan, slugify } from "./persist";
 import type { PlanStore } from "./store";
-import type { AcStatus, Contributor, FlightPlan } from "./types";
+import { waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
+import { makeMissionsApi } from "../missions/api";
 
 const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
   approve: "approved",
@@ -180,6 +181,30 @@ export function FlightPlanner({
   };
 
   const canDraft = !!(apiBaseUrl && getToken);
+  const missionsApi = useMemo(() => (apiBaseUrl && getToken ? makeMissionsApi(apiBaseUrl, getToken) : null), [apiBaseUrl, getToken]);
+
+  const onSetTarget = (target: string) => {
+    if (!selected) return;
+    mutate(selected.id, (p) => ({ ...p, target: target || undefined, updatedAt: new Date().toISOString() }));
+  };
+
+  // Launch a plan unit on Mission Control, then jump to the Mission deck to watch it.
+  const onLaunchUnit = async (wp: string | Waypoint) => {
+    if (!selected || !missionsApi || !selected.target) return;
+    const planCtx = {
+      target: selected.target,
+      title: selected.title,
+      objective: selected.objective,
+      context: selected.context,
+      criteria: selected.criteria,
+    };
+    try {
+      await missionsApi.launchUnit(planCtx, { title: waypointTitle(wp), phase: waypointPhase(wp) });
+      onNavigate?.("mission");
+    } catch {
+      /* the Mission deck surfaces run/launch errors */
+    }
+  };
 
   let content: React.ReactNode;
   if (loading) {
@@ -207,6 +232,8 @@ export function FlightPlanner({
           onFileClearance={() => setPreflight(true)}
           onCritique={onCritique}
           onAddSource={() => setAdding(true)}
+          onSetTarget={store ? onSetTarget : undefined}
+          onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
         />
         {preflight && <PreflightModal plan={selected} onClear={onClear} onClose={() => setPreflight(false)} />}
         {adding && (

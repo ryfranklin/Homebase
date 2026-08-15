@@ -82,7 +82,11 @@ describe("agent plan drafts", () => {
     expect(plan.title).toBe("MCP relay");
     expect(plan.status).toBe("draft");
     expect(plan.criteria[0]).toMatchObject({ id: "AC-1", status: "proposed", author: { kind: "agent" } });
-    expect(plan.route).toEqual(["Investigate the gateway", "Build the tool schemas"]);
+    // Units keep their phase so a CONSTRUCTION unit launches as a burn, INCEPTION as sim.
+    expect(plan.route).toEqual([
+      { title: "Investigate the gateway", phase: "INCEPTION" },
+      { title: "Build the tool schemas", phase: "CONSTRUCTION" },
+    ]);
     // round-trips through the vault format
     expect(planFromMarkdown(planToMarkdown(plan))).toEqual(plan);
   });

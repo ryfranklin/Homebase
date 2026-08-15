@@ -4,7 +4,7 @@
 // Because it is a vault note, it inherits versioning + "Edited by" attribution and
 // the git conflict policy for free.
 
-import type { AcStatus, Contributor, FlightPlan } from "./types";
+import type { AcStatus, Contributor, FlightPlan, Phase, Waypoint } from "./types";
 
 const PLAN_FENCE = "homebase-plan";
 const PLAN_BLOCK = new RegExp("```" + PLAN_FENCE + "\\s*\\n([\\s\\S]*?)\\n```");
@@ -81,6 +81,7 @@ export interface PlanDraft {
   project?: string;
   objective?: string;
   context?: string;
+  target?: string;
   criteria?: { statement: string; status?: string; links?: string[] }[];
   route?: (string | { title: string; phase?: string })[];
   sources?: string[];
@@ -120,7 +121,13 @@ export function planFromDraft(draft: PlanDraft, owner: Contributor, at: string):
     links: c.links || [],
     comments: [],
   }));
-  const route = (draft.route || []).map((r) => (typeof r === "string" ? r : r.title));
+  // Preserve the units as { title, phase } so a CONSTRUCTION unit launches as a burn
+  // and an INCEPTION unit as a sim; bare strings stay strings.
+  const route: (string | Waypoint)[] = (draft.route || []).map((r) => {
+    if (typeof r === "string") return r;
+    const phase: Phase | undefined = r.phase === "INCEPTION" || r.phase === "CONSTRUCTION" ? r.phase : undefined;
+    return phase ? { title: r.title, phase } : { title: r.title };
+  });
   return {
     ...base,
     project: draft.project || base.project,
@@ -130,6 +137,7 @@ export function planFromDraft(draft: PlanDraft, owner: Contributor, at: string):
     sources: draft.sources || [],
     route,
     risks: draft.risks || [],
+    ...(draft.target ? { target: draft.target } : {}),
   };
 }
 

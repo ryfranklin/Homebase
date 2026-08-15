@@ -1779,6 +1779,22 @@ button.fb-row:hover { background: var(--surface); }
 .pd-composer { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); }
 .pd-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; color: var(--text); font: inherit; font-size: 0.88rem; resize: vertical; }
 .pd-input:focus { outline: none; border-color: var(--border-strong); }
+
+/* Plan route: target repo + per-unit launch */
+.fp-target { margin-bottom: 12px; }
+.fp-target label { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); }
+.fp-target-input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; color: var(--text); font: inherit; font-size: 0.85rem; }
+.fp-target-input:focus { outline: none; border-color: var(--border-strong); }
+.fp-wp { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fp-phase { margin-left: 8px; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; }
+.fp-phase.inception { color: var(--muted); }
+.fp-phase.construction { color: var(--pending); }
+.fp-launch {
+  flex-shrink: 0; font-size: 0.72rem; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  transition: background 0.2s;
+}
+.fp-launch:hover { background: var(--surface-2); }
 .fp-head {
   display: flex;
   align-items: center;

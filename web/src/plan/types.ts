@@ -27,6 +27,16 @@ export interface AcceptanceCriterion {
   comments: AcComment[];
 }
 
+export type Phase = "INCEPTION" | "CONSTRUCTION";
+
+// A unit of work in the plan's route. Persisted plans and the sample data use bare
+// title strings; the agent draft (and launch) use { title, phase }, so consumers
+// accept both via waypointTitle / waypointPhase.
+export interface Waypoint {
+  title: string;
+  phase?: Phase;
+}
+
 export interface FlightPlan {
   id: string;
   title: string;
@@ -38,9 +48,17 @@ export interface FlightPlan {
   context: string;
   criteria: AcceptanceCriterion[];
   sources: string[]; // refs into the corpus catalog (see plan/corpus.ts)
-  route: string[]; // waypoints
+  route: (string | Waypoint)[]; // waypoints (string titles or { title, phase })
   risks: string[];
+  target?: string; // the git repo Mission Control builds against (for launching units)
   updatedAt: string;
+}
+
+export function waypointTitle(wp: string | Waypoint): string {
+  return typeof wp === "string" ? wp : wp.title;
+}
+export function waypointPhase(wp: string | Waypoint): Phase | undefined {
+  return typeof wp === "string" ? undefined : wp.phase;
 }
 
 // Preview of the work a materializer would create from a cleared plan (schema:
@@ -59,7 +77,7 @@ export function materializePreview(plan: FlightPlan): MaterializePreview {
   const approved = plan.criteria.filter(AC_APPROVED);
   const stories: MaterializedStory[] =
     plan.route.length > 0
-      ? plan.route.map((wp, i) => ({ key: `WP-${i + 1}`, title: wp }))
+      ? plan.route.map((wp, i) => ({ key: `WP-${i + 1}`, title: waypointTitle(wp) }))
       : approved.map((ac) => ({ key: ac.id, title: ac.statement }));
   return {
     epic: plan.title,

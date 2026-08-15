@@ -38,6 +38,18 @@ describe("makeMissionsApi", () => {
     expect((await bare.list())[0].run_id).toBe("b");
   });
 
+  it("launchUnit posts {plan, unit} for the BFF to map to a run", async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return jsonRes({ run_id: "r", status: "queued" });
+    }) as unknown as typeof fetch;
+    const api = makeMissionsApi("https://a", async () => "t", fetchImpl);
+    await api.launchUnit({ target: "repo" }, { title: "Build", phase: "CONSTRUCTION" });
+    expect(calls[0].url).toBe("https://a/api/missions/runs");
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ plan: { target: "repo" }, unit: { title: "Build", phase: "CONSTRUCTION" } });
+  });
+
   it("decide posts the gate action to the run", async () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string) => {

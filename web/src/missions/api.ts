@@ -25,6 +25,9 @@ async function authed<T>(apiBaseUrl: string, token: string, path: string, init: 
 
 export interface MissionsApi {
   launch(input: LaunchInput): Promise<Run>;
+  // Launch a flight-plan unit: the BFF maps { plan, unit } to a run (task_type from
+  // the unit's phase, prompt composed from the plan narrative + approved criteria).
+  launchUnit(plan: unknown, unit: unknown): Promise<Run>;
   list(): Promise<Run[]>;
   get(id: string): Promise<Run>;
   decide(id: string, decision: "approve" | "reject" | "scrub" | "cancel"): Promise<{ ok?: boolean }>;
@@ -37,6 +40,7 @@ export function makeMissionsApi(apiBaseUrl: string, getToken: () => Promise<stri
   return {
     launch: (input) =>
       call<Run>("runs", { method: "POST", body: JSON.stringify({ target: input.target, task_type: input.taskType, prompt: input.prompt }) }),
+    launchUnit: (plan, unit) => call<Run>("runs", { method: "POST", body: JSON.stringify({ plan, unit }) }),
     list: () => call<{ runs?: Run[] } | Run[]>("runs").then((r) => (Array.isArray(r) ? r : (r.runs ?? []))),
     get: (id) => call<Run>(`runs/${q(id)}`),
     decide: (id, decision) => call(`runs/${q(id)}/${decision}`, { method: "POST" }),

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 
-import { pendingCount, readyToClear, type FlightPlan, type PlanStatus } from "../plan/types";
+import { pendingCount, readyToClear, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
 import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
 import { AcCard, type GateAction } from "./AcCard";
 import { PlanSources } from "./PlanSources";
@@ -66,6 +66,8 @@ export function FlightPlanView({
   onFileClearance,
   onCritique,
   onAddSource,
+  onSetTarget,
+  onLaunchUnit,
 }: {
   plan: FlightPlan;
   catalog: Record<string, VaultDoc>;
@@ -74,6 +76,8 @@ export function FlightPlanView({
   onFileClearance: () => void;
   onCritique: () => void;
   onAddSource: () => void;
+  onSetTarget?: (target: string) => void;
+  onLaunchUnit?: (wp: string | Waypoint) => void;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
   const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
@@ -169,10 +173,39 @@ export function FlightPlanView({
 
           <section id="sec-route" className="fp-section">
             <h2>Route</h2>
+            {onSetTarget && (
+              <div className="fp-target">
+                <label>
+                  Target repo
+                  <input
+                    className="fp-target-input"
+                    defaultValue={plan.target ?? ""}
+                    placeholder="https git url Mission Control builds against"
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v !== (plan.target ?? "")) onSetTarget(v);
+                    }}
+                  />
+                </label>
+              </div>
+            )}
             <ol className="fp-route">
-              {plan.route.map((wp, i) => (
-                <li key={i}>{wp}</li>
-              ))}
+              {plan.route.map((wp, i) => {
+                const phase = waypointPhase(wp);
+                return (
+                  <li key={i} className="fp-wp">
+                    <span>
+                      {waypointTitle(wp)}
+                      {phase && <span className={`fp-phase ${phase.toLowerCase()}`}>{phase === "INCEPTION" ? "sim" : "burn"}</span>}
+                    </span>
+                    {onLaunchUnit && plan.target && (
+                      <button type="button" className="fp-launch" onClick={() => onLaunchUnit(wp)} title="Launch this unit on Mission Control">
+                        Launch ↗
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           </section>
 
