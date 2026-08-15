@@ -15,4 +15,6 @@ export interface Citation {
 export interface ChatRequest {
   input: string;
   sessionId?: string;
+  // "plan" runs the agent's AI-DLC planning interview instead of a normal answer.
+  mode?: "plan";
 }

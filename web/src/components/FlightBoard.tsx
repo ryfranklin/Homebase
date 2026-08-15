@@ -37,6 +37,7 @@ export function FlightBoard({
   onNew,
   onCreate,
   onCancelNew,
+  onDraft,
 }: {
   plans: FlightPlan[];
   onOpen: (id: string) => void;
@@ -44,6 +45,7 @@ export function FlightBoard({
   onNew?: () => void;
   onCreate?: (title: string) => void;
   onCancelNew?: () => void;
+  onDraft?: () => void;
 }) {
   const needsReview = plans.reduce((n, p) => n + (p.status === "in_review" ? pendingCount(p) : 0), 0);
   const [title, setTitle] = useState("");
@@ -62,6 +64,11 @@ export function FlightBoard({
         </div>
         <div className="fb-actions">
           {needsReview > 0 && <span className="fb-badge">Needs review · {needsReview}</span>}
+          {onDraft && !creating && (
+            <button type="button" className="vault-btn" onClick={onDraft}>
+              Draft with agent
+            </button>
+          )}
           {onNew && !creating && (
             <button type="button" className="vault-btn primary" onClick={onNew}>
               + New flight plan

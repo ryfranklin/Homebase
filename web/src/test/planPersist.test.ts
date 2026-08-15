@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planToMarkdown, planFromMarkdown, planKey, planSlug, newPlan } from "../plan/persist";
+import { planToMarkdown, planFromMarkdown, planKey, planSlug, newPlan, planDraftFromMarkdown, planFromDraft, stripDraftBlock } from "../plan/persist";
 import { planOwnerFromIdToken } from "../plan/identity";
 import { SAMPLE_PLANS } from "../plan/sample";
 import type { Contributor } from "../plan/types";
@@ -41,6 +41,50 @@ describe("plan persistence", () => {
     expect(p.criteria).toEqual([]);
     // and it survives a round-trip
     expect(planFromMarkdown(planToMarkdown(p))).toEqual(p);
+  });
+});
+
+describe("agent plan drafts", () => {
+  const reply = [
+    "Here's a plan for the MCP relay.",
+    "",
+    "```homebase-plan-draft",
+    JSON.stringify({
+      title: "MCP relay",
+      objective: "Expose Homebase over MCP.",
+      criteria: [{ statement: "Engineers authenticate via JWT.", status: "proposed", links: ["identity"] }],
+      route: [
+        { title: "Investigate the gateway", phase: "INCEPTION" },
+        { title: "Build the tool schemas", phase: "CONSTRUCTION" },
+      ],
+      sources: ["identity"],
+      risks: ["gateway shape unknown"],
+    }),
+    "```",
+  ].join("\n");
+
+  it("extracts the draft block and strips it from the displayed text", () => {
+    const draft = planDraftFromMarkdown(reply);
+    expect(draft?.title).toBe("MCP relay");
+    expect(draft?.route?.length).toBe(2);
+    const shown = stripDraftBlock(reply);
+    expect(shown).toContain("Here's a plan for the MCP relay.");
+    expect(shown).not.toContain("homebase-plan-draft");
+  });
+
+  it("returns null when there is no draft block yet (mid-stream)", () => {
+    expect(planDraftFromMarkdown("still interviewing, no block yet")).toBeNull();
+  });
+
+  it("builds a persistable plan from a draft (criteria are proposals by the agent)", () => {
+    const draft = planDraftFromMarkdown(reply)!;
+    const plan = planFromDraft(draft, owner, "2026-08-15T00:00:00Z");
+    expect(plan.title).toBe("MCP relay");
+    expect(plan.status).toBe("draft");
+    expect(plan.criteria[0]).toMatchObject({ id: "AC-1", status: "proposed", author: { kind: "agent" } });
+    expect(plan.route).toEqual(["Investigate the gateway", "Build the tool schemas"]);
+    // round-trips through the vault format
+    expect(planFromMarkdown(planToMarkdown(plan))).toEqual(plan);
   });
 });
 

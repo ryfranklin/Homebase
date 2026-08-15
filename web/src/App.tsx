@@ -71,7 +71,14 @@ export function App() {
         {mode === "vault" ? (
           <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} />
         ) : mode === "plan" ? (
-          <FlightPlanner onNavigate={setMode} onSignOut={auth.logout} store={planStore} user={planOwner} />
+          <FlightPlanner
+            onNavigate={setMode}
+            onSignOut={auth.logout}
+            store={planStore}
+            user={planOwner}
+            apiBaseUrl={config.apiBaseUrl}
+            getToken={auth.getAccessToken}
+          />
         ) : mode === "mission" ? (
           <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} />
         ) : (

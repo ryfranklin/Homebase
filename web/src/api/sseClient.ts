@@ -35,7 +35,7 @@ export async function* streamChat(
       "content-type": "application/json",
       authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ input: req.input, session_id: req.sessionId }),
+    body: JSON.stringify({ input: req.input, session_id: req.sessionId, ...(req.mode ? { mode: req.mode } : {}) }),
     signal: opts.signal,
   });
 

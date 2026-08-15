@@ -4,6 +4,7 @@ import { FlightBoard } from "../components/FlightBoard";
 import { FlightPlanView } from "../components/FlightPlanView";
 import { PreflightModal } from "../components/PreflightModal";
 import { AddSourceModal } from "../components/AddSourceModal";
+import { PlanDraftPanel } from "../components/PlanDraftPanel";
 import { ModeSwitch, type AppMode } from "../components/ModeSwitch";
 import type { GateAction } from "../components/AcCard";
 import { buildCatalog, type VaultDoc } from "./corpus";
@@ -31,11 +32,15 @@ export function FlightPlanner({
   onSignOut,
   store,
   user,
+  apiBaseUrl,
+  getToken,
 }: {
   onNavigate?: (mode: AppMode) => void;
   onSignOut?: () => void;
   store?: PlanStore;
   user?: Contributor;
+  apiBaseUrl?: string;
+  getToken?: () => Promise<string>;
 } = {}) {
   const [plans, setPlans] = useState<FlightPlan[]>(store ? [] : SAMPLE_PLANS);
   const [loading, setLoading] = useState(!!store);
@@ -45,6 +50,7 @@ export function FlightPlanner({
   const [preflight, setPreflight] = useState(false);
   const [adding, setAdding] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [drafting, setDrafting] = useState(false);
 
   const owner = user ?? DEFAULT_OWNER;
   const plansRef = useRef(plans);
@@ -164,11 +170,32 @@ export function FlightPlanner({
     setSelectedId(plan.id);
   };
 
+  // A plan the agent drafted in the interview: persist and open it.
+  const onDraftCreate = (plan: FlightPlan) => {
+    if (plansRef.current.some((p) => p.id === plan.id)) plan.id = `${plan.id}-${plansRef.current.length + 1}`;
+    setPlans((prev) => [plan, ...prev]);
+    savePlan(plan);
+    setDrafting(false);
+    setSelectedId(plan.id);
+  };
+
+  const canDraft = !!(apiBaseUrl && getToken);
+
   let content: React.ReactNode;
   if (loading) {
     content = <div className="plan-loading">Loading flight plans…</div>;
   } else if (!selected) {
-    content = <FlightBoard plans={plans} onOpen={setSelectedId} creating={creating} onNew={() => setCreating(true)} onCreate={onNewPlan} onCancelNew={() => setCreating(false)} />;
+    content = (
+      <FlightBoard
+        plans={plans}
+        onOpen={setSelectedId}
+        creating={creating}
+        onNew={() => setCreating(true)}
+        onCreate={onNewPlan}
+        onCancelNew={() => setCreating(false)}
+        onDraft={canDraft ? () => setDrafting(true) : undefined}
+      />
+    );
   } else {
     content = (
       <>
@@ -214,6 +241,15 @@ export function FlightPlanner({
         </div>
       </header>
       <div className="plan-body">{content}</div>
+      {drafting && canDraft && (
+        <PlanDraftPanel
+          apiBaseUrl={apiBaseUrl!}
+          getToken={getToken!}
+          owner={user}
+          onCreate={onDraftCreate}
+          onClose={() => setDrafting(false)}
+        />
+      )}
     </div>
   );
 }
