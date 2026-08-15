@@ -167,7 +167,7 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_task" {
 resource "aws_db_instance" "this" {
   identifier                 = local.name_prefix
   engine                     = "postgres"
-  engine_version             = "16.8"
+  engine_version             = var.db_engine_version
   instance_class             = var.db_instance_class
   allocated_storage          = var.db_allocated_storage
   storage_type               = "gp3"
@@ -186,6 +186,12 @@ resource "aws_db_instance" "this" {
   skip_final_snapshot        = false
   final_snapshot_identifier  = "${local.name_prefix}-final"
   tags                       = local.common_tags
+
+  # auto_minor_version_upgrade will bump the minor over time; ignore it so a later
+  # plan does not show a perpetual diff against the pinned floor.
+  lifecycle {
+    ignore_changes = [engine_version]
+  }
 }
 
 # ---------------------------------------------------------------------------
