@@ -45,6 +45,10 @@ export function loadConfig(env = process.env) {
     // Prefix of the connector shim Lambdas (<prefix>-connector-<key>), used to probe
     // connection status. When set, /api/connectors/status is enabled.
     connectorPrefix: env.HOMEBASE_CONNECTOR_PREFIX || null,
+    // Confluence site base URL (e.g. https://your-org.atlassian.net), used to build
+    // absolute page links for Flight Planner sources. Optional; links degrade to the
+    // relative path when unset.
+    confluenceSiteUrl: env.HOMEBASE_CONFLUENCE_SITE_URL || null,
     // Mission Control (the execution engine). When the base URL is set, the BFF
     // exposes /api/missions/* to launch runs from flight-plan units, stream live
     // telemetry, and drive the go/no-go gate. The bearer token authorizes mutations;

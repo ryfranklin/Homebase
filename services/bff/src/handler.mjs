@@ -18,6 +18,7 @@ import { makeVaultDeps } from "./vaultstore.mjs";
 import { makeWorkerClient } from "./worker.mjs";
 import { makeConnectorStatus } from "./connectorstatus.mjs";
 import { makeMissionControl } from "./mission.mjs";
+import { makeConfluence } from "./confluence.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -46,8 +47,11 @@ if (config.corpusBucket) {
 
 // Connector connection status, enabled when the shim Lambda prefix is configured.
 let connectorStatus = null;
+let confluence = null;
 if (config.connectorPrefix) {
   connectorStatus = await makeConnectorStatus({ region: config.region, prefix: config.connectorPrefix });
+  // Confluence search for Flight Planner sources (same shim invocation as status).
+  confluence = makeConfluence({ region: config.region, prefix: config.connectorPrefix, siteUrl: config.confluenceSiteUrl });
 }
 
 // Mission Control execution seam, enabled when its base URL is configured. The
@@ -130,5 +134,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     vault,
     connectorStatus,
     missionControl,
+    confluence,
   });
 });

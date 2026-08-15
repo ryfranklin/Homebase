@@ -354,6 +354,17 @@ export async function handleRequest(event, respond, deps) {
     }
   }
 
+  // Flight Planner: search Confluence for design pages to add as plan sources.
+  if (method === "GET" && path.endsWith("/plan/confluence/search")) {
+    if (!deps.confluence) return writeJson(respond, cors, 200, { results: [] });
+    try {
+      return writeJson(respond, cors, 200, await deps.confluence.search(tenantId, queryParams(event).q ?? ""));
+    } catch (err) {
+      console.error(JSON.stringify({ event: "confluence_search_error", message: String(err?.message || "").slice(0, 200) }));
+      return writeError(respond, cors, 502, "confluence_search_error", "could not search confluence");
+    }
+  }
+
   // Mission Control execution seam: launch runs from flight-plan units, stream
   // telemetry, drive the go/no-go gate. Authenticated by the checks above.
   const missionMatch = /\/missions\/(.+)$/.exec(path);

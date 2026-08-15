@@ -13,6 +13,7 @@ import { newPlan, slugify } from "./persist";
 import type { PlanStore } from "./store";
 import { waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
+import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 
 const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
   approve: "approved",
@@ -244,6 +245,8 @@ export function FlightPlanner({
             onCreate={onCreate}
             onUpload={onUpload}
             onClose={() => setAdding(false)}
+            onConfluenceSearch={canDraft ? (q) => searchConfluence(apiBaseUrl!, getToken!, q) : undefined}
+            onAddConfluence={canDraft ? (page) => registerDoc(confluenceToVaultDoc(page)) : undefined}
           />
         )}
       </>
