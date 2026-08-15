@@ -35,12 +35,20 @@ def build_agent_from_env():
     model_id = os.environ["HOMEBASE_MODEL_ID"]
     rerank_arn = os.environ.get("HOMEBASE_RERANK_MODEL_ARN")
     memory_id = os.environ.get("HOMEBASE_MEMORY_ID")
+    # A Bedrock Guardrail applied to every model call when configured, governing all
+    # doors (GUI, CLI, Slack) in one place. Absent -> no guardrail.
+    guardrail_id = os.environ.get("HOMEBASE_GUARDRAIL_ID")
+    guardrail = (
+        {"guardrailIdentifier": guardrail_id, "guardrailVersion": os.environ.get("HOMEBASE_GUARDRAIL_VERSION", "DRAFT")}
+        if guardrail_id
+        else None
+    )
 
     def client(name):
         return boto3.client(name, region_name=region) if region else boto3.client(name)
 
     retrieval = RetrievalTool(client("bedrock-agent-runtime"), kb_id, rerank_model_arn=rerank_arn)
-    llm = BedrockLLMClient(client("bedrock-runtime"), model_id)
+    llm = BedrockLLMClient(client("bedrock-runtime"), model_id, guardrail=guardrail)
     memory = AgentCoreMemory(client("bedrock-agentcore"), memory_id) if memory_id else NullMemory()
 
     # Connectors are opt-in: when the shim name prefix is set, the agent gets a

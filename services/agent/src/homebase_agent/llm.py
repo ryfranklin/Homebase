@@ -100,11 +100,15 @@ class BedrockLLMClient:
     the bedrock-runtime API version in your region before relying on it.
     """
 
-    def __init__(self, client, model_id, *, max_tokens=1024, temperature=0.0):
+    def __init__(self, client, model_id, *, max_tokens=1024, temperature=0.0, guardrail=None):
         self._client = client
         self._model_id = model_id
         self._max_tokens = max_tokens
         self._temperature = temperature
+        # A Bedrock Guardrail applied to every model call (input + output), so the same
+        # governance protects all doors (GUI, CLI, Slack). guardrail is
+        # {"guardrailIdentifier", "guardrailVersion"} or None (unset -> no guardrail).
+        self._gc = {"guardrailConfig": guardrail} if guardrail else {}
 
     def generate(self, *, system, question, passages, session) -> str:
         context = _passages_block(passages)
@@ -117,6 +121,7 @@ class BedrockLLMClient:
             system=[{"text": system}],
             messages=[{"role": "user", "content": [{"text": user_text}]}],
             inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+            **self._gc,
         )
         parts = response["output"]["message"]["content"]
         return "".join(part.get("text", "") for part in parts)
@@ -130,6 +135,7 @@ class BedrockLLMClient:
             messages=messages,
             toolConfig={"tools": tools},
             inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+            **self._gc,
         )
         return {
             "message": response["output"]["message"],
@@ -145,5 +151,6 @@ class BedrockLLMClient:
             messages=messages,
             toolConfig={"tools": tools},
             inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+            **self._gc,
         )
         yield from assemble_tool_stream(response["stream"])

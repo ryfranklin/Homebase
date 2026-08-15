@@ -57,7 +57,11 @@ locals {
     HOMEBASE_TIMEZONE = var.agent_timezone
     # Enables the connector tool-use loop: the shim function name prefix. The agent
     # invokes homebase-<env>-connector-<connector> for each read tool.
-    HOMEBASE_CONNECTOR_PREFIX   = local.name_prefix
+    HOMEBASE_CONNECTOR_PREFIX = local.name_prefix
+    # Bedrock Guardrail applied to every model call, governing all doors (GUI, CLI,
+    # Slack) in one place: prompt-attack + content filters + secret-exfiltration denial.
+    HOMEBASE_GUARDRAIL_ID       = aws_bedrock_guardrail.this.guardrail_id
+    HOMEBASE_GUARDRAIL_VERSION  = aws_bedrock_guardrail_version.this.version
     AGENT_OBSERVABILITY_ENABLED = "true"
     OTEL_PYTHON_DISTRO          = "aws_distro"
     OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
@@ -103,6 +107,69 @@ resource "aws_cloudwatch_log_group" "agent" {
   retention_in_days = 30
   kms_key_id        = module.agent_kms.key_arn
   tags              = local.common_tags
+}
+
+# ---------------------------------------------------------------------------
+# Bedrock Guardrail applied to every agent model call (Converse), so the same
+# governance protects all doors (GUI, CLI, Slack). Tuned for a PERSONAL assistant:
+# prompt-attack detection and content filters (universal wins) plus a denial of
+# secret-exfiltration requests. PII redaction is intentionally OFF: Homebase reads
+# the user's own email/calendar/contacts, so redacting PII would defeat its purpose.
+# ---------------------------------------------------------------------------
+resource "aws_bedrock_guardrail" "this" {
+  name                      = "${local.name_prefix}-guardrail"
+  description               = "Homebase agent guardrail: prompt-attack + content filters + secret-exfiltration denial."
+  blocked_input_messaging   = "This request was blocked by the Homebase content guardrail."
+  blocked_outputs_messaging = "The response was blocked by the Homebase content guardrail."
+
+  content_policy_config {
+    # Prompt-attack detection is input-only (output must be NONE).
+    filters_config {
+      type            = "PROMPT_ATTACK"
+      input_strength  = "HIGH"
+      output_strength = "NONE"
+    }
+    filters_config {
+      type            = "HATE"
+      input_strength  = "MEDIUM"
+      output_strength = "MEDIUM"
+    }
+    filters_config {
+      type            = "INSULTS"
+      input_strength  = "MEDIUM"
+      output_strength = "MEDIUM"
+    }
+    filters_config {
+      type            = "SEXUAL"
+      input_strength  = "MEDIUM"
+      output_strength = "MEDIUM"
+    }
+    filters_config {
+      type            = "VIOLENCE"
+      input_strength  = "MEDIUM"
+      output_strength = "MEDIUM"
+    }
+    filters_config {
+      type            = "MISCONDUCT"
+      input_strength  = "MEDIUM"
+      output_strength = "MEDIUM"
+    }
+  }
+
+  topic_policy_config {
+    topics_config {
+      name       = "CredentialExfiltration"
+      definition = "Requests to reveal, print, or exfiltrate secrets, credentials, API keys, passwords, tokens, or private keys held by the system or reachable through its connectors."
+      type       = "DENY"
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_bedrock_guardrail_version" "this" {
+  guardrail_arn = aws_bedrock_guardrail.this.guardrail_arn
+  description   = "Homebase agent guardrail v1"
 }
 
 # ---------------------------------------------------------------------------
@@ -213,6 +280,14 @@ data "aws_iam_policy_document" "runtime" {
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
     resources = concat(local.model_invoke_arns, var.additional_model_arns)
+  }
+
+  # Converse with guardrailConfig requires ApplyGuardrail on the guardrail.
+  statement {
+    sid       = "ApplyGuardrail"
+    effect    = "Allow"
+    actions   = ["bedrock:ApplyGuardrail"]
+    resources = [aws_bedrock_guardrail.this.guardrail_arn]
   }
 
   statement {
