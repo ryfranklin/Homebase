@@ -17,6 +17,7 @@ import { makeVault } from "./vault.mjs";
 import { makeVaultDeps } from "./vaultstore.mjs";
 import { makeWorkerClient } from "./worker.mjs";
 import { makeConnectorStatus } from "./connectorstatus.mjs";
+import { makeMissionControl } from "./mission.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -47,6 +48,20 @@ if (config.corpusBucket) {
 let connectorStatus = null;
 if (config.connectorPrefix) {
   connectorStatus = await makeConnectorStatus({ region: config.region, prefix: config.connectorPrefix });
+}
+
+// Mission Control execution seam, enabled when its base URL is configured. The
+// bearer token is a direct value (local/tests) or fetched once from Secrets Manager.
+let missionControl = null;
+if (config.missionUrl) {
+  let missionToken = config.missionToken;
+  if (!missionToken && config.missionTokenArn) {
+    const { SecretsManagerClient, GetSecretValueCommand } = await import("@aws-sdk/client-secrets-manager");
+    const sm = new SecretsManagerClient({ region: config.region });
+    const out = await sm.send(new GetSecretValueCommand({ SecretId: config.missionTokenArn }));
+    missionToken = out.SecretString;
+  }
+  missionControl = makeMissionControl({ baseUrl: config.missionUrl, token: missionToken });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
@@ -114,5 +129,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     completeConnectorAuth,
     vault,
     connectorStatus,
+    missionControl,
   });
 });

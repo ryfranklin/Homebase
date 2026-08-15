@@ -45,5 +45,13 @@ export function loadConfig(env = process.env) {
     // Prefix of the connector shim Lambdas (<prefix>-connector-<key>), used to probe
     // connection status. When set, /api/connectors/status is enabled.
     connectorPrefix: env.HOMEBASE_CONNECTOR_PREFIX || null,
+    // Mission Control (the execution engine). When the base URL is set, the BFF
+    // exposes /api/missions/* to launch runs from flight-plan units, stream live
+    // telemetry, and drive the go/no-go gate. The bearer token authorizes mutations;
+    // it is a direct value for local/tests or read once from Secrets Manager by ARN,
+    // like the vault worker secret. All optional so chat-only and tests run without.
+    missionUrl: env.HOMEBASE_MISSION_CONTROL_URL || null,
+    missionToken: env.HOMEBASE_MISSION_CONTROL_TOKEN || null,
+    missionTokenArn: env.HOMEBASE_MISSION_CONTROL_TOKEN_ARN || null,
   };
 }

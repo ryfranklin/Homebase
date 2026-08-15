@@ -135,6 +135,88 @@ function writeError(respond, cors, status, code, message) {
   writer.end();
 }
 
+const MISSION_DECISIONS = new Set(["approve", "reject", "scrub", "cancel"]);
+
+// Mission Control execution seam: launch runs from flight-plan units, read/list
+// runs, stream live telemetry, and drive the go/no-go gate. Auth + tenant + origin
+// checks already ran in handleRequest. deps.missionControl is present only when the
+// Mission Control base URL is configured on this deployment.
+async function handleMissions(rest, method, event, body, respond, cors, deps) {
+  if (!deps.missionControl) {
+    return writeError(respond, cors, 503, "mission_unconfigured", "mission control is not enabled on this deployment");
+  }
+  const mc = deps.missionControl;
+  const segments = rest.split("/").filter(Boolean); // e.g. ["runs"], ["runs", "<id>", "approve"]
+  const q = queryParams(event);
+
+  // GET /missions/runs/<id>/events -> proxy the SSE telemetry stream to the SPA.
+  if (segments[0] === "runs" && segments[2] === "events" && method === "GET") {
+    return proxyMissionEvents(mc, decodeURIComponent(segments[1]), q.last_event_id, respond, cors);
+  }
+
+  try {
+    if (segments[0] === "runs" && segments.length === 1) {
+      if (method === "GET") return writeJson(respond, cors, 200, await mc.list(q));
+      if (method === "POST") {
+        const run = body.plan && body.unit ? await mc.launchUnit(body.plan, body.unit) : await mc.launch(body);
+        return writeJson(respond, cors, 201, run);
+      }
+    }
+    if (segments[0] === "runs" && segments.length === 2 && method === "GET") {
+      return writeJson(respond, cors, 200, await mc.get(decodeURIComponent(segments[1])));
+    }
+    if (segments[0] === "runs" && segments[2] === "changes" && method === "GET") {
+      return writeJson(respond, cors, 200, await mc.changes(decodeURIComponent(segments[1])));
+    }
+    if (segments[0] === "runs" && segments.length === 3 && method === "POST" && MISSION_DECISIONS.has(segments[2])) {
+      return writeJson(respond, cors, 200, await mc.decide(decodeURIComponent(segments[1]), segments[2]));
+    }
+    if (segments[0] === "metrics" && method === "GET") {
+      return writeJson(respond, cors, 200, await mc.metrics(q));
+    }
+    return writeError(respond, cors, 404, "not_found", "no such mission route");
+  } catch (err) {
+    const status = err?.status && err.status < 500 ? err.status : 502;
+    console.error(JSON.stringify({ event: "mission_error", path: rest, message: String(err?.message || "").slice(0, 200) }));
+    return writeError(respond, cors, status, err?.code || "mission_control_error", status >= 500 ? "mission control error" : err.message);
+  }
+}
+
+// Relay Mission Control's SSE telemetry to the browser over our own SSE response,
+// with an immediate byte + keepalives so CloudFront's origin timeout never fires.
+async function proxyMissionEvents(mc, runId, lastEventId, respond, cors) {
+  const writer = respond(200, { ...SSE_HEADERS, ...cors });
+  writer.write(": open\n\n");
+  const heartbeat = setInterval(() => {
+    try {
+      writer.write(": keepalive\n\n");
+    } catch {
+      /* closed */
+    }
+  }, 10000);
+  try {
+    for await (const evt of mc.events(runId, { lastEventId })) {
+      // Data-only frame with the MC event name in `type`, matching how the SPA's
+      // SSE client switches on message type (see chat).
+      writer.write(sseEvent({ type: evt.event, data: evt.data }));
+    }
+  } catch (err) {
+    console.error(JSON.stringify({ event: "mission_events_error", run: runId, message: String(err?.message || "").slice(0, 200) }));
+    try {
+      writer.write(sseEvent({ type: "error", message: "telemetry stream ended" }));
+    } catch {
+      /* closed */
+    }
+  } finally {
+    clearInterval(heartbeat);
+    try {
+      writer.end();
+    } catch {
+      /* closed */
+    }
+  }
+}
+
 // handleRequest(event, respond, deps)
 //   respond(statusCode, headers) -> { write(chunk), end() }
 //   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable,
@@ -270,6 +352,13 @@ export async function handleRequest(event, respond, deps) {
       console.error(JSON.stringify({ event: "connector_status_error", message: String(err?.message || "").slice(0, 200) }));
       return writeError(respond, cors, 502, "connector_status_error", "could not read connector status");
     }
+  }
+
+  // Mission Control execution seam: launch runs from flight-plan units, stream
+  // telemetry, drive the go/no-go gate. Authenticated by the checks above.
+  const missionMatch = /\/missions\/(.+)$/.exec(path);
+  if (missionMatch) {
+    return handleMissions(missionMatch[1], method, event, body, respond, cors, deps);
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;
