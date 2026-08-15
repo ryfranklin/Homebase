@@ -363,6 +363,8 @@ export async function handleRequest(event, respond, deps) {
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;
   const prompt = body.input ?? body.prompt ?? "";
+  // Opt into the agent's AI-DLC planning interview; anything else is normal mode.
+  const mode = body.mode === "plan" ? "plan" : undefined;
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
   // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
@@ -384,6 +386,7 @@ export async function handleRequest(event, respond, deps) {
       userId,
       tenantId,
       prompt,
+      mode,
     });
     for await (const evt of stream) {
       writer.write(sseEvent(evt));

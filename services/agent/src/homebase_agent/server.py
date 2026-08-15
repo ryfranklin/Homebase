@@ -93,6 +93,9 @@ def make_handler(agent):
             payload = json.loads(self.rfile.read(length) or b"{}")
             session = _session_from_payload(payload)
             question = payload.get("input") or payload.get("prompt") or ""
+            # Plan mode runs the AI-DLC INCEPTION interview and emits a flight-plan
+            # draft; any other value is the normal grounded-answer mode.
+            planning = payload.get("mode") == "plan"
 
             # Stream the answer token-by-token when the agent supports it (the tool
             # loop). The BFF consumes this SSE and relays it to the browser.
@@ -102,7 +105,7 @@ def make_handler(agent):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    for event in agent.answer_stream(session, question):
+                    for event in agent.answer_stream(session, question, planning=planning):
                         self._sse(event)
                 except Exception:  # noqa: BLE001 - never leave the stream hanging
                     self._sse({"type": "error", "message": "agent_error"})
@@ -110,7 +113,7 @@ def make_handler(agent):
                 return
 
             # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
-            result = agent.answer(session, question)
+            result = agent.answer(session, question, planning=planning)
             body = {
                 "answer": result.text,
                 "grounded": result.grounded,

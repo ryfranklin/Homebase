@@ -13,11 +13,17 @@ import re
 from pathlib import Path
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system_prompt.md"
+_PLANNING_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "planning_prompt.md"
 _VERSION_RE = re.compile(r"<!--\s*Version:\s*(\d+)\s*-->", re.IGNORECASE)
 
 
 def load_system_prompt(path=None) -> str:
     return Path(path or _PROMPT_PATH).read_text(encoding="utf-8")
+
+
+def load_planning_prompt(path=None) -> str:
+    """The AI-DLC INCEPTION planning prompt, used when the agent runs in plan mode."""
+    return Path(path or _PLANNING_PROMPT_PATH).read_text(encoding="utf-8")
 
 
 def system_prompt_version(path=None) -> int:

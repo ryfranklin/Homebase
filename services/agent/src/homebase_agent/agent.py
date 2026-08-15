@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .llm import MockLLMClient
 from .memory import NullMemory
-from .prompts import load_system_prompt
+from .prompts import load_planning_prompt, load_system_prompt
 from .toolloop import Outcome, run_tool_loop, run_tool_loop_stream
 
 NO_SOURCES_MESSAGE = (
@@ -105,6 +105,9 @@ class Agent:
         self._llm = llm or MockLLMClient()
         self._memory = memory or NullMemory()
         self._system_prompt = system_prompt if system_prompt is not None else load_system_prompt()
+        # The AI-DLC INCEPTION prompt, swapped in when a request runs in plan mode so
+        # the agent conducts the planning interview and emits a flight-plan draft.
+        self._planning_prompt = load_planning_prompt()
         # IANA timezone for resolving 'today'/'now' (e.g. America/Chicago). Set on the
         # runtime via HOMEBASE_TIMEZONE; falls back to UTC when unset/unknown.
         self._timezone = os.environ.get("HOMEBASE_TIMEZONE")
@@ -154,14 +157,16 @@ class Agent:
     def _tools(self):
         return [SEARCH_KB_TOOL, *self._connectors.tool_specs()]
 
-    def _system(self, suffix: str = "") -> str:
+    def _system(self, suffix: str = "", *, planning: bool = False) -> str:
         # Fresh date/time preamble each request so relative-time questions resolve.
-        return _now_preamble(tz_name=self._timezone) + "\n\n" + self._system_prompt + suffix
+        # Plan mode swaps the base prompt for the AI-DLC INCEPTION interview prompt.
+        base = self._planning_prompt if planning else self._system_prompt
+        return _now_preamble(tz_name=self._timezone) + "\n\n" + base + suffix
 
-    def _answer_with_tools(self, session, question) -> AnswerResult:
+    def _answer_with_tools(self, session, question, *, planning: bool = False) -> AnswerResult:
         loop = run_tool_loop(
             self._llm,
-            system=self._system(_TOOL_SYSTEM_SUFFIX),
+            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -178,13 +183,15 @@ class Agent:
             authorization_url=loop.authorization_url,
         )
 
-    def answer_stream(self, session, question):
+    def answer_stream(self, session, question, *, planning: bool = False):
         """Streaming variant: a generator yielding SSE-ready events (token / citation
         / authorization_required / done) as the tool loop runs. Requires connectors
-        (a tool-capable LLM); callers should gate on supports_streaming()."""
+        (a tool-capable LLM); callers should gate on supports_streaming(). In plan
+        mode the AI-DLC interview prompt is used and the reply carries a flight-plan
+        draft block."""
         if self._connectors is None:
             # Degrade gracefully to a single token from the buffered path.
-            result = self.answer(session, question)
+            result = self.answer(session, question, planning=planning)
             yield {"type": "token", "text": result.text}
             for citation in result.citations:
                 yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
@@ -194,7 +201,7 @@ class Agent:
         text_parts: list = []
         for event in run_tool_loop_stream(
             self._llm,
-            system=self._system(_TOOL_SYSTEM_SUFFIX),
+            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -208,9 +215,9 @@ class Agent:
         if final_text:
             self._remember(session, "assistant", final_text)
 
-    def answer(self, session, question, **retrieval_kwargs) -> AnswerResult:
+    def answer(self, session, question, *, planning: bool = False, **retrieval_kwargs) -> AnswerResult:
         if self._connectors is not None:
-            return self._answer_with_tools(session, question)
+            return self._answer_with_tools(session, question, planning=planning)
 
         passages = self._retrieval.retrieve(question, **retrieval_kwargs)
 
