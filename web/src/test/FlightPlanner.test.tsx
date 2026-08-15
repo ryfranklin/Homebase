@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 import { FlightPlanner } from "../plan/FlightPlanner";
@@ -78,6 +78,49 @@ describe("FlightPlanner prototype", () => {
     expect(screen.getByText("Epic")).toBeInTheDocument();
     expect(screen.getAllByText("Story").length).toBeGreaterThan(0);
     expect(screen.getByText(/Definition of done/)).toBeInTheDocument();
+  });
+});
+
+describe("FlightPlanner vault persistence", () => {
+  function fakeStore(initial = SAMPLE_PLANS.slice(0, 1)) {
+    const saved: { title: string; status: string }[] = [];
+    return {
+      saved,
+      list: vi.fn(async () => initial),
+      save: vi.fn(async (p) => {
+        saved.push({ title: p.title, status: p.status });
+      }),
+      remove: vi.fn(async () => {}),
+    };
+  }
+
+  it("loads the board from the store", async () => {
+    const store = fakeStore();
+    render(<FlightPlanner store={store} />);
+    // Loading first, then the plan from the store appears.
+    expect(await screen.findByText("Homebase MCP relay")).toBeInTheDocument();
+    expect(store.list).toHaveBeenCalled();
+  });
+
+  it("creates a new plan and saves it to the vault", async () => {
+    const store = fakeStore([]);
+    render(<FlightPlanner store={store} user={{ id: "u1", name: "Ryan Franklin", kind: "human" }} />);
+    await screen.findByText(/No flight plans yet/);
+    fireEvent.click(screen.getByRole("button", { name: /New flight plan/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "New plan title" }), { target: { value: "Ship the relay" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(store.save).toHaveBeenCalled();
+    expect(store.saved[0]).toEqual({ title: "Ship the relay", status: "draft" });
+    // The new plan opens (its title shows in the plan view heading).
+    expect(await screen.findByRole("heading", { level: 1, name: "Ship the relay" })).toBeInTheDocument();
+  });
+
+  it("persists a gate action to the store", async () => {
+    const store = fakeStore();
+    render(<FlightPlanner store={store} />);
+    fireEvent.click(await screen.findByText("Homebase MCP relay"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Approve" })[0]);
+    expect(store.save).toHaveBeenCalled();
   });
 });
 

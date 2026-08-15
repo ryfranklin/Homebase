@@ -1653,6 +1653,22 @@ button.fb-row:hover { background: var(--surface); }
 .plan { display: flex; flex-direction: column; height: 100dvh; }
 .plan-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
 .flightplan { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.plan-loading { margin: auto; color: var(--muted); font-size: 0.9rem; padding: 40px; }
+.plan-save-error { color: var(--pending); font-size: 0.72rem; margin-right: 4px; }
+
+/* New-plan inline form + empty state on the board. */
+.fb-new { display: flex; gap: 8px; max-width: 980px; margin: 0 auto 18px; padding: 0 28px; width: 100%; }
+.fb-new-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font: inherit;
+}
+.fb-new-input:focus { outline: none; border-color: var(--border-strong); }
+.fb-empty { max-width: 980px; margin: 8px auto; padding: 0 28px; color: var(--faint); font-size: 0.88rem; }
 .fp-head {
   display: flex;
   align-items: center;

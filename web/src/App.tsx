@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "./auth/useAuth";
 import { LoginScreen } from "./components/LoginScreen";
@@ -8,6 +8,8 @@ import { useVault } from "./vault/useVault";
 import { useConnectorStatus } from "./chat/useConnectorStatus";
 import { ConnectorBanner } from "./connectors/ConnectorBanner";
 import { useConnectorCallback } from "./connectors/useConnectorCallback";
+import { makeVaultPlanStore } from "./plan/store";
+import { planOwnerFromIdToken } from "./plan/identity";
 
 // The workspace views carry the heavy Markdown/highlight/mermaid code. Lazy-load
 // them so the initial bundle is just the shell + login; the vault (default) or
@@ -27,6 +29,18 @@ export function App() {
   // agent chat one click away. Both hooks live here, so switching modes preserves
   // their state.
   const [mode, setMode] = useState<Mode>("vault");
+  // Flight plans persist as vault notes. Keep the store identity stable across token
+  // refreshes (read the latest token via refs) so the Plan board doesn't reload on
+  // every refresh; derive the plan owner from the ID token for display.
+  const getTokenRef = useRef(auth.getAccessToken);
+  getTokenRef.current = auth.getAccessToken;
+  const getIdTokenRef = useRef(auth.getIdToken);
+  getIdTokenRef.current = auth.getIdToken;
+  const planStore = useMemo(
+    () => makeVaultPlanStore(config.apiBaseUrl, () => getTokenRef.current(), () => getIdTokenRef.current()),
+    [config.apiBaseUrl],
+  );
+  const planOwner = useMemo(() => planOwnerFromIdToken(auth.tokens?.idToken), [auth.tokens?.idToken]);
   // Finalize a connector consent if the browser returned with ?session_id=.
   const connector = useConnectorCallback(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
   // What's actually connected (from the token vault), for the chat's source display.
@@ -53,7 +67,7 @@ export function App() {
         {mode === "vault" ? (
           <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} />
         ) : mode === "plan" ? (
-          <FlightPlanner onNavigate={setMode} onSignOut={auth.logout} />
+          <FlightPlanner onNavigate={setMode} onSignOut={auth.logout} store={planStore} user={planOwner} />
         ) : (
           <ChatView
             messages={chat.messages}

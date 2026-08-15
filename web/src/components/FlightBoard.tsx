@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { approvedCount, pendingCount, type FlightPlan, type PlanStatus } from "../plan/types";
 
 const STATUS_GLYPH: Record<PlanStatus, string> = {
@@ -28,8 +30,29 @@ function nextAction(plan: FlightPlan): string {
   }
 }
 
-export function FlightBoard({ plans, onOpen }: { plans: FlightPlan[]; onOpen: (id: string) => void }) {
+export function FlightBoard({
+  plans,
+  onOpen,
+  creating = false,
+  onNew,
+  onCreate,
+  onCancelNew,
+}: {
+  plans: FlightPlan[];
+  onOpen: (id: string) => void;
+  creating?: boolean;
+  onNew?: () => void;
+  onCreate?: (title: string) => void;
+  onCancelNew?: () => void;
+}) {
   const needsReview = plans.reduce((n, p) => n + (p.status === "in_review" ? pendingCount(p) : 0), 0);
+  const [title, setTitle] = useState("");
+  const submit = () => {
+    const t = title.trim();
+    if (!t || !onCreate) return;
+    onCreate(t);
+    setTitle("");
+  };
   return (
     <div className="flightboard">
       <header className="fb-head">
@@ -39,11 +62,40 @@ export function FlightBoard({ plans, onOpen }: { plans: FlightPlan[]; onOpen: (i
         </div>
         <div className="fb-actions">
           {needsReview > 0 && <span className="fb-badge">Needs review · {needsReview}</span>}
-          <button type="button" className="vault-btn primary">
-            + New flight plan
-          </button>
+          {onNew && !creating && (
+            <button type="button" className="vault-btn primary" onClick={onNew}>
+              + New flight plan
+            </button>
+          )}
         </div>
       </header>
+
+      {creating && (
+        <div className="fb-new">
+          <input
+            className="fb-new-input"
+            autoFocus
+            value={title}
+            placeholder="New plan title"
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onCancelNew?.();
+            }}
+            aria-label="New plan title"
+          />
+          <button type="button" className="vault-btn primary" onClick={submit} disabled={!title.trim()}>
+            Create
+          </button>
+          <button type="button" className="vault-btn" onClick={onCancelNew}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {plans.length === 0 && !creating && (
+        <p className="fb-empty">No flight plans yet. Create one to start planning.</p>
+      )}
 
       <div className="fb-table" role="table">
         <div className="fb-row fb-labels" role="row">

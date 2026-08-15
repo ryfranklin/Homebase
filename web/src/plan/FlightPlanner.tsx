@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FlightBoard } from "../components/FlightBoard";
 import { FlightPlanView } from "../components/FlightPlanView";
@@ -8,7 +8,9 @@ import { ModeSwitch, type AppMode } from "../components/ModeSwitch";
 import type { GateAction } from "../components/AcCard";
 import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
-import type { AcStatus, FlightPlan } from "./types";
+import { newPlan, slugify } from "./persist";
+import type { PlanStore } from "./store";
+import type { AcStatus, Contributor, FlightPlan } from "./types";
 
 const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
   approve: "approved",
@@ -16,33 +18,75 @@ const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
   reject: "rejected",
 };
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
+const DEFAULT_OWNER: Contributor = { id: "you", name: "You", kind: "human" };
 
 // The Flight Planner: the board, a plan with its review gate + copilot + grounded
-// sources, source ingest (vault / Confluence / upload / create), and the pre-flight
-// clearance + Jira materialize preview. Plan state is still local (no persistence
-// backend yet); wiring live sources in and Jira out is the next step. When mounted
-// as a real workspace view it carries the shared nav; the dev preview passes none.
+// sources, source ingest, and the pre-flight clearance + Jira materialize preview.
+// When a `store` is provided (the real workspace view), plans are loaded from and
+// saved to the git vault, so every change is a versioned, attributed commit and the
+// board survives reloads. The dev preview passes no store and stays in-memory with
+// SAMPLE_PLANS. It carries the shared nav when mounted as a workspace view.
 export function FlightPlanner({
   onNavigate,
   onSignOut,
+  store,
+  user,
 }: {
   onNavigate?: (mode: AppMode) => void;
   onSignOut?: () => void;
+  store?: PlanStore;
+  user?: Contributor;
 } = {}) {
-  const [plans, setPlans] = useState<FlightPlan[]>(SAMPLE_PLANS);
+  const [plans, setPlans] = useState<FlightPlan[]>(store ? [] : SAMPLE_PLANS);
+  const [loading, setLoading] = useState(!!store);
+  const [saveError, setSaveError] = useState(false);
   const [extraDocs, setExtraDocs] = useState<VaultDoc[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preflight, setPreflight] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const owner = user ?? DEFAULT_OWNER;
+  const plansRef = useRef(plans);
+  plansRef.current = plans;
+
+  // Load the board from the vault (plans/*.md). Empty until the first plan is created.
+  useEffect(() => {
+    if (!store) return;
+    let alive = true;
+    setLoading(true);
+    store
+      .list()
+      .then((ps) => alive && setPlans(ps))
+      .catch(() => {
+        /* leave the board empty; a save will surface errors */
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [store]);
 
   const selected = plans.find((p) => p.id === selectedId) ?? null;
   const catalog = useMemo(() => buildCatalog(extraDocs), [extraDocs]);
 
-  const mutate = (id: string, fn: (p: FlightPlan) => FlightPlan) =>
-    setPlans((prev) => prev.map((p) => (p.id === id ? fn(p) : p)));
+  const savePlan = useCallback(
+    (plan: FlightPlan) => {
+      if (!store) return;
+      setSaveError(false);
+      void store.save(plan).catch(() => setSaveError(true));
+    },
+    [store],
+  );
+
+  // Apply a change to a plan and persist it (one commit per change).
+  const mutate = (id: string, fn: (p: FlightPlan) => FlightPlan) => {
+    const current = plansRef.current.find((p) => p.id === id);
+    if (!current) return;
+    const updated = fn(current);
+    setPlans((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    savePlan(updated);
+  };
 
   const onGate = (acId: string, action: GateAction) => {
     if (!selected) return;
@@ -110,32 +154,47 @@ export function FlightPlanner({
     setPreflight(false);
   };
 
-  const content = !selected ? (
-    <FlightBoard plans={plans} onOpen={setSelectedId} />
-  ) : (
-    <>
-      <FlightPlanView
-        plan={selected}
-        catalog={catalog}
-        onBack={() => setSelectedId(null)}
-        onGate={onGate}
-        onFileClearance={() => setPreflight(true)}
-        onCritique={onCritique}
-        onAddSource={() => setAdding(true)}
-      />
-      {preflight && <PreflightModal plan={selected} onClear={onClear} onClose={() => setPreflight(false)} />}
-      {adding && (
-        <AddSourceModal
-          catalog={Object.values(catalog)}
-          selected={selected.sources}
-          onAdd={addSource}
-          onCreate={onCreate}
-          onUpload={onUpload}
-          onClose={() => setAdding(false)}
+  const onNewPlan = (title: string) => {
+    const plan = newPlan(title, owner, new Date().toISOString());
+    // A slug collision with an existing plan would overwrite it; disambiguate.
+    if (plansRef.current.some((p) => p.id === plan.id)) plan.id = `${plan.id}-${plansRef.current.length + 1}`;
+    setPlans((prev) => [plan, ...prev]);
+    savePlan(plan);
+    setCreating(false);
+    setSelectedId(plan.id);
+  };
+
+  let content: React.ReactNode;
+  if (loading) {
+    content = <div className="plan-loading">Loading flight plans…</div>;
+  } else if (!selected) {
+    content = <FlightBoard plans={plans} onOpen={setSelectedId} creating={creating} onNew={() => setCreating(true)} onCreate={onNewPlan} onCancelNew={() => setCreating(false)} />;
+  } else {
+    content = (
+      <>
+        <FlightPlanView
+          plan={selected}
+          catalog={catalog}
+          onBack={() => setSelectedId(null)}
+          onGate={onGate}
+          onFileClearance={() => setPreflight(true)}
+          onCritique={onCritique}
+          onAddSource={() => setAdding(true)}
         />
-      )}
-    </>
-  );
+        {preflight && <PreflightModal plan={selected} onClear={onClear} onClose={() => setPreflight(false)} />}
+        {adding && (
+          <AddSourceModal
+            catalog={Object.values(catalog)}
+            selected={selected.sources}
+            onAdd={addSource}
+            onCreate={onCreate}
+            onUpload={onUpload}
+            onClose={() => setAdding(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="plan">
@@ -145,6 +204,7 @@ export function FlightPlanner({
           Homebase
         </span>
         <div className="header-actions">
+          {saveError && <span className="plan-save-error" title="A change could not be saved to the vault">save failed</span>}
           {onNavigate && <ModeSwitch active="plan" onNavigate={onNavigate} />}
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
