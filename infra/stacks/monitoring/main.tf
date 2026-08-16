@@ -205,6 +205,38 @@ resource "aws_cloudwatch_dashboard" "agent" {
           ],
         },
       },
+      # Per-model breakdown: with several models selectable in the GUI, aggregate
+      # Bedrock metrics hide which model is driving spend. These SEARCH widgets
+      # auto-discover every ModelId that reports (no hardcoded ids), so newly
+      # allowed models appear automatically. Output tokens are the main cost driver.
+      # Metrics only (counts/tokens), NOT model-invocation logging, which would
+      # capture full prompts/responses (user email, calendar, secrets).
+      {
+        type = "metric", x = 0, y = 6, width = 12, height = 6,
+        properties = {
+          title   = "Bedrock invocations by model",
+          region  = var.aws_region,
+          view    = "timeSeries",
+          stacked = false,
+          period  = 300,
+          metrics = [
+            [{ expression = "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"Invocations\"', 'Sum', 300)", id = "invByModel", label = "" }],
+          ],
+        },
+      },
+      {
+        type = "metric", x = 12, y = 6, width = 12, height = 6,
+        properties = {
+          title   = "Bedrock output tokens by model (cost driver)",
+          region  = var.aws_region,
+          view    = "timeSeries",
+          stacked = false,
+          period  = 300,
+          metrics = [
+            [{ expression = "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"OutputTokenCount\"', 'Sum', 300)", id = "outTokByModel", label = "" }],
+          ],
+        },
+      },
     ]
   })
 }
