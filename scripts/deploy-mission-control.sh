@@ -81,6 +81,9 @@ else
   echo "image_tag = \"$TAG\"" >>"$TFVARS"
 fi
 
+log "terraform init (providers + backend; idempotent — so a fresh checkout doesn't fail apply)"
+terraform -chdir="$MC_STACK" init -backend-config=backend.hcl -input=false >/dev/null
+
 log "terraform apply (you will be prompted to confirm the change)"
 terraform -chdir="$MC_STACK" apply
 
