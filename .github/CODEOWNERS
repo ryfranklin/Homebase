@@ -1,0 +1,14 @@
+# Code owners for Homebase.
+#
+# The code owner is automatically requested for review on every pull request.
+# Homebase is a single-maintainer public repo, so one owner owns all paths.
+#
+# This pairs with branch protection on `main`: enabling "Require review from Code
+# Owners" turns this from a request into a hard requirement (the owner's approval is
+# needed to merge). Until then, it just auto-requests the owner as a reviewer.
+#
+# Later, more specific rules can be added below the catch-all (last match wins), e.g.
+#   /infra/    @ryfranklin
+#   /services/ @ryfranklin
+
+* @ryfranklin
