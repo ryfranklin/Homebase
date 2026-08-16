@@ -18,7 +18,11 @@ The alarms notify the SAME SNS topic the P2 budget uses (read from SSM at
 
 Three CloudWatch dashboards so you can tell which door is unhappy:
 
-- `agent-retrieval`: Bedrock invocations, latency, and token throughput.
+- `agent-retrieval`: Bedrock invocations, latency, and token throughput, plus per-model breakdowns
+  (invocations and output tokens by `ModelId`) so you can see which selectable model is driving
+  spend. The per-model widgets use CloudWatch SEARCH expressions that auto-discover every model that
+  reports, so newly allowed models appear without editing the dashboard. Token metrics only, not
+  model-invocation logging (which would capture full prompts/responses).
 - `front-doors`: the GUI plane (BFF Lambda duration/errors, optional CloudFront requests/5xx) and the
   chat CLI plane (ECS CPU/memory) distinctly.
 - `workstation`: EC2 CPU and network (only when the workstation id is set).
