@@ -202,7 +202,13 @@ resource "aws_bedrockagentcore_memory" "this" {
   event_expiry_duration = var.memory_event_expiry_days
   encryption_key_arn    = module.agent_kms.key_arn
   description           = "Homebase ${var.environment} agent memory"
-  tags                  = local.common_tags
+  # AWS applies the long-term strategy's execution role at the MEMORY level (it reports
+  # memoryExecutionRoleArn on the memory and null on the strategy). This attribute is
+  # Optional-not-Computed, so leaving it unset makes every plan try to null it. Declare
+  # it to match reality (null when long-term memory is disabled). one(...) yields the
+  # role when the count=1 resource exists, else null.
+  memory_execution_role_arn = one(aws_iam_role.memory[*].arn)
+  tags                      = local.common_tags
 }
 
 # Role the memory service assumes to run model-backed extraction strategies.
@@ -251,12 +257,13 @@ resource "aws_iam_role_policy" "memory" {
 resource "aws_bedrockagentcore_memory_strategy" "long_term" {
   count = var.enable_long_term_memory ? 1 : 0
 
-  memory_id                 = aws_bedrockagentcore_memory.this.id
-  name                      = replace("${local.name_prefix}_long_term", "-", "_")
-  type                      = var.long_term_memory_strategy_type
-  memory_execution_role_arn = aws_iam_role.memory[0].arn
-  namespace_templates       = var.long_term_memory_namespaces
-  description               = "Long-term extraction for Homebase agent memory"
+  memory_id           = aws_bedrockagentcore_memory.this.id
+  name                = replace("${local.name_prefix}_long_term", "-", "_")
+  type                = var.long_term_memory_strategy_type
+  namespace_templates = var.long_term_memory_namespaces
+  description         = "Long-term extraction for Homebase agent memory"
+  # The execution role is set on aws_bedrockagentcore_memory.this (memory level), where
+  # AWS actually keeps it; the provider deprecated this attribute on the strategy.
 }
 
 # ---------------------------------------------------------------------------
