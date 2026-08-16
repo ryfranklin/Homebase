@@ -20,6 +20,7 @@ import { makeConnectorStatus } from "./connectorstatus.mjs";
 import { makeMissionControl } from "./mission.mjs";
 import { makeConfluence } from "./confluence.mjs";
 import { makeMaterializer } from "./materialize.mjs";
+import { makeSettings } from "./settings.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -72,6 +73,18 @@ if (config.missionUrl) {
     missionToken = out.SecretString;
   }
   missionControl = makeMissionControl({ baseUrl: config.missionUrl, token: missionToken });
+}
+
+// Operator settings: write the MC GitHub token to Secrets Manager and restart MC.
+// Enabled only when the secret ARN + MC cluster/service are all configured.
+let settings = null;
+if (config.mcGithubTokenSecretArn && config.mcCluster && config.mcService) {
+  settings = makeSettings({
+    region: config.region,
+    githubTokenSecretArn: config.mcGithubTokenSecretArn,
+    cluster: config.mcCluster,
+    service: config.mcService,
+  });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
@@ -142,5 +155,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     missionControl,
     confluence,
     materializer,
+    settings,
   });
 });

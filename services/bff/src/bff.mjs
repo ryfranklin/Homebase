@@ -382,6 +382,22 @@ export async function handleRequest(event, respond, deps) {
     }
   }
 
+  // Operator settings: write-only. Store the Mission Control GitHub token and restart
+  // MC. Authenticated by the checks above; the token is never logged or echoed back.
+  if (method === "POST" && path.endsWith("/settings/github-token")) {
+    if (!deps.settings) {
+      return writeError(respond, cors, 503, "settings_unconfigured", "settings are not enabled on this deployment");
+    }
+    try {
+      return writeJson(respond, cors, 200, await deps.settings.setGithubToken(body.token ?? ""));
+    } catch (err) {
+      // Never include the token/secret in the log or the response.
+      console.error(JSON.stringify({ event: "settings_github_token_error", code: err?.code || "error" }));
+      return writeError(respond, cors, err?.statusCode || 502, err?.code || "settings_error",
+        err?.statusCode === 400 ? err.message : "could not save the token");
+    }
+  }
+
   // Mission Control execution seam: launch runs from flight-plan units, stream
   // telemetry, drive the go/no-go gate. Authenticated by the checks above.
   const missionMatch = /\/missions\/(.+)$/.exec(path);

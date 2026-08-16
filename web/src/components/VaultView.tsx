@@ -12,12 +12,13 @@ export interface VaultViewProps {
   vault: UseVault;
   onNavigate: (mode: AppMode) => void;
   onSignOut?: () => void;
+  onOpenSettings?: () => void;
 }
 
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, onNavigate, onSignOut }: VaultViewProps) {
+export function VaultView({ vault, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -67,7 +68,7 @@ export function VaultView({ vault, onNavigate, onSignOut }: VaultViewProps) {
           Homebase
         </span>
         <div className="header-actions">
-          <ModeSwitch active="vault" onNavigate={onNavigate} />
+          <ModeSwitch active="vault" onNavigate={onNavigate} onOpenSettings={onOpenSettings} />
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
               Sign out

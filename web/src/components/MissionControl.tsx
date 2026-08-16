@@ -114,10 +114,12 @@ export function MissionControl({
   missions,
   onNavigate,
   onSignOut,
+  onOpenSettings,
 }: {
   missions: UseMissions;
   onNavigate?: (mode: AppMode) => void;
   onSignOut?: () => void;
+  onOpenSettings?: () => void;
 }) {
   return (
     <div className="plan">
@@ -128,7 +130,7 @@ export function MissionControl({
         </span>
         <div className="header-actions">
           {missions.error && <span className="plan-save-error">{missions.error}</span>}
-          {onNavigate && <ModeSwitch active="mission" onNavigate={onNavigate} />}
+          {onNavigate && <ModeSwitch active="mission" onNavigate={onNavigate} onOpenSettings={onOpenSettings} />}
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
               Sign out

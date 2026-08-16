@@ -2375,3 +2375,54 @@ button.fb-row:hover { background: var(--surface); }
 @media (max-width: 900px) {
   .chat-sources { display: none; }
 }
+
+/* ---------- Settings overlay + gear ---------- */
+.mode-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.mode-settings:hover { color: var(--text); background: var(--surface-2); }
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 60;
+}
+.settings-card {
+  width: min(560px, 92vw);
+  background: var(--surface, #14141a);
+  border: 1px solid var(--border, var(--surface-2));
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.settings-head h2 { font-size: 1.05rem; margin: 0; }
+.settings-section { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.settings-label { font-size: 0.9rem; color: var(--text); }
+.settings-hint { font-size: 0.8rem; color: var(--muted); margin: 0; line-height: 1.4; }
+.settings-input {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border, var(--surface-2));
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 0.9rem;
+}
+.settings-actions { margin-top: 4px; }
+.settings-status { font-size: 0.82rem; margin: 2px 0 0; }
+.settings-status.ok { color: var(--ok, #6ee7a8); }
+.settings-status.err { color: var(--danger, #ff8080); }

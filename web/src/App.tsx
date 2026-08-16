@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import { useAuth } from "./auth/useAuth";
 import { LoginScreen } from "./components/LoginScreen";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { loadConfig } from "./config";
 import { useChat } from "./chat/useChat";
 import { useVault } from "./vault/useVault";
@@ -44,6 +45,7 @@ export function App() {
   // agent chat one click away. Both hooks live here, so switching modes preserves
   // their state.
   const [mode, setMode] = useState<Mode>("vault");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Flight plans persist as vault notes. Keep the store identity stable across token
   // refreshes (read the latest token via refs) so the Plan board doesn't reload on
   // every refresh; derive the plan owner from the ID token for display.
@@ -77,23 +79,29 @@ export function App() {
     );
   }
 
+  const openSettings = () => setSettingsOpen(true);
+
   return (
     <>
       <ConnectorBanner status={connector.status} onDismiss={connector.dismiss} />
+      {settingsOpen && (
+        <SettingsPanel apiBaseUrl={config.apiBaseUrl} getToken={auth.getAccessToken} onClose={() => setSettingsOpen(false)} />
+      )}
       <Suspense fallback={<div className="app-loading" aria-label="Loading" />}>
         {mode === "vault" ? (
-          <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} />
+          <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : mode === "plan" ? (
           <FlightPlanner
             onNavigate={setMode}
             onSignOut={auth.logout}
+            onOpenSettings={openSettings}
             store={planStore}
             user={planOwner}
             apiBaseUrl={config.apiBaseUrl}
             getToken={auth.getAccessToken}
           />
         ) : mode === "mission" ? (
-          <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} />
+          <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : (
           <ChatView
             messages={chat.messages}
@@ -102,6 +110,7 @@ export function App() {
             onStop={chat.stop}
             onSignOut={auth.logout}
             onNavigate={setMode}
+            onOpenSettings={openSettings}
             connectors={connStatus.connectors}
             onConnect={(url) => window.location.assign(url)}
             models={config.models}
