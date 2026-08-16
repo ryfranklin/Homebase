@@ -464,6 +464,15 @@ resource "aws_ssm_parameter" "mission_token_secret_arn" {
   tags  = local.common_tags
 }
 
+# The by-hand GitHub token secret's ARN, published so the BFF (P7) can write it from
+# the GUI settings panel (POST /api/settings/github-token) and restart this service.
+resource "aws_ssm_parameter" "github_token_secret_arn" {
+  name  = "/${var.project_name}/${var.environment}/mission-control/github_token_secret_arn"
+  type  = "String"
+  value = data.aws_secretsmanager_secret.github_token.arn
+  tags  = local.common_tags
+}
+
 resource "aws_ssm_parameter" "cluster_name" {
   name  = "/${var.project_name}/${var.environment}/mission-control/cluster_name"
   type  = "String"

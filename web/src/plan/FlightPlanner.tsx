@@ -33,6 +33,7 @@ const DEFAULT_OWNER: Contributor = { id: "you", name: "You", kind: "human" };
 export function FlightPlanner({
   onNavigate,
   onSignOut,
+  onOpenSettings,
   store,
   user,
   apiBaseUrl,
@@ -40,6 +41,7 @@ export function FlightPlanner({
 }: {
   onNavigate?: (mode: AppMode) => void;
   onSignOut?: () => void;
+  onOpenSettings?: () => void;
   store?: PlanStore;
   user?: Contributor;
   apiBaseUrl?: string;
@@ -311,7 +313,7 @@ export function FlightPlanner({
         </span>
         <div className="header-actions">
           {saveError && <span className="plan-save-error" title="A change could not be saved to the vault">save failed</span>}
-          {onNavigate && <ModeSwitch active="plan" onNavigate={onNavigate} />}
+          {onNavigate && <ModeSwitch active="plan" onNavigate={onNavigate} onOpenSettings={onOpenSettings} />}
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
               Sign out

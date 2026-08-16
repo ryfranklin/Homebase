@@ -58,6 +58,16 @@ data "aws_ssm_parameter" "mission_control_url" {
 data "aws_ssm_parameter" "mission_control_token_secret_arn" {
   name = "/${var.project_name}/${var.environment}/mission-control/api_token_secret_arn"
 }
+# For the GUI settings panel: write the MC GitHub token and restart MC.
+data "aws_ssm_parameter" "mission_control_github_token_secret_arn" {
+  name = "/${var.project_name}/${var.environment}/mission-control/github_token_secret_arn"
+}
+data "aws_ssm_parameter" "mission_control_cluster_name" {
+  name = "/${var.project_name}/${var.environment}/mission-control/cluster_name"
+}
+data "aws_ssm_parameter" "mission_control_service_name" {
+  name = "/${var.project_name}/${var.environment}/mission-control/service_name"
+}
 
 locals {
   common_tags = merge({
@@ -408,6 +418,22 @@ data "aws_iam_policy_document" "bff" {
       values   = ["secretsmanager.${var.aws_region}.amazonaws.com"]
     }
   }
+
+  # Settings seam (GUI): write the Mission Control GitHub token, then restart MC so it
+  # re-reads the secret. Least privilege: PutSecretValue on ONLY that one secret, and
+  # UpdateService on ONLY the MC service.
+  statement {
+    sid       = "WriteMissionControlGithubToken"
+    effect    = "Allow"
+    actions   = ["secretsmanager:PutSecretValue"]
+    resources = ["${data.aws_ssm_parameter.mission_control_github_token_secret_arn.value}*"]
+  }
+  statement {
+    sid       = "RestartMissionControl"
+    effect    = "Allow"
+    actions   = ["ecs:UpdateService"]
+    resources = ["arn:${data.aws_partition.current.partition}:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:service/${data.aws_ssm_parameter.mission_control_cluster_name.value}/${data.aws_ssm_parameter.mission_control_service_name.value}"]
+  }
 }
 
 resource "aws_iam_role_policy" "bff" {
@@ -459,6 +485,10 @@ resource "aws_lambda_function" "bff" {
       # bearer token (ARN; read from Secrets Manager at cold start). Enables /api/missions/*.
       HOMEBASE_MISSION_CONTROL_URL       = data.aws_ssm_parameter.mission_control_url.value
       HOMEBASE_MISSION_CONTROL_TOKEN_ARN = data.aws_ssm_parameter.mission_control_token_secret_arn.value
+      # Settings seam: write the MC GitHub token from the GUI + restart MC.
+      HOMEBASE_MC_GITHUB_TOKEN_SECRET_ARN = data.aws_ssm_parameter.mission_control_github_token_secret_arn.value
+      HOMEBASE_MC_CLUSTER                 = data.aws_ssm_parameter.mission_control_cluster_name.value
+      HOMEBASE_MC_SERVICE                 = data.aws_ssm_parameter.mission_control_service_name.value
       # Flight Planner Confluence sources (link base) + Jira materialize target. When
       # jira_project is set, POST /api/plan/materialize is enabled.
       HOMEBASE_CONFLUENCE_SITE_URL = var.confluence_site_url

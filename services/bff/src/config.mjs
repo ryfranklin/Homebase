@@ -60,5 +60,11 @@ export function loadConfig(env = process.env) {
     missionUrl: env.HOMEBASE_MISSION_CONTROL_URL || null,
     missionToken: env.HOMEBASE_MISSION_CONTROL_TOKEN || null,
     missionTokenArn: env.HOMEBASE_MISSION_CONTROL_TOKEN_ARN || null,
+    // Settings seam: write-only management of the Mission Control GitHub token from
+    // the GUI. When all three are set, POST /api/settings/github-token is enabled: it
+    // writes the token to Secrets Manager and force-restarts the MC service.
+    mcGithubTokenSecretArn: env.HOMEBASE_MC_GITHUB_TOKEN_SECRET_ARN || null,
+    mcCluster: env.HOMEBASE_MC_CLUSTER || null,
+    mcService: env.HOMEBASE_MC_SERVICE || null,
   };
 }

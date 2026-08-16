@@ -22,6 +22,7 @@ export interface ChatViewProps {
   onStop?: () => void;
   onSignOut?: () => void;
   onNavigate?: (mode: AppMode) => void;
+  onOpenSettings?: () => void;
   connectors?: ConnectorStatuses;
   onConnect?: (url: string) => void;
   // Settings-level model default. Selector renders only when models are configured.
@@ -69,7 +70,7 @@ function Thinking() {
 
 // Presentational streaming chat. A single centered column: a minimal header, a
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
-export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNavigate, connectors = {}, onConnect, models = [], model, onModelChange }: ChatViewProps) {
+export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNavigate, onOpenSettings, connectors = {}, onConnect, models = [], model, onModelChange }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -99,7 +100,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNav
           Homebase
         </span>
         <div className="header-actions">
-          {onNavigate && <ModeSwitch active="chat" onNavigate={onNavigate} />}
+          {onNavigate && <ModeSwitch active="chat" onNavigate={onNavigate} onOpenSettings={onOpenSettings} />}
           <ModelSelector models={models} model={model} onModelChange={onModelChange} />
           <button type="button" className="link-button" onClick={() => setShowDocs(true)}>
             Docs
