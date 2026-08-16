@@ -18,8 +18,19 @@ from .memory import NullMemory
 from .prompts import load_planning_prompt, load_system_prompt
 from .toolloop import Outcome, run_tool_loop, run_tool_loop_stream
 
-NO_SOURCES_MESSAGE = (
-    "I do not have a relevant source in your knowledge base for that, so I cannot answer it."
+# Prefix stamped on any answer that comes from the model's general knowledge rather than
+# the user's own sources. It keeps the grounded/ungrounded boundary visible to the user:
+# a reply that opens with this is, by contract, grounded=False and carries no citations.
+GENERAL_KNOWLEDGE_DISCLAIMER = "Not from your knowledge base: "
+
+# Instruction used only for the general-knowledge fallback (the no-passages branch of the
+# single-shot RAG path). The Python layer prepends GENERAL_KNOWLEDGE_DISCLAIMER, so the model
+# is told NOT to add its own disclaimer or citations here.
+_GENERAL_INSTRUCTION = (
+    "Answer the user's question from your general knowledge, concisely and helpfully. This is "
+    "not drawn from the user's private knowledge base, so do not cite sources, do not claim to "
+    "quote their documents, and do not add your own 'not from your knowledge base' disclaimer "
+    "(the caller adds one)."
 )
 
 
@@ -69,16 +80,18 @@ _TOOL_SYSTEM_SUFFIX = """
 
 You can call tools:
 - search_knowledge_base: the user's private knowledge base. For questions about their
-  own documents, notes, ADRs or runbooks, call this and answer ONLY from the returned
-  passages, citing their sources. If it returns no passages, say you have no relevant
-  source rather than guessing.
+  own documents, notes, ADRs or runbooks, call this and answer from the returned
+  passages, citing their sources. If it returns no relevant passages, you may answer from
+  your general knowledge instead, but prefix that part with a clear disclaimer like
+  "Not from your knowledge base:" and do not attach a citation to it.
 - slack_read_messages, gmail_search_messages, gcal_list_events, gdrive_search_files,
   jira_search_issues, confluence_search: read the user's live accounts. Use these for
   questions about Slack, email, calendar, Drive, Jira, or Confluence. If a connector
   reports it needs authorization, share the link it provides so the user can connect
   that account.
 
-Prefer calling a tool over guessing. Keep answers concise and grounded in tool output.
+Prefer a tool over guessing for anything about the user's own world. When you do fall back to
+general knowledge, label it plainly so the grounded and general parts stay distinct.
 """
 
 
@@ -100,10 +113,15 @@ class AnswerResult:
 
 
 class Agent:
-    def __init__(self, retrieval, llm=None, memory=None, *, system_prompt=None, connectors=None):
+    def __init__(self, retrieval, llm=None, memory=None, *, system_prompt=None, connectors=None, allowed_models=None):
         self._retrieval = retrieval
         self._llm = llm or MockLLMClient()
         self._memory = memory or NullMemory()
+        # Models a request is allowed to select (the GUI's settings-level default). A
+        # request asking for anything outside this set silently falls back to the
+        # deploy-time default, so a client can never invoke an arbitrary model. Empty
+        # set -> selection disabled, the default model is always used.
+        self._allowed_models = set(allowed_models or ())
         self._system_prompt = system_prompt if system_prompt is not None else load_system_prompt()
         # The AI-DLC INCEPTION prompt, swapped in when a request runs in plan mode so
         # the agent conducts the planning interview and emits a flight-plan draft.
@@ -137,6 +155,13 @@ class Agent:
     def supports_streaming(self) -> bool:
         return self._connectors is not None
 
+    def _resolve_llm(self, model):
+        # Honor a requested model only if it is in the allow-list; otherwise use the
+        # default. Returns the LLM client to use for this request.
+        if model and model in self._allowed_models:
+            return self._llm.with_model(model)
+        return self._llm
+
     def _make_execute(self, session, question):
         """The tool dispatcher shared by the buffered and streaming loops."""
 
@@ -163,9 +188,14 @@ class Agent:
         base = self._planning_prompt if planning else self._system_prompt
         return _now_preamble(tz_name=self._timezone) + "\n\n" + base + suffix
 
-    def _answer_with_tools(self, session, question, *, planning: bool = False) -> AnswerResult:
+    def _general_system(self) -> str:
+        # System prompt for the general-knowledge fallback: no vault-grounding rules, just
+        # a concise general answer. The disclaimer is added by the caller, not the model.
+        return _now_preamble(tz_name=self._timezone) + "\n\n" + _GENERAL_INSTRUCTION
+
+    def _answer_with_tools(self, session, question, *, planning: bool = False, model=None) -> AnswerResult:
         loop = run_tool_loop(
-            self._llm,
+            self._resolve_llm(model),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
             question=question,
             tools=self._tools(),
@@ -183,7 +213,7 @@ class Agent:
             authorization_url=loop.authorization_url,
         )
 
-    def answer_stream(self, session, question, *, planning: bool = False):
+    def answer_stream(self, session, question, *, planning: bool = False, model=None):
         """Streaming variant: a generator yielding SSE-ready events (token / citation
         / authorization_required / done) as the tool loop runs. Requires connectors
         (a tool-capable LLM); callers should gate on supports_streaming(). In plan
@@ -191,7 +221,7 @@ class Agent:
         draft block."""
         if self._connectors is None:
             # Degrade gracefully to a single token from the buffered path.
-            result = self.answer(session, question, planning=planning)
+            result = self.answer(session, question, planning=planning, model=model)
             yield {"type": "token", "text": result.text}
             for citation in result.citations:
                 yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
@@ -200,7 +230,7 @@ class Agent:
 
         text_parts: list = []
         for event in run_tool_loop_stream(
-            self._llm,
+            self._resolve_llm(model),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
             question=question,
             tools=self._tools(),
@@ -215,24 +245,23 @@ class Agent:
         if final_text:
             self._remember(session, "assistant", final_text)
 
-    def answer(self, session, question, *, planning: bool = False, **retrieval_kwargs) -> AnswerResult:
+    def answer(self, session, question, *, planning: bool = False, model=None, **retrieval_kwargs) -> AnswerResult:
         if self._connectors is not None:
-            return self._answer_with_tools(session, question, planning=planning)
+            return self._answer_with_tools(session, question, planning=planning, model=model)
 
+        llm = self._resolve_llm(model)
         passages = self._retrieval.retrieve(question, **retrieval_kwargs)
 
         if not passages:
-            # No relevant sources: say so, do not invent an answer.
-            result = AnswerResult(
-                text=NO_SOURCES_MESSAGE,
-                grounded=False,
-                citations=[],
-                session=session,
-            )
+            # No relevant sources: fall back to general knowledge, but stamp it with a
+            # disclaimer so the answer stays visibly ungrounded (grounded=False, no citations).
+            body = llm.generate_general(system=self._general_system(), question=question)
+            text = GENERAL_KNOWLEDGE_DISCLAIMER + body
             self._remember(session, "user", question)
-            return result
+            self._remember(session, "assistant", text)
+            return AnswerResult(text=text, grounded=False, citations=[], session=session)
 
-        text = self._llm.generate(
+        text = llm.generate(
             system=self._system(),
             question=question,
             passages=passages,

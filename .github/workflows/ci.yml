@@ -265,6 +265,8 @@ jobs:
           VITE_REDIRECT_URI: ${{ secrets.VITE_REDIRECT_URI }}
           VITE_LOGOUT_URI: ${{ secrets.VITE_LOGOUT_URI }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          # Optional chat model choices ("id|Label" pairs). Unset -> selector hidden.
+          VITE_CHAT_MODELS: ${{ secrets.VITE_CHAT_MODELS }}
         run: |
           npm ci
           npm run build

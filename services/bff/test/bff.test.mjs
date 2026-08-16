@@ -111,6 +111,14 @@ test("valid token streams SSE with tokens and a done event", async () => {
   // The agent was invoked with the identity taken from the token, not the body.
   assert.equal(agentStream.calls[0].userId, "user-1");
   assert.equal(agentStream.calls[0].tenantId, "tenant-1");
+  // No model in the body -> none forwarded (agent uses its deploy-time default).
+  assert.equal(agentStream.calls[0].model, undefined);
+});
+
+test("a settings-level model choice is forwarded to the agent", async () => {
+  const token = signJwt(claims(), key);
+  const { agentStream } = await run({ token, body: { input: "hi", model: "model-b" } });
+  assert.equal(agentStream.calls[0].model, "model-b");
 });
 
 // Connector consent finalize (/api/connectors/complete).

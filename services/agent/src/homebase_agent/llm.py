@@ -83,6 +83,16 @@ class LLMClient(Protocol):
     def generate(self, *, system: str, question: str, passages, session) -> str:
         ...
 
+    def generate_general(self, *, system: str, question: str) -> str:
+        """A general-knowledge answer with no retrieved passages (the ungrounded
+        fallback). The caller labels it; this returns just the answer body."""
+        ...
+
+    def with_model(self, model_id: str) -> "LLMClient":
+        """Return a client bound to a different model id, for a single request. The
+        default model stays put; this is how the GUI's chosen default reaches Bedrock."""
+        ...
+
 
 class MockLLMClient:
     """Deterministic offline client. Grounds its answer in the passages and names
@@ -91,6 +101,13 @@ class MockLLMClient:
     def generate(self, *, system, question, passages, session) -> str:
         sources = ", ".join(p.source_path for p in passages)
         return f"Based on {len(passages)} source(s) ({sources}), here is the answer to: {question}"
+
+    def generate_general(self, *, system, question) -> str:
+        return f"General answer to: {question}"
+
+    def with_model(self, model_id):
+        # The mock ignores the model id (offline, deterministic).
+        return self
 
 
 class BedrockLLMClient:
@@ -110,6 +127,17 @@ class BedrockLLMClient:
         # {"guardrailIdentifier", "guardrailVersion"} or None (unset -> no guardrail).
         self._gc = {"guardrailConfig": guardrail} if guardrail else {}
 
+    def with_model(self, model_id):
+        # A lightweight clone sharing the boto3 client, guardrail and inference config,
+        # bound to a different model id. Immutable, so it is safe under concurrency.
+        return BedrockLLMClient(
+            self._client,
+            model_id,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            guardrail=(self._gc.get("guardrailConfig") if self._gc else None),
+        )
+
     def generate(self, *, system, question, passages, session) -> str:
         context = _passages_block(passages)
         user_text = (
@@ -120,6 +148,19 @@ class BedrockLLMClient:
             modelId=self._model_id,
             system=[{"text": system}],
             messages=[{"role": "user", "content": [{"text": user_text}]}],
+            inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
+            **self._gc,
+        )
+        parts = response["output"]["message"]["content"]
+        return "".join(part.get("text", "") for part in parts)
+
+    def generate_general(self, *, system, question) -> str:
+        # No retrieved passages: a plain general-knowledge answer. The guardrail still
+        # applies, and the caller stamps the "not from your knowledge base" disclaimer.
+        response = self._client.converse(
+            modelId=self._model_id,
+            system=[{"text": system}],
+            messages=[{"role": "user", "content": [{"text": question}]}],
             inferenceConfig={"maxTokens": self._max_tokens, "temperature": self._temperature},
             **self._gc,
         )

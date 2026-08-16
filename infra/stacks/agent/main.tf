@@ -48,11 +48,31 @@ locals {
 
   container_uri = "${aws_ecr_repository.agent.repository_url}:${var.agent_image_tag}"
 
+  # Models a chat request may select (the GUI's settings-level default). The default
+  # model is always allowed; extras come from var.allowed_model_ids. Their invoke ARNs
+  # are derived below, so the operator does not maintain a parallel IAM list.
+  allowed_model_ids = join(",", distinct(concat([var.model_id], var.allowed_model_ids)))
+
+  # Invoke ARNs for each selectable extra model, derived the same way as model_id: an
+  # inference-profile id needs BOTH its account-scoped profile ARN and the underlying
+  # foundation-model ARN; a bare foundation-model id needs just the latter.
+  allowed_model_invoke_arns = flatten([
+    for m in var.allowed_model_ids : (
+      length(regexall("^(us|eu|apac|global)[.]", m)) > 0 ? [
+        "arn:${local.partition}:bedrock:${var.aws_region}:${local.account_id}:inference-profile/${m}",
+        "arn:${local.partition}:bedrock:*::foundation-model/${replace(m, "/^(us|eu|apac|global)[.]/", "")}",
+        ] : [
+        "arn:${local.partition}:bedrock:*::foundation-model/${m}",
+      ]
+    )
+  ])
+
   runtime_environment = {
-    HOMEBASE_KB_ID            = local.knowledge_base_id
-    HOMEBASE_MODEL_ID         = var.model_id
-    HOMEBASE_RERANK_MODEL_ARN = local.rerank_model_arn
-    HOMEBASE_MEMORY_ID        = aws_bedrockagentcore_memory.this.id
+    HOMEBASE_KB_ID             = local.knowledge_base_id
+    HOMEBASE_MODEL_ID          = var.model_id
+    HOMEBASE_ALLOWED_MODEL_IDS = local.allowed_model_ids
+    HOMEBASE_RERANK_MODEL_ARN  = local.rerank_model_arn
+    HOMEBASE_MEMORY_ID         = aws_bedrockagentcore_memory.this.id
     # IANA timezone the agent resolves 'today'/'now' in (falls back to UTC).
     HOMEBASE_TIMEZONE = var.agent_timezone
     # Enables the connector tool-use loop: the shim function name prefix. The agent
@@ -279,7 +299,7 @@ data "aws_iam_policy_document" "runtime" {
     sid       = "InvokeModel"
     effect    = "Allow"
     actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = concat(local.model_invoke_arns, var.additional_model_arns)
+    resources = distinct(concat(local.model_invoke_arns, local.allowed_model_invoke_arns, var.additional_model_arns))
   }
 
   # Converse with guardrailConfig requires ApplyGuardrail on the guardrail.

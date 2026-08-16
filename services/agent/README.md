@@ -22,7 +22,8 @@ retrieved from the P5 Knowledge Base and attaching source citations to every gro
 - `memory.py`: AgentCore Memory wrappers (short-term events + long-term recall), with `NullMemory`
   default. The actor id is namespaced by tenant.
 - `agent.py`: orchestration. A grounded answer always carries citations; when retrieval finds
-  nothing, the agent says it has no relevant source rather than hallucinating.
+  nothing, the agent falls back to general knowledge behind a visible "not from your knowledge
+  base" disclaimer (ungrounded, no citations) rather than silently guessing.
 - `server.py`: the AgentCore Runtime HTTP contract (`POST /invocations`, `GET /ping` on 8080).
 - `harness.py`: the local harness that asserts citations.
 
@@ -46,7 +47,7 @@ PYTHONPATH=src python -m homebase_agent.harness --mode live
 ```
 
 Mock mode asserts that every grounded answer carries source metadata and that the no-source case
-says so, all with no AWS calls.
+falls back behind the general-knowledge disclaimer, all with no AWS calls.
 
 ## CI image check
 

@@ -10,7 +10,7 @@ const SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id";
 // "citation" | ..., ... }. The default implementation parses the SSE body of
 // InvokeAgentRuntime. Callers pass a session that already carries the verified
 // user and tenant, so identity is never taken from the client payload.
-export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId, userId, tenantId, prompt, mode }) {
+export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId, userId, tenantId, prompt, mode, model }) {
   const payload = {
     input: prompt,
     session_id: sessionId,
@@ -18,6 +18,8 @@ export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId,
     tenant_id: tenantId,
     // "plan" runs the agent's AI-DLC interview; otherwise the normal answer mode.
     ...(mode ? { mode } : {}),
+    // Optional settings-level model choice; the agent validates it server-side.
+    ...(model ? { model } : {}),
   };
 
   const response = await client.invoke({

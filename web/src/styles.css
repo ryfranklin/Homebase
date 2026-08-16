@@ -132,6 +132,27 @@ button {
   transition: color 0.2s, background 0.2s;
 }
 
+.model-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.model-selector-label {
+  color: var(--muted);
+}
+
+.model-selector select {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border, var(--surface-2));
+  border-radius: 8px;
+  font-size: 0.82rem;
+  padding: 5px 8px;
+}
+
 .link-button:hover {
   color: var(--text);
   background: var(--surface-2);

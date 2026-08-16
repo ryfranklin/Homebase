@@ -45,6 +45,12 @@ variable "additional_model_arns" {
   default     = []
 }
 
+variable "allowed_model_ids" {
+  description = "Extra model ids a chat request may select (the GUI's settings-level default), beyond var.model_id which is always allowed. Their invoke ARNs are derived automatically (no need to also list them in additional_model_arns). Empty by default (model selection disabled)."
+  type        = list(string)
+  default     = []
+}
+
 # ---------------------------------------------------------------------------
 # Container image for the AgentCore Runtime. The image is built from
 # services/agent and pushed to the ECR repo this stack creates.

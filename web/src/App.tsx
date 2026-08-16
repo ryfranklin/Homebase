@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "./auth/useAuth";
 import { LoginScreen } from "./components/LoginScreen";
@@ -25,7 +25,20 @@ type Mode = "vault" | "chat" | "plan" | "mission";
 export function App() {
   const config = useMemo(() => loadConfig(), []);
   const auth = useAuth(config);
-  const chat = useChat(config.apiBaseUrl, auth.getAccessToken);
+  // Settings-level default chat model: persisted per browser, seeded from the first
+  // configured model. A ref backs the getter so useChat reads the current choice on
+  // each send without re-creating the hook. No-op when no models are configured.
+  const [model, setModel] = useState<string>(
+    () => localStorage.getItem("homebase.model") || config.models[0]?.id || "",
+  );
+  const modelRef = useRef(model);
+  modelRef.current = model;
+  const selectModel = useCallback((id: string) => {
+    setModel(id);
+    localStorage.setItem("homebase.model", id);
+  }, []);
+  const getModel = useCallback(() => modelRef.current || undefined, []);
+  const chat = useChat(config.apiBaseUrl, auth.getAccessToken, undefined, getModel);
   const vault = useVault(config.apiBaseUrl, auth.getAccessToken, auth.getIdToken, auth.authenticated);
   // Vault-first: Homebase is primarily the knowledge-vault workspace, with the
   // agent chat one click away. Both hooks live here, so switching modes preserves
@@ -91,6 +104,9 @@ export function App() {
             onNavigate={setMode}
             connectors={connStatus.connectors}
             onConnect={(url) => window.location.assign(url)}
+            models={config.models}
+            model={model}
+            onModelChange={selectModel}
           />
         )}
       </Suspense>

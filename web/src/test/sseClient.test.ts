@@ -63,6 +63,21 @@ describe("streamChat", () => {
     expect(JSON.parse(captured!.init.body as string)).toEqual({ input: "hi", session_id: undefined });
   });
 
+  it("includes model in the body only when set", async () => {
+    let captured: RequestInit | null = null;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      captured = init;
+      return sseResponse(['data: {"type":"done"}\n\n']);
+    }) as unknown as typeof fetch;
+
+    await collect(streamChat("https://app.example.invalid", "t", { input: "hi", model: "model-b" }, { fetchImpl }));
+    expect(JSON.parse(captured!.body as string)).toMatchObject({ model: "model-b" });
+
+    captured = null;
+    await collect(streamChat("https://app.example.invalid", "t", { input: "hi" }, { fetchImpl }));
+    expect("model" in JSON.parse(captured!.body as string)).toBe(false);
+  });
+
   it("throws StreamError on a non-ok response", async () => {
     const fetchImpl = (async () => sseResponse([], { ok: false, status: 401 })) as unknown as typeof fetch;
     await expect(

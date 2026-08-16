@@ -8,6 +8,7 @@ import { DocsOverlay } from "./DocsOverlay";
 import { ServiceNetwork } from "./ServiceNetwork";
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import type { ConnectorStatuses } from "../chat/useConnectorStatus";
+import type { ModelOption } from "../config";
 
 // Markdown pulls in react-markdown + highlight.js. Lazy-load it into its own chunk
 // so the initial bundle stays lean; it's preloaded on mount (below) so the chunk is
@@ -23,6 +24,32 @@ export interface ChatViewProps {
   onNavigate?: (mode: AppMode) => void;
   connectors?: ConnectorStatuses;
   onConnect?: (url: string) => void;
+  // Settings-level model default. Selector renders only when models are configured.
+  models?: ModelOption[];
+  model?: string;
+  onModelChange?: (id: string) => void;
+}
+
+// The model picker: a single settings-level default applied to every message. Hidden
+// unless the deploy configured a choice of models (VITE_CHAT_MODELS).
+function ModelSelector({ models, model, onModelChange }: { models: ModelOption[]; model?: string; onModelChange?: (id: string) => void }) {
+  if (models.length === 0) return null;
+  return (
+    <label className="model-selector">
+      <span className="model-selector-label">Model</span>
+      <select
+        value={model ?? models[0].id}
+        onChange={(e) => onModelChange?.(e.target.value)}
+        aria-label="Chat model"
+      >
+        {models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 // A small pulsing indicator shown while the agent is working but hasn't streamed
@@ -42,7 +69,7 @@ function Thinking() {
 
 // Presentational streaming chat. A single centered column: a minimal header, a
 // scrollable transcript, and a composer pinned to the bottom (safe-area aware).
-export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNavigate, connectors = {}, onConnect }: ChatViewProps) {
+export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNavigate, connectors = {}, onConnect, models = [], model, onModelChange }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [showDocs, setShowDocs] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -73,6 +100,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNav
         </span>
         <div className="header-actions">
           {onNavigate && <ModeSwitch active="chat" onNavigate={onNavigate} />}
+          <ModelSelector models={models} model={model} onModelChange={onModelChange} />
           <button type="button" className="link-button" onClick={() => setShowDocs(true)}>
             Docs
           </button>
@@ -156,7 +184,7 @@ export function ChatView({ messages, streaming, onSend, onStop, onSignOut, onNav
             </button>
           )}
         </div>
-        <p className="composer-hint">Homebase can read your connected accounts. Answers are grounded in your sources.</p>
+        <p className="composer-hint">Homebase reads your connected accounts and knowledge base, and marks anything answered from general knowledge.</p>
           </form>
         </div>
 

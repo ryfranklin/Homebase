@@ -393,6 +393,9 @@ export async function handleRequest(event, respond, deps) {
   const prompt = body.input ?? body.prompt ?? "";
   // Opt into the agent's AI-DLC planning interview; anything else is normal mode.
   const mode = body.mode === "plan" ? "plan" : undefined;
+  // The GUI's settings-level default model. Passed through verbatim; the agent
+  // validates it against its allow-list and ignores anything unknown.
+  const model = typeof body.model === "string" && body.model ? body.model : undefined;
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
   // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
@@ -415,6 +418,7 @@ export async function handleRequest(event, respond, deps) {
       tenantId,
       prompt,
       mode,
+      model,
     });
     for await (const evt of stream) {
       writer.write(sseEvent(evt));

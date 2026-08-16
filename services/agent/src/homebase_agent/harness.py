@@ -2,8 +2,8 @@
 
 Mock mode (default) runs against the offline fake Knowledge Base with a mock
 LLM: no AWS. Live mode wires the real clients against a deployed KB. Every
-grounded answer must carry source metadata; the no-source case must say so
-rather than hallucinate.
+grounded answer must carry source metadata; the no-source case must fall back to
+general knowledge behind a visible "not from your knowledge base" disclaimer.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 
-from .agent import NO_SOURCES_MESSAGE, Agent
+from .agent import GENERAL_KNOWLEDGE_DISCLAIMER, Agent
 from .retrieval import RetrievalTool
 from .session import Session
 
@@ -54,8 +54,8 @@ def run_harness(agent, session, cases=None) -> list:
                 raise HarnessError(f"expected no grounded answer for: {question}")
             if result.citations:
                 raise HarnessError(f"ungrounded answer must not carry citations: {question}")
-            if result.text != NO_SOURCES_MESSAGE:
-                raise HarnessError(f"ungrounded answer must say it has no source: {question}")
+            if not result.text.startswith(GENERAL_KNOWLEDGE_DISCLAIMER):
+                raise HarnessError(f"ungrounded answer must carry the general-knowledge disclaimer: {question}")
 
         report.append((question, result.grounded, [c.source_path for c in result.citations]))
     return report

@@ -20,6 +20,14 @@ model_id = "<YOUR_CLAUDE_INFERENCE_PROFILE_ID>"
 # Optional extra model / inference-profile ARNs the agent may invoke.
 additional_model_arns = []
 
+# Optional: extra model ids a chat request may select (the GUI's settings-level
+# default), beyond model_id which is always allowed. Their invoke ARNs are derived
+# automatically (no need to also list them in additional_model_arns). Leave empty to
+# disable model selection (the agent always uses model_id). Keep in sync with the web's
+# VITE_CHAT_MODELS so the UI only offers models the agent is allowed to invoke.
+# allowed_model_ids = ["us.anthropic.claude-opus-4-8", "us.anthropic.claude-haiku-4-5-20251001-v1:0"]
+allowed_model_ids = []
+
 # Container image tag (built from services/agent and pushed to the ECR repo this
 # stack creates).
 agent_image_tag = "latest"

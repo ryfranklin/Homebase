@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_REDIRECT_URI: string;
   readonly VITE_LOGOUT_URI: string;
   readonly VITE_API_BASE_URL: string;
+  // Optional chat model choices: comma-separated "id|Label" pairs. Unset -> no selector.
+  readonly VITE_CHAT_MODELS?: string;
 }
 
 interface ImportMeta {

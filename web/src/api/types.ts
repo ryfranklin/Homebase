@@ -17,4 +17,7 @@ export interface ChatRequest {
   sessionId?: string;
   // "plan" runs the agent's AI-DLC planning interview instead of a normal answer.
   mode?: "plan";
+  // The settings-level default model id to invoke. Validated server-side against an
+  // allow-list; omitting it uses the agent's deploy-time default model.
+  model?: string;
 }

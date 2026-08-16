@@ -60,7 +60,14 @@ def build_agent_from_env():
 
         connectors = ConnectorClient(client("lambda"), connector_prefix)
 
-    return Agent(retrieval, llm=llm, memory=memory, connectors=connectors)
+    # Models a chat request may select (the GUI's settings-level default). The default
+    # model is always allowed; extras come from HOMEBASE_ALLOWED_MODEL_IDS (comma-sep).
+    # A request for anything outside this set falls back to the default (see Agent).
+    allowed_models = {model_id} | {
+        m.strip() for m in os.environ.get("HOMEBASE_ALLOWED_MODEL_IDS", "").split(",") if m.strip()
+    }
+
+    return Agent(retrieval, llm=llm, memory=memory, connectors=connectors, allowed_models=allowed_models)
 
 
 def _session_from_payload(payload: dict) -> Session:
@@ -104,6 +111,9 @@ def make_handler(agent):
             # Plan mode runs the AI-DLC INCEPTION interview and emits a flight-plan
             # draft; any other value is the normal grounded-answer mode.
             planning = payload.get("mode") == "plan"
+            # Optional model choice (the GUI's settings-level default). The agent
+            # validates it against the allow-list and ignores anything unknown.
+            model = payload.get("model") or None
 
             # Stream the answer token-by-token when the agent supports it (the tool
             # loop). The BFF consumes this SSE and relays it to the browser.
@@ -113,7 +123,7 @@ def make_handler(agent):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    for event in agent.answer_stream(session, question, planning=planning):
+                    for event in agent.answer_stream(session, question, planning=planning, model=model):
                         self._sse(event)
                 except Exception:  # noqa: BLE001 - never leave the stream hanging
                     self._sse({"type": "error", "message": "agent_error"})
@@ -121,7 +131,7 @@ def make_handler(agent):
                 return
 
             # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
-            result = agent.answer(session, question, planning=planning)
+            result = agent.answer(session, question, planning=planning, model=model)
             body = {
                 "answer": result.text,
                 "grounded": result.grounded,

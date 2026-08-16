@@ -31,10 +31,14 @@ function newSessionId(): string {
   return `web-${uuid}`;
 }
 
+// getModel returns the settings-level default model id to send with each message
+// (undefined -> the agent's deploy-time default). Read fresh per send so changing
+// the selection takes effect immediately without re-creating the hook.
 export function useChat(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
   fetchImpl?: typeof fetch,
+  getModel?: () => string | undefined,
 ): UseChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
@@ -62,7 +66,7 @@ export function useChat(
         for await (const event of streamChat(
           apiBaseUrl,
           token,
-          { input: trimmed, sessionId: sessionIdRef.current },
+          { input: trimmed, sessionId: sessionIdRef.current, model: getModel?.() },
           { signal: controller.signal, fetchImpl },
         )) {
           setMessages((prev) => prev.map((m) => (m.id === assistantId ? applyEvent(m, event) : m)));
@@ -78,7 +82,7 @@ export function useChat(
         abortRef.current = null;
       }
     },
-    [apiBaseUrl, getToken, fetchImpl, streaming],
+    [apiBaseUrl, getToken, fetchImpl, getModel, streaming],
   );
 
   const stop = useCallback(() => {
