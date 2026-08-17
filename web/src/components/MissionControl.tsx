@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import { isTerminal, type Run, type RunEvent } from "../missions/types";
 import type { UseMissions } from "../missions/useMissions";
+
+// The worker's result is markdown; render it like the chat transcript does. Lazy so
+// the markdown/highlight chunk stays out of the initial bundle.
+const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
 
 // The Mission Control observation deck: launch a run against a target repo, watch its
 // priced telemetry stream, and drive the go/no-go gate. The BFF relays to the
@@ -59,6 +63,47 @@ function LaunchForm({ onLaunch }: { onLaunch: (t: string, k: "sim" | "burn", p: 
   );
 }
 
+// The run's final result. The worker returns markdown, and it can be long, so this
+// renders it formatted inside a bounded, scrollable panel that expands to full height
+// on demand and offers copy-to-clipboard — a long result is contained, never clipped
+// with no way to see the rest. A "… (result truncated)" marker from the engine (when a
+// summary overran its cap) renders inline as the italic it is.
+function ResultPanel({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable (insecure context / denied); the text is still selectable */
+    }
+  };
+
+  return (
+    <div className={`mc-result${expanded ? " expanded" : ""}`}>
+      <div className="mc-result-head">
+        <span className="mc-result-label">Result</span>
+        <div className="mc-result-actions">
+          <button type="button" className="link-button" onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+          <button type="button" className="link-button" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "Collapse" : "Expand"}
+          </button>
+        </div>
+      </div>
+      <div className="mc-result-body">
+        <Suspense fallback={<div className="prose">{text}</div>}>
+          <Markdown text={text} />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
 function RunDetail({ run, events, onDecide }: { run: Run; events: RunEvent[]; onDecide: (d: "approve" | "reject") => void }) {
   const gating = run.status === "awaiting_gate";
   return (
@@ -105,7 +150,7 @@ function RunDetail({ run, events, onDecide }: { run: Run; events: RunEvent[]; on
         )}
       </div>
 
-      {run.detail && isTerminal(run.status) && <div className="mc-result">{run.detail}</div>}
+      {run.detail && isTerminal(run.status) && <ResultPanel text={run.detail} />}
     </div>
   );
 }
