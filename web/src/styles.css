@@ -1753,7 +1753,16 @@ button.fb-row:hover { background: var(--surface); }
 .mc-event.mc-gate_waiting { color: var(--pending); }
 .mc-event.mc-error { color: #e5657b; }
 
-.mc-result { margin-top: 18px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; white-space: pre-wrap; font-size: 0.86rem; color: var(--text); }
+.mc-result { margin-top: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; font-size: 0.86rem; color: var(--text); }
+.mc-result-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mc-result-label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.mc-result-actions { display: inline-flex; gap: 14px; }
+/* Bounded + scrollable by default so a long result is contained; a bottom fade cues
+   that there's more. Expand lifts the cap and drops the fade to show it all. */
+.mc-result-body { position: relative; max-height: 22rem; overflow-y: auto; padding: 4px 14px 14px; }
+.mc-result.expanded .mc-result-body { max-height: none; }
+.mc-result-body::after { content: ""; position: sticky; left: 0; bottom: 0; display: block; height: 28px; margin: 0 -14px -14px; background: linear-gradient(transparent, var(--surface)); pointer-events: none; }
+.mc-result.expanded .mc-result-body::after { display: none; }
 .mc-empty { color: var(--faint); font-size: 0.84rem; }
 .mc-placeholder { margin: auto; text-align: center; max-width: 30rem; color: var(--muted); }
 .mc-placeholder h1 { font-size: 1.3rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
