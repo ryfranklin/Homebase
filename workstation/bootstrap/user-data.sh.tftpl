@@ -8,9 +8,9 @@
 # ever written to disk.
 #
 # Note on templating: this file is rendered by Terraform's templatefile(). Only
-# ${aws_region}, ${project_name}, ${environment}, ${workstation_user}, and
-# ${home_device} are Terraform values; all shell variables use $VAR (no braces)
-# so they pass through untouched.
+# ${aws_region}, ${project_name}, ${environment}, ${workstation_user},
+# ${home_device}, ${cockpit_model}, and ${cockpit_small_model} are Terraform
+# values; all shell variables use $VAR (no braces) so they pass through untouched.
 set -euo pipefail
 exec > >(tee /var/log/homebase-bootstrap.log) 2>&1
 
@@ -40,6 +40,10 @@ dnf_install git docker python3 python3-pip unzip tar gzip
 systemctl enable --now docker
 usermod -aG docker "$WS_USER" || true
 dnf_install nodejs20 || dnf_install nodejs || true
+
+# Claude Code CLI: the interactive cockpit. It reaches Claude via Bedrock using
+# the instance role (see the profile.d env below), so no API key is ever stored.
+npm install -g @anthropic-ai/claude-code || true
 
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
@@ -120,5 +124,19 @@ PROFILE
 # Bake only non-secret pointers (region/project/env) into the profile script.
 sed -i "s|__REGION__|$REGION|g; s|__PROJECT__|$PROJECT|g; s|__ENVIRONMENT__|$ENVIRONMENT|g" /etc/profile.d/homebase-session.sh
 chmod 644 /etc/profile.d/homebase-session.sh
+
+# --- Claude Code on Bedrock: no API key; credentials come from the instance role.
+# Written only when a cockpit model is configured. The model ids are Terraform
+# values (not secret); the region is already an input. CLAUDE_CODE_USE_BEDROCK
+# tells the CLI to authenticate to Bedrock with the ambient AWS credentials.
+if [ -n "${cockpit_model}" ]; then
+  cat > /etc/profile.d/claude-code.sh <<'CLAUDE'
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION="${aws_region}"
+export ANTHROPIC_MODEL="${cockpit_model}"
+export ANTHROPIC_SMALL_FAST_MODEL="${cockpit_small_model}"
+CLAUDE
+  chmod 644 /etc/profile.d/claude-code.sh
+fi
 
 echo "homebase workstation bootstrap complete"

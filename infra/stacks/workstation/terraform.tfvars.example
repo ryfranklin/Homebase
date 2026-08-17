@@ -47,3 +47,11 @@ assumable_role_arns = []
 # Auto-stop: scheduled (also stops the NAT instance), activity, or none.
 auto_stop_mode = "scheduled"
 stop_schedule  = "cron(0 3 * * ? *)"
+
+# Claude Code cockpit. The interactive `claude` CLI reaches Bedrock via the
+# instance role (no API key on the box). cockpit_model is the primary model; the
+# small/fast model defaults to Haiku 4.5. Confirm the exact Bedrock inference-
+# profile id (and version suffix) for the account before applying, and that the
+# model is enabled in Bedrock. Empty cockpit_model skips the Bedrock env + grant.
+cockpit_model = "<YOUR_BEDROCK_OPUS_INFERENCE_PROFILE_ID>" # e.g. us.anthropic.claude-opus-4-8-YYYYMMDD-v1:0
+# cockpit_small_model defaults to us.anthropic.claude-haiku-4-5-20251001-v1:0
