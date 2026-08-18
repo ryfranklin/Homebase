@@ -239,7 +239,7 @@
         <div class="grid2">
           <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime, running a tool-use loop over knowledge-base search and the connector read tools, streaming its answer token by token (SSE end to end). Knowledge-base answers cite their sources; AgentCore Memory (short + long term); OTEL observability to CloudWatch.</p></div>
           <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
-          <div class="card"><h3>Infrastructure</h3><p>Terraform across fourteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, mission-control (the execution engine on Fargate + RDS), and slackbot (the optional Slack door). A vault-worker Fargate service owns the git source of truth.</p></div>
+          <div class="card"><h3>Infrastructure</h3><p>Terraform across fifteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, mission-control (the execution engine on Fargate + RDS), slackbot (the optional Slack door), and eval (the on-demand multi-model benchmark runner). A vault-worker Fargate service owns the git source of truth.</p></div>
         </div>
       </section>
 
@@ -425,7 +425,7 @@
           <div class="card"><h3>Amazon Bedrock <span class="pill core">models</span></h3><p>Claude via a cross-region inference profile, Cohere Rerank, Titan Embeddings. Reached by the Runtime and the Knowledge Base.</p></div>
           <div class="card"><h3>Retrieval store <span class="pill read">read</span></h3><p>Bedrock Knowledge Base over Amazon S3 Vectors (semantic index); rerank at query time.</p></div>
           <div class="card"><h3>Cognito <span class="pill core">identity</span></h3><p>User pool with Google federation, hosted UI, and a pre-sign-up allow-list Lambda. Tokens verified in the BFF.</p></div>
-          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI, vault-worker, mission-control, and the Slack bridge. EC2: workstation. AgentCore: the agent.</p></div>
+          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI, vault-worker, mission-control, the Slack bridge, and the on-demand eval benchmark task. EC2: workstation. AgentCore: the agent.</p></div>
           <div class="card"><h3>Connector shims <span class="pill gate">write-gated</span></h3><p>One Lambda per connector; each resolves the tenant OAuth token from AgentCore Identity and calls the vendor API. Reached by <code>lambda:InvokeFunction</code>.</p></div>
         </div>
 
