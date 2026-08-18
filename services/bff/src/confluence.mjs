@@ -14,7 +14,9 @@ export function toCql(query) {
 // url, excerpt }, tolerant of missing fields.
 export function mapConfluenceResults(body, siteUrl = "") {
   const results = Array.isArray(body?.results) ? body.results : [];
-  const base = siteUrl.replace(/\/$/, "");
+  // Site URL is optional (config.confluenceSiteUrl is null when unset); links then
+  // degrade to the relative path instead of crashing on null.replace().
+  const base = (siteUrl || "").replace(/\/$/, "");
   return results
     .map((r) => {
       const content = r.content ?? r;

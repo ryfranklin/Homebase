@@ -54,6 +54,16 @@ test("mapConfluenceResults maps Atlassian results tolerantly and strips excerpt 
   assert.equal(out[1].url, "https://x/9");
 });
 
+test("mapConfluenceResults does not crash when the site URL is unset (null)", () => {
+  const body = { results: [{ content: { id: "1", title: "Design", _links: { webui: "/x/1" } } }] };
+  // config.confluenceSiteUrl is null when HOMEBASE_CONFLUENCE_SITE_URL is unset;
+  // links degrade to the relative webui path instead of throwing.
+  const out = mapConfluenceResults(body, null);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].title, "Design");
+  assert.equal(out[0].url, "/x/1");
+});
+
 test("GET /api/plan/confluence/search returns the mapped pages", async () => {
   const seen = [];
   const confluence = {
