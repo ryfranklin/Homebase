@@ -6,6 +6,9 @@ import { useState } from "react";
 
 import { FlightPlanner } from "./plan/FlightPlanner";
 import { VaultChatPanel, type ChatScope } from "./components/VaultChatPanel";
+import { EvalsView } from "./components/EvalsView";
+import { SAMPLE_PAYLOAD, SAMPLE_SUMMARY } from "./evals/api";
+import type { UseEvals } from "./evals/useEvals";
 import type { ChatMessage } from "./chat/messages";
 
 const SAMPLE: ChatMessage[] = [
@@ -63,6 +66,19 @@ export function DesignPreview() {
   const mode = new URLSearchParams(window.location.search).get("preview");
   // ?preview=plan renders the Flight Planner prototype (board + plan + clearance).
   if (mode === "plan") return <FlightPlanner />;
+  // ?preview=evals renders the Evals diagnostics tab on the bundled sample run.
+  if (mode === "evals") {
+    const sampleEvals: UseEvals = {
+      runs: [SAMPLE_SUMMARY],
+      selected: SAMPLE_PAYLOAD,
+      selectedId: SAMPLE_SUMMARY.runId,
+      error: null,
+      sample: true,
+      refresh: async () => {},
+      select: async () => {},
+    };
+    return <EvalsView evals={sampleEvals} onNavigate={() => {}} onSignOut={() => {}} />;
+  }
   // ?preview / ?preview=chat renders the merged Vault chat panel with sample data.
   return <ChatPreview />;
 }

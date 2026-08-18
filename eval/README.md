@@ -111,7 +111,25 @@ Live mode needs boto3, credentials (instance role or profile), and Bedrock acces
 Confirm on-demand pricing for your region and override `fixtures/pricing.json` (or pass `--pricing`)
 before trusting the cost column. `--min-quality <floor>` turns the run into a gate (non-zero exit if
 the best model is below the floor); `--json` emits machine-readable scorecards for the deployed
-stack to store.
+stack to store. `--by-tag` also prints a per-capability quality breakdown.
+
+### Interactive dashboard
+
+`--html <path>` writes a self-contained, interactive dashboard for the run (no external
+dependencies, opens in any browser): a sortable leaderboard, a models-by-capability quality heatmap,
+a quality-vs-cost scatter, latency bars, and a filterable per-case drill-down that shows each case's
+prompt, the model's response, and the judge's rationale.
+
+```bash
+PYTHONPATH=src python -m homebase_eval.gen_cli --mode live \
+  --cases fixtures/gen_suite_hard.json \
+  --models us.anthropic.claude-sonnet-4-6,qwen.qwen3-next-80b-a3b,zai.glm-5 \
+  --judge us.anthropic.claude-sonnet-4-6 --html eval-dashboard.html
+```
+
+The deployed batch runner renders the same dashboard for every run and writes it to
+`s3://<eval-artifacts-bucket>/dashboards/<run_id>.html`. The `assemble()` payload in `report.py` is
+the shape the future web SPA "Evals" tab will consume, so the two surfaces share one contract.
 
 ### Fixtures are synthetic
 

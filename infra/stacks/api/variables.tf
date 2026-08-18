@@ -78,3 +78,9 @@ variable "jira_project" {
   type        = string
   default     = ""
 }
+
+variable "eval_enabled" {
+  description = "Wire the BFF to the optional eval add-on stack: exposes GET /api/evals/* and grants read on the eval DynamoDB table + S3 artifacts. Set true only after the eval stack is applied (it publishes the table/bucket/key SSM params this reads). Default off keeps api independent of the add-on."
+  type        = bool
+  default     = false
+}

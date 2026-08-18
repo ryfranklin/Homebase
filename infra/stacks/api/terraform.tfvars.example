@@ -18,3 +18,8 @@ function_url_auth_type = "NONE"
 
 lambda_memory_mb       = 512
 lambda_timeout_seconds = 300
+
+# Optional eval add-on: expose GET /api/evals/* (the SPA Evals tab) and grant the
+# BFF read on the eval DynamoDB table + S3 artifacts. Turn on ONLY after applying
+# the eval stack (it publishes the table/bucket/key SSM params this reads).
+eval_enabled = false

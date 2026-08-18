@@ -1,0 +1,169 @@
+{
+  "suite": "gen-hard",
+  "default_rubric": "Grade strictly. Award a high score only if the answer is correct AND follows every formatting instruction exactly (length, case, 'only'/'exactly' constraints, output format). Penalize extra prose, wrong values, hallucinated facts, and near-misses. If a reference answer is given, the answer must match it in substance.",
+  "cases": [
+    {
+      "id": "fmt-three-words",
+      "prompt": "Respond with exactly three words, all lowercase letters only, separated by single spaces, no punctuation. Describe the ocean.",
+      "reference": "deep blue vast",
+      "expect_regex": "^[a-z]+ [a-z]+ [a-z]+$",
+      "tags": ["instruction-following", "format"]
+    },
+    {
+      "id": "primes-csv",
+      "prompt": "Reply with ONLY the first five prime numbers as a comma-separated list, no spaces, no other text.",
+      "reference": "2,3,5,7,11",
+      "expect_regex": "^2,3,5,7,11$",
+      "tags": ["instruction-following", "math"]
+    },
+    {
+      "id": "uppercase-banana",
+      "prompt": "Reply with only the word BANANA in uppercase and nothing else.",
+      "reference": "BANANA",
+      "expect_regex": "^BANANA$",
+      "tags": ["instruction-following"]
+    },
+    {
+      "id": "json-sum-product",
+      "prompt": "Return a JSON object (and nothing else) with integer keys 'sum' and 'product' for the numbers 6 and 7.",
+      "reference": "{\"sum\": 13, \"product\": 42}",
+      "expect_json": true,
+      "expect_json_keys": ["sum", "product"],
+      "expect_contains": ["13", "42"],
+      "tags": ["structured-output", "math"]
+    },
+    {
+      "id": "extract-emails-json",
+      "prompt": "From the text 'ping a@b.co and c@d.io before noon', return a JSON object with key 'emails' whose value is a JSON array of the email addresses. Output only JSON.",
+      "reference": "{\"emails\": [\"a@b.co\", \"c@d.io\"]}",
+      "expect_json_keys": ["emails"],
+      "expect_contains": ["a@b.co", "c@d.io"],
+      "tags": ["extraction", "structured-output"]
+    },
+    {
+      "id": "apples-multistep",
+      "prompt": "A store had 120 apples. It sold 3/8 of them in the morning, then 40% of what remained in the afternoon. How many apples are left? Reply with only the number.",
+      "reference": "45",
+      "expect_regex": "(^|[^0-9])45([^0-9]|$)",
+      "rubric": "Correct answer is 45 (120 minus 45 sold, leaving 75; minus 30 in the afternoon). Reward only 45, and prefer answers that give just the number.",
+      "tags": ["reasoning", "math"]
+    },
+    {
+      "id": "days-from-now",
+      "prompt": "If today is Wednesday, what day of the week is it 100 days from now? Reply with only the day name.",
+      "reference": "Friday",
+      "expect_regex": "(?i)friday",
+      "rubric": "100 mod 7 is 2, so Wednesday plus 2 is Friday. Reward only Friday.",
+      "tags": ["reasoning"]
+    },
+    {
+      "id": "tallest-logic",
+      "prompt": "Alice is taller than Bob. Carol is shorter than Bob. Who is the shortest? Reply with one word.",
+      "reference": "Carol",
+      "expect_regex": "(?i)carol",
+      "tags": ["reasoning"]
+    },
+    {
+      "id": "crt-ball",
+      "prompt": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How many cents does the ball cost? Reply with only the number of cents.",
+      "reference": "5",
+      "expect_regex": "(^|[^0-9])5([^0-9]|$)",
+      "rubric": "The ball costs 5 cents (not 10). Reward only 5. This is a known trap; 10 is wrong.",
+      "tags": ["reasoning", "trap"]
+    },
+    {
+      "id": "strawberry-r",
+      "prompt": "How many times does the letter 'r' appear in the word 'strawberry'? Reply with only the number.",
+      "reference": "3",
+      "expect_regex": "(^|[^0-9])3([^0-9]|$)",
+      "rubric": "The letter r appears 3 times in strawberry. Reward only 3.",
+      "tags": ["counting", "trap"]
+    },
+    {
+      "id": "count-words",
+      "prompt": "How many words are in this sentence: 'The quick brown fox jumps'? Reply with only the number.",
+      "reference": "5",
+      "expect_regex": "(^|[^0-9])5([^0-9]|$)",
+      "tags": ["counting"]
+    },
+    {
+      "id": "unknown-trap",
+      "prompt": "What is the capital city of the fictional country 'Zorbia'? If you do not know or it does not exist, reply with exactly: UNKNOWN",
+      "reference": "UNKNOWN",
+      "expect_regex": "UNKNOWN",
+      "rubric": "Zorbia is fictional; the only correct answer is UNKNOWN. Heavily penalize any hallucinated capital city.",
+      "tags": ["trap", "faithfulness"]
+    },
+    {
+      "id": "is-question",
+      "prompt": "Is the following text phrased as a question? Reply with exactly YES or NO. Text: 'The sky is blue.'",
+      "reference": "NO",
+      "expect_regex": "(?i)^no",
+      "tags": ["instruction-following", "reasoning"]
+    },
+    {
+      "id": "fizzbuzz",
+      "prompt": "Write a Python function named fizzbuzz(n) that returns 'FizzBuzz' if n is divisible by 15, 'Fizz' if divisible by 3, 'Buzz' if divisible by 5, otherwise str(n). Reply with only the code.",
+      "reference": "def fizzbuzz(n):\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    if n % 3 == 0:\n        return 'Fizz'\n    if n % 5 == 0:\n        return 'Buzz'\n    return str(n)",
+      "expect_contains": ["def fizzbuzz", "FizzBuzz"],
+      "rubric": "Must check divisibility by 15 BEFORE 3 and 5 (order matters), and return str(n) otherwise. Penalize code that returns 'Fizz' for 15.",
+      "tags": ["coding"]
+    },
+    {
+      "id": "bugfix-max",
+      "prompt": "This Python function should return the maximum value of a non-empty list, but it has a bug. Return the corrected function only.\n\ndef mx(xs):\n    m = 0\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "reference": "def mx(xs):\n    m = xs[0]\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "expect_contains": ["def mx"],
+      "rubric": "The bug is that m=0 returns 0 for all-negative lists. A correct fix initializes m to xs[0] (or float('-inf')) or uses max(xs). Reward ONLY a fix that handles all-negative inputs; penalize any answer that keeps m=0.",
+      "tags": ["coding", "reasoning"]
+    },
+    {
+      "id": "list-comp-even-squares",
+      "prompt": "Write a single Python line using a list comprehension that produces the squares of the even numbers from 0 to 9 inclusive. Reply with only the code.",
+      "reference": "[x**2 for x in range(10) if x % 2 == 0]",
+      "expect_contains": ["for", "range"],
+      "rubric": "Must be one line, a list comprehension, evaluating to [0, 4, 16, 36, 64]. Penalize odd numbers included or non-squares.",
+      "tags": ["coding"]
+    },
+    {
+      "id": "summary-endword",
+      "prompt": "In exactly one sentence that ends with the word 'grounding', explain what a knowledge base does for a language model.",
+      "reference": "A knowledge base supplies relevant retrieved passages that a language model uses for grounding.",
+      "expect_regex": "grounding\\.?$",
+      "rubric": "Must be exactly one sentence, must end with the word 'grounding' (a trailing period is fine), and must correctly describe grounding via retrieval.",
+      "tags": ["instruction-following", "summarization"]
+    },
+    {
+      "id": "extract-meeting-json",
+      "prompt": "From 'The meeting with Dr. Lee is on 2026-03-14 at 9am in Room 210', return a JSON object with keys 'date', 'time', and 'room'. Output only JSON.",
+      "reference": "{\"date\": \"2026-03-14\", \"time\": \"9am\", \"room\": \"210\"}",
+      "expect_json_keys": ["date", "time", "room"],
+      "expect_contains": ["2026-03-14"],
+      "tags": ["extraction", "structured-output"]
+    },
+    {
+      "id": "roman-sum",
+      "prompt": "What is XIV plus VI in Roman numerals? Reply with only the Roman numeral.",
+      "reference": "XX",
+      "expect_regex": "^XX$",
+      "rubric": "14 plus 6 is 20, which is XX. Reward only XX.",
+      "tags": ["reasoning"]
+    },
+    {
+      "id": "sort-desc-csv",
+      "prompt": "Sort these numbers in descending order as a comma-separated list with no spaces: 3,17,9,1,42,8. Reply with only the list.",
+      "reference": "42,17,9,8,3,1",
+      "expect_regex": "^42,17,9,8,3,1$",
+      "tags": ["instruction-following", "reasoning"]
+    },
+    {
+      "id": "json-array-colors",
+      "prompt": "Return ONLY a JSON array of the three additive primary colors of light as lowercase strings. No prose, no code fence.",
+      "reference": "[\"red\", \"green\", \"blue\"]",
+      "expect_json": true,
+      "expect_contains": ["red", "green", "blue"],
+      "rubric": "The additive primary colors of light are red, green, blue. Must be a bare JSON array of those three lowercase strings. Penalize prose, code fences, or the pigment triad (red, yellow, blue).",
+      "tags": ["structured-output", "instruction-following"]
+    }
+  ]
+}

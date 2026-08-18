@@ -20,11 +20,13 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .gen_models import load_gen_cases
-from .matrix import format_leaderboard, run_matrix, scorecards
+from .matrix import format_leaderboard, format_tag_breakdown, run_matrix, scorecards, tag_breakdown
 from .pricing import is_priced, load_pricing
+from .report import assemble, render_dashboard
 from .targets import MockModelTarget
 
 DEFAULT_CASES = str(Path(__file__).resolve().parents[2] / "fixtures" / "gen_cases.json")
@@ -59,6 +61,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--pricing", default=None, help="Override pricing table JSON.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of the table.")
+    parser.add_argument("--by-tag", action="store_true", help="Also print a per-capability (tag) quality breakdown.")
+    parser.add_argument("--html", default=None, help="Write a self-contained interactive dashboard HTML to this path.")
     parser.add_argument(
         "--min-quality",
         type=float,
@@ -130,14 +134,51 @@ def main(argv=None) -> int:
         targets, judge = _build_offline(args)
 
     unpriced = [t.model_id for t in targets if not is_priced(t.model_id, pricing)]
-    scores = run_matrix(cases, targets, judge=judge, pricing=pricing, repeats=args.repeats)
+
+    # Collect raw per-case records for the HTML drill-down (only when requested).
+    records = []
+    on_case = None
+    if args.html:
+        def on_case(case, response, score):
+            records.append({
+                "case_id": case.id,
+                "model": score.model,
+                "tags": list(case.tags),
+                "prompt": case.prompt,
+                "response": response.text,
+                "quality": score.quality,
+                "rationale": score.quality_rationale,
+                "latency_ms": score.latency_ms,
+                "cost_usd": score.cost_usd,
+                "success": score.success,
+                "error": score.error,
+                "input_tokens": score.input_tokens,
+                "output_tokens": score.output_tokens,
+            })
+
+    scores = run_matrix(cases, targets, judge=judge, pricing=pricing, repeats=args.repeats, on_case=on_case)
     cards = scorecards(scores)
 
     suite_name = Path(args.cases).stem
+
+    if args.html:
+        meta = {
+            "suite": suite_name,
+            "judge": args.judge or "mock-judge",
+            "models": [t.model_id for t in targets],
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "n_cases": len(cases),
+            "git_sha": os.environ.get("GIT_SHA", ""),
+        }
+        Path(args.html).write_text(render_dashboard(assemble(meta, cards, records, cases)), encoding="utf-8")
+        print(f"Wrote dashboard: {args.html}")
     if args.json:
         print(json.dumps({"suite": suite_name, "scorecards": [c.__dict__ for c in cards]}, indent=2))
     else:
         print(format_leaderboard(cards, suite=suite_name))
+        if args.by_tag:
+            print()
+            print(format_tag_breakdown(tag_breakdown(cases, scores)))
         if unpriced:
             print(f"\nNote: no pricing entry for {', '.join(unpriced)} (cost shown as $0). Add them to the pricing table.")
 

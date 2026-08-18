@@ -47,10 +47,28 @@ def run_batch(config: RunConfig, cases, targets, judge, pricing, sink) -> tuple:
     """
     from .matrix import scorecards as build_scorecards
     from .matrix import run_matrix
+    from .report import assemble, render_dashboard
 
     sink.record_run(config)
 
+    records = []
+
     def on_case(case, response, score):
+        records.append({
+            "case_id": case.id,
+            "model": score.model,
+            "tags": list(case.tags),
+            "prompt": case.prompt,
+            "response": response.text,
+            "quality": score.quality,
+            "rationale": score.quality_rationale,
+            "latency_ms": score.latency_ms,
+            "cost_usd": score.cost_usd,
+            "success": score.success,
+            "error": score.error,
+            "input_tokens": score.input_tokens,
+            "output_tokens": score.output_tokens,
+        })
         artifact = {
             "run_id": config.run_id,
             "model": score.model,
@@ -69,6 +87,26 @@ def run_batch(config: RunConfig, cases, targets, judge, pricing, sink) -> tuple:
     scores = run_matrix(cases, targets, judge=judge, pricing=pricing, repeats=config.repeats, on_case=on_case)
     cards = build_scorecards(scores)
     sink.finalize(config, cards)
+
+    # Build the run payload once. It powers two surfaces: the self-contained HTML
+    # dashboard, and the JSON the BFF serves to the web SPA Evals tab. Same shape,
+    # one contract (report.assemble).
+    meta = {
+        "suite": config.suite,
+        "judge": config.judge,
+        "models": config.models,
+        "generated_at": config.created_at,
+        "n_cases": len(cases),
+        "git_sha": config.git_sha,
+        "run_id": config.run_id,
+        "tenant_id": config.tenant_id,
+    }
+    run_data = assemble(meta, cards, records, cases)
+    if hasattr(sink, "write_payload"):
+        sink.write_payload(config.run_id, run_data)
+    if hasattr(sink, "write_dashboard"):
+        sink.write_dashboard(config.run_id, render_dashboard(run_data))
+
     return scores, cards
 
 
@@ -81,6 +119,8 @@ class MemorySink:
         self.artifacts = {}
         self.metrics = []
         self.scorecards = None
+        self.dashboard = None
+        self.payload = None
 
     def record_run(self, config):
         self.run = config
@@ -94,6 +134,12 @@ class MemorySink:
 
     def finalize(self, config, cards):
         self.scorecards = cards
+
+    def write_dashboard(self, run_id, html):
+        self.dashboard = html
+
+    def write_payload(self, run_id, payload):
+        self.payload = payload
 
 
 class AwsSink:
@@ -191,4 +237,23 @@ class AwsSink:
                 "data": json.dumps(asdict(config)),
                 "scorecards": json.dumps([asdict(c) for c in cards]),
             }
+        )
+
+    def write_dashboard(self, run_id, html):
+        # A browsable per-run dashboard alongside the raw artifacts.
+        self._s3.put_object(
+            Bucket=self._bucket,
+            Key=f"dashboards/{run_id}.html",
+            Body=html.encode("utf-8"),
+            ContentType="text/html; charset=utf-8",
+        )
+
+    def write_payload(self, run_id, payload):
+        # The JSON the BFF serves to the web SPA Evals tab (same shape as the
+        # dashboard's embedded data).
+        self._s3.put_object(
+            Bucket=self._bucket,
+            Key=f"runs/{run_id}/payload.json",
+            Body=json.dumps(payload).encode("utf-8"),
+            ContentType="application/json",
         )

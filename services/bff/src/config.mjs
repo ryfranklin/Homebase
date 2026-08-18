@@ -70,5 +70,10 @@ export function loadConfig(env = process.env) {
     // after this many days on list. Enabled whenever the vault is (needs the writer
     // to save/delete). Default 30 days.
     chatRetentionDays: Number(env.HOMEBASE_CHAT_RETENTION_DAYS) || 30,
+    // Eval harness read surface. When the table + bucket are set, the BFF exposes
+    // GET /api/evals/runs and /api/evals/runs/<id>, serving the run payload the
+    // harness wrote to S3. Both optional so chat-only and tests run without them.
+    evalTable: env.HOMEBASE_EVAL_TABLE || null,
+    evalBucket: env.HOMEBASE_EVAL_BUCKET || null,
   };
 }
