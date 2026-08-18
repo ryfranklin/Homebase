@@ -1,11 +1,15 @@
 # Reviewed false positives (fingerprint = commit:file:rule:startline).
 #
-# gitleaks' generic-api-key heuristic misfired on two leaderboard column
-# definitions in the eval SPA tab: `{ key: "p50_latency_ms", ... }` and
-# `{ key: "p95_latency_ms", ... }`. The `key:` property next to a slightly
-# high-entropy column id reads as a secret assignment. These are TypeScript
-# object keys, not secrets. The code was also changed to use a `field` property
-# instead of `key` so the current tree does not trip the rule; these fingerprints
-# only silence the finding in the pre-fix commit still present in the PR history.
+# gitleaks' generic-api-key heuristic misfired on two leaderboard column ids in
+# the eval SPA tab: a property named after the column, holding a slightly
+# high-entropy id such as p50_latency_ms or p95_latency_ms, reads as a secret
+# assignment. They are TypeScript object properties, not secrets. The code was
+# changed to name that property field (not the word the rule keys on) so the
+# current tree is clean; the fingerprints below only silence the finding in the
+# pre-fix commit that is still present in this PR's history.
 4e87e41a4569f9c137d969728289a30c6c3c44a1:web/src/components/EvalsView.tsx:generic-api-key:146
 4e87e41a4569f9c137d969728289a30c6c3c44a1:web/src/components/EvalsView.tsx:generic-api-key:147
+# And the same misfire on an earlier version of this file whose comment quoted the
+# offending line verbatim (since reworded). Silences it in that commit's history.
+64e74ea9d3987bedc079593235bcb8a4c155c7da:.gitleaksignore:generic-api-key:4
+64e74ea9d3987bedc079593235bcb8a4c155c7da:.gitleaksignore:generic-api-key:5
