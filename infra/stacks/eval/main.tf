@@ -461,3 +461,12 @@ resource "aws_ssm_parameter" "bucket_name" {
   value = aws_s3_bucket.artifacts.bucket
   tags  = local.common_tags
 }
+
+# The CMK the artifacts bucket is encrypted with. The BFF (api stack) needs
+# kms:Decrypt on this key to read a run's payload.json when the Evals tab is on.
+resource "aws_ssm_parameter" "kms_key_arn" {
+  name  = "/${var.project_name}/${var.environment}/eval/kms_key_arn"
+  type  = "String"
+  value = module.kms.key_arn
+  tags  = local.common_tags
+}

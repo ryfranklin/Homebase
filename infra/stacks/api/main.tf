@@ -69,6 +69,21 @@ data "aws_ssm_parameter" "mission_control_service_name" {
   name = "/${var.project_name}/${var.environment}/mission-control/service_name"
 }
 
+# Optional eval add-on. Read only when eval_enabled, so the api stack does not
+# depend on the eval stack being deployed.
+data "aws_ssm_parameter" "eval_table_name" {
+  count = var.eval_enabled ? 1 : 0
+  name  = "/${var.project_name}/${var.environment}/eval/table_name"
+}
+data "aws_ssm_parameter" "eval_bucket_name" {
+  count = var.eval_enabled ? 1 : 0
+  name  = "/${var.project_name}/${var.environment}/eval/bucket_name"
+}
+data "aws_ssm_parameter" "eval_kms_key_arn" {
+  count = var.eval_enabled ? 1 : 0
+  name  = "/${var.project_name}/${var.environment}/eval/kms_key_arn"
+}
+
 locals {
   common_tags = merge({
     Project     = var.project_name
@@ -88,6 +103,13 @@ locals {
   knowledge_base_id  = data.aws_ssm_parameter.knowledge_base_id.value
   data_source_id     = data.aws_ssm_parameter.data_source_id.value
   corpus_bucket_arn  = "arn:${data.aws_partition.current.partition}:s3:::${data.aws_ssm_parameter.corpus_bucket_name.value}"
+
+  # Optional eval add-on wiring ("" when eval_enabled is false).
+  eval_table_name  = var.eval_enabled ? data.aws_ssm_parameter.eval_table_name[0].value : ""
+  eval_bucket_name = var.eval_enabled ? data.aws_ssm_parameter.eval_bucket_name[0].value : ""
+  eval_kms_key_arn = var.eval_enabled ? data.aws_ssm_parameter.eval_kms_key_arn[0].value : ""
+  eval_table_arn   = var.eval_enabled ? "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${local.eval_table_name}" : ""
+  eval_bucket_arn  = var.eval_enabled ? "arn:${data.aws_partition.current.partition}:s3:::${local.eval_bucket_name}" : ""
 }
 
 # KMS key for the BFF log group.
@@ -306,6 +328,28 @@ data "aws_iam_policy_document" "bff" {
     resources = ["*"]
   }
 
+  # Eval add-on reads: list runs (DynamoDB Query on the run ledger) and fetch a
+  # run's payload.json (S3 GetObject on the CMK-encrypted artifacts bucket, hence
+  # kms:Decrypt on the eval key). Opt-in via eval_enabled.
+  dynamic "statement" {
+    for_each = var.eval_enabled ? [1] : []
+    content {
+      sid       = "ReadEvalRuns"
+      effect    = "Allow"
+      actions   = ["dynamodb:Query", "s3:GetObject"]
+      resources = [local.eval_table_arn, "${local.eval_bucket_arn}/*"]
+    }
+  }
+  dynamic "statement" {
+    for_each = var.eval_enabled ? [1] : []
+    content {
+      sid       = "DecryptEvalArtifacts"
+      effect    = "Allow"
+      actions   = ["kms:Decrypt"]
+      resources = [local.eval_kms_key_arn]
+    }
+  }
+
   # CompleteResourceTokenAuth reads the connector provider's stored OAuth
   # credentials from the AgentCore-managed Secrets Manager vault using the CALLER's
   # identity, so the BFF role needs GetSecretValue on this env's identity secrets
@@ -493,6 +537,9 @@ resource "aws_lambda_function" "bff" {
       # jira_project is set, POST /api/plan/materialize is enabled.
       HOMEBASE_CONFLUENCE_SITE_URL = var.confluence_site_url
       HOMEBASE_JIRA_PROJECT        = var.jira_project
+      # Eval add-on read surface. Empty (default) leaves /api/evals/* disabled.
+      HOMEBASE_EVAL_TABLE  = local.eval_table_name
+      HOMEBASE_EVAL_BUCKET = local.eval_bucket_name
     }
   }
 

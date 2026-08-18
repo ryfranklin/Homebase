@@ -12,6 +12,7 @@ import { useConnectorCallback } from "./connectors/useConnectorCallback";
 import { makeVaultPlanStore } from "./plan/store";
 import { planOwnerFromIdToken } from "./plan/identity";
 import { useMissions } from "./missions/useMissions";
+import { useEvals } from "./evals/useEvals";
 
 // The workspace views carry the heavy Markdown/highlight/mermaid code. Lazy-load
 // them so the initial bundle is just the shell + login; the vault (default) or
@@ -20,8 +21,9 @@ const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ def
 const ChatView = lazy(() => import("./components/ChatView").then((m) => ({ default: m.ChatView })));
 const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
 const MissionControl = lazy(() => import("./components/MissionControl").then((m) => ({ default: m.MissionControl })));
+const EvalsView = lazy(() => import("./components/EvalsView").then((m) => ({ default: m.EvalsView })));
 
-type Mode = "vault" | "chat" | "plan" | "mission";
+type Mode = "vault" | "chat" | "plan" | "mission" | "evals";
 
 export function App() {
   const config = useMemo(() => loadConfig(), []);
@@ -60,6 +62,8 @@ export function App() {
   const planOwner = useMemo(() => planOwnerFromIdToken(auth.tokens?.idToken), [auth.tokens?.idToken]);
   // Mission Control deck: only polls the engine while the Mission tab is open.
   const missions = useMissions(config.apiBaseUrl, auth.getAccessToken, mode === "mission");
+  // Evals deck: only fetches run data while the Evals tab is open.
+  const evals = useEvals(config.apiBaseUrl, auth.getAccessToken, mode === "evals");
   // Finalize a connector consent if the browser returned with ?session_id=.
   const connector = useConnectorCallback(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
   // What's actually connected (from the token vault), for the chat's source display.
@@ -102,6 +106,8 @@ export function App() {
           />
         ) : mode === "mission" ? (
           <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
+        ) : mode === "evals" ? (
+          <EvalsView evals={evals} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : (
           <ChatView
             messages={chat.messages}

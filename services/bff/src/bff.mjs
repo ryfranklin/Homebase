@@ -217,6 +217,28 @@ async function proxyMissionEvents(mc, runId, lastEventId, respond, cors) {
   }
 }
 
+// Eval harness reads: run list + one run's full payload. Scoped by the verified
+// tenant; the payload is served verbatim from what the harness stored.
+async function handleEvals(rest, method, event, respond, cors, deps, tenantId) {
+  if (!deps.evals) {
+    return writeError(respond, cors, 503, "evals_unconfigured", "evals are not enabled on this deployment");
+  }
+  const segments = rest.split("/").filter(Boolean); // ["runs"], ["runs", "<id>"]
+  const q = queryParams(event);
+  try {
+    if (segments[0] === "runs" && segments.length === 1 && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.evals.listRuns(tenantId, q));
+    }
+    if (segments[0] === "runs" && segments.length === 2 && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.evals.getRun(tenantId, decodeURIComponent(segments[1])));
+    }
+    return writeError(respond, cors, 404, "not_found", "no such evals route");
+  } catch (err) {
+    const status = err?.status && err.status < 500 ? err.status : 502;
+    return writeError(respond, cors, status, err?.code || "evals_error", err?.message || "evals error");
+  }
+}
+
 // handleRequest(event, respond, deps)
 //   respond(statusCode, headers) -> { write(chunk), end() }
 //   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable,
@@ -403,6 +425,12 @@ export async function handleRequest(event, respond, deps) {
   const missionMatch = /\/missions\/(.+)$/.exec(path);
   if (missionMatch) {
     return handleMissions(missionMatch[1], method, event, body, respond, cors, deps);
+  }
+
+  // Eval harness reads (run list + one run's payload). Authenticated by the checks above.
+  const evalsMatch = /\/evals\/(.+)$/.exec(path);
+  if (evalsMatch) {
+    return handleEvals(evalsMatch[1], method, event, respond, cors, deps, tenantId);
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;

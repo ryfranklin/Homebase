@@ -1,0 +1,1419 @@
+{
+  "meta": {
+    "suite": "gen_suite_hard",
+    "judge": "us.anthropic.claude-sonnet-4-6",
+    "models": [
+      "us.anthropic.claude-sonnet-4-6",
+      "qwen.qwen3-next-80b-a3b",
+      "zai.glm-5"
+    ],
+    "generated_at": "2026-08-18 03:38 UTC",
+    "n_cases": 21,
+    "git_sha": ""
+  },
+  "scorecards": [
+    {
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "n_cases": 21,
+      "avg_quality": 0.9142857142857143,
+      "p50_latency_ms": 1188.724749998073,
+      "p95_latency_ms": 1929.101832996821,
+      "avg_cost_usd": 0.00046014285714285715,
+      "total_cost_usd": 0.009663,
+      "success_rate": 1.0,
+      "n_errors": 0
+    },
+    {
+      "model": "qwen.qwen3-next-80b-a3b",
+      "n_cases": 21,
+      "avg_quality": 0.9047619047619048,
+      "p50_latency_ms": 504.8436249999213,
+      "p95_latency_ms": 1218.2232499981183,
+      "avg_cost_usd": 4.213333333333333e-05,
+      "total_cost_usd": 0.0008848,
+      "success_rate": 0.9523809523809523,
+      "n_errors": 0
+    },
+    {
+      "model": "zai.glm-5",
+      "n_cases": 21,
+      "avg_quality": 0.8928571428571429,
+      "p50_latency_ms": 1283.1257500001811,
+      "p95_latency_ms": 4566.305792002822,
+      "avg_cost_usd": 5.040952380952381e-05,
+      "total_cost_usd": 0.0010586,
+      "success_rate": 0.9523809523809523,
+      "n_errors": 0
+    }
+  ],
+  "tags": [
+    {
+      "tag": "coding",
+      "rows": [
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.9,
+          "success": 1.0,
+          "n": 3
+        }
+      ]
+    },
+    {
+      "tag": "counting",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 2
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 2
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 2
+        }
+      ]
+    },
+    {
+      "tag": "extraction",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.75,
+          "success": 1.0,
+          "n": 2
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.75,
+          "success": 1.0,
+          "n": 2
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.75,
+          "success": 1.0,
+          "n": 2
+        }
+      ]
+    },
+    {
+      "tag": "faithfulness",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 1
+        }
+      ]
+    },
+    {
+      "tag": "format",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.7,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.7,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.6,
+          "success": 1.0,
+          "n": 1
+        }
+      ]
+    },
+    {
+      "tag": "instruction-following",
+      "rows": [
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.9428571428571428,
+          "success": 1.0,
+          "n": 7
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.9214285714285715,
+          "success": 1.0,
+          "n": 7
+        },
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.9,
+          "success": 1.0,
+          "n": 7
+        }
+      ]
+    },
+    {
+      "tag": "math",
+      "rows": [
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.9666666666666667,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.9,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.6,
+          "success": 0.6666666666666666,
+          "n": 3
+        }
+      ]
+    },
+    {
+      "tag": "reasoning",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.9875,
+          "success": 1.0,
+          "n": 8
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.875,
+          "success": 0.875,
+          "n": 8
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.8625,
+          "success": 0.875,
+          "n": 8
+        }
+      ]
+    },
+    {
+      "tag": "structured-output",
+      "rows": [
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.875,
+          "success": 1.0,
+          "n": 4
+        },
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.825,
+          "success": 1.0,
+          "n": 4
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.825,
+          "success": 1.0,
+          "n": 4
+        }
+      ]
+    },
+    {
+      "tag": "summarization",
+      "rows": [
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 0.9,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 0.85,
+          "success": 1.0,
+          "n": 1
+        },
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 0.6,
+          "success": 1.0,
+          "n": 1
+        }
+      ]
+    },
+    {
+      "tag": "trap",
+      "rows": [
+        {
+          "model": "us.anthropic.claude-sonnet-4-6",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "qwen.qwen3-next-80b-a3b",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 3
+        },
+        {
+          "model": "zai.glm-5",
+          "quality": 1.0,
+          "success": 1.0,
+          "n": 3
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "fmt-three-words",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following",
+        "format"
+      ],
+      "prompt": "Respond with exactly three words, all lowercase letters only, separated by single spaces, no punctuation. Describe the ocean.",
+      "response": "vast blue deep",
+      "quality": 0.7,
+      "rationale": "The candidate answer meets all formatting requirements (exactly three lowercase words, separated by single spaces, no punctuation) and uses the same three words as the reference, but in a different order (vast blue deep vs. deep blue vast).",
+      "latency_ms": 2805.788540994399,
+      "cost_usd": 0.000189,
+      "success": true,
+      "error": "",
+      "input_tokens": 33,
+      "output_tokens": 6
+    },
+    {
+      "case_id": "primes-csv",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following",
+        "math"
+      ],
+      "prompt": "Reply with ONLY the first five prime numbers as a comma-separated list, no spaces, no other text.",
+      "response": "2,3,5,7,11",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with the correct first five prime numbers in a comma-separated list with no spaces and no other text.",
+      "latency_ms": 1279.0920839979663,
+      "cost_usd": 0.000285,
+      "success": true,
+      "error": "",
+      "input_tokens": 30,
+      "output_tokens": 13
+    },
+    {
+      "case_id": "uppercase-banana",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following"
+      ],
+      "prompt": "Reply with only the word BANANA in uppercase and nothing else.",
+      "response": "BANANA",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with only the word BANANA in uppercase and nothing else.",
+      "latency_ms": 943.8197080016835,
+      "cost_usd": 0.00013500000000000003,
+      "success": true,
+      "error": "",
+      "input_tokens": 20,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "json-sum-product",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "structured-output",
+        "math"
+      ],
+      "prompt": "Return a JSON object (and nothing else) with integer keys 'sum' and 'product' for the numbers 6 and 7.",
+      "response": "```json\n{\"sum\": 13, \"product\": 42}\n```",
+      "quality": 0.8,
+      "rationale": "The values are correct (sum=13, product=42), but the answer includes markdown code block formatting (```json ... ```) rather than returning just the JSON object itself.",
+      "latency_ms": 1254.274416998669,
+      "cost_usd": 0.00041400000000000003,
+      "success": true,
+      "error": "",
+      "input_tokens": 38,
+      "output_tokens": 20
+    },
+    {
+      "case_id": "extract-emails-json",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From the text 'ping a@b.co and c@d.io before noon', return a JSON object with key 'emails' whose value is a JSON array of the email addresses. Output only JSON.",
+      "response": "```json\n{\"emails\": [\"a@b.co\", \"c@d.io\"]}\n```",
+      "quality": 0.7,
+      "rationale": "The answer contains the correct JSON object matching the reference, but includes markdown code block formatting (```json ... ```) which violates the 'Output only JSON' instruction.",
+      "latency_ms": 967.365874996176,
+      "cost_usd": 0.000546,
+      "success": true,
+      "error": "",
+      "input_tokens": 52,
+      "output_tokens": 26
+    },
+    {
+      "case_id": "apples-multistep",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "reasoning",
+        "math"
+      ],
+      "prompt": "A store had 120 apples. It sold 3/8 of them in the morning, then 40% of what remained in the afternoon. How many apples are left? Reply with only the number.",
+      "response": "Morning: 120 \u00d7 3/8 = 45 sold \u2192 120 - 45 = 75 remaining\n\nAfternoon: 75 \u00d7 40% = 30 sold \u2192 75 - 30 = 45 remaining\n\n45",
+      "quality": 0.9,
+      "rationale": "The candidate gives the correct answer of 45, though it includes working/explanation rather than just the number as requested.",
+      "latency_ms": 1769.2967500042869,
+      "cost_usd": 0.001104,
+      "success": true,
+      "error": "",
+      "input_tokens": 53,
+      "output_tokens": 63
+    },
+    {
+      "case_id": "days-from-now",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "If today is Wednesday, what day of the week is it 100 days from now? Reply with only the day name.",
+      "response": "100 days from Wednesday:\n\n100 \u00f7 7 = 14 remainder 2\n\nWednesday + 2 days = Friday\n\nFriday",
+      "quality": 1.0,
+      "rationale": "The candidate correctly calculated 100 mod 7 = 2, added 2 days to Wednesday, and arrived at the correct answer: Friday.",
+      "latency_ms": 1382.6133330003358,
+      "cost_usd": 0.000669,
+      "success": true,
+      "error": "",
+      "input_tokens": 33,
+      "output_tokens": 38
+    },
+    {
+      "case_id": "tallest-logic",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "Alice is taller than Bob. Carol is shorter than Bob. Who is the shortest? Reply with one word.",
+      "response": "Carol",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with a single word.",
+      "latency_ms": 1052.848166997137,
+      "cost_usd": 0.00015000000000000001,
+      "success": true,
+      "error": "",
+      "input_tokens": 30,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "crt-ball",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "reasoning",
+        "trap"
+      ],
+      "prompt": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How many cents does the ball cost? Reply with only the number of cents.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 5 cents, which matches the reference answer exactly.",
+      "latency_ms": 1083.1942500008154,
+      "cost_usd": 0.00022500000000000002,
+      "success": true,
+      "error": "",
+      "input_tokens": 50,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "strawberry-r",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "counting",
+        "trap"
+      ],
+      "prompt": "How many times does the letter 'r' appear in the word 'strawberry'? Reply with only the number.",
+      "response": "3",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 3, which matches the reference answer.",
+      "latency_ms": 1022.0167910010787,
+      "cost_usd": 0.000174,
+      "success": true,
+      "error": "",
+      "input_tokens": 33,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "count-words",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "counting"
+      ],
+      "prompt": "How many words are in this sentence: 'The quick brown fox jumps'? Reply with only the number.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with only the number 5, following all formatting instructions.",
+      "latency_ms": 1166.5927919966634,
+      "cost_usd": 0.00016800000000000002,
+      "success": true,
+      "error": "",
+      "input_tokens": 31,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "unknown-trap",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "trap",
+        "faithfulness"
+      ],
+      "prompt": "What is the capital city of the fictional country 'Zorbia'? If you do not know or it does not exist, reply with exactly: UNKNOWN",
+      "response": "UNKNOWN",
+      "quality": 1.0,
+      "rationale": "The candidate correctly replied with exactly UNKNOWN for the fictional country Zorbia.",
+      "latency_ms": 1143.1853329995647,
+      "cost_usd": 0.00019500000000000002,
+      "success": true,
+      "error": "",
+      "input_tokens": 40,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "is-question",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Is the following text phrased as a question? Reply with exactly YES or NO. Text: 'The sky is blue.'",
+      "response": "NO",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer 'NO' with no extra text.",
+      "latency_ms": 919.1152499988675,
+      "cost_usd": 0.00016199999999999998,
+      "success": true,
+      "error": "",
+      "input_tokens": 34,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "fizzbuzz",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a Python function named fizzbuzz(n) that returns 'FizzBuzz' if n is divisible by 15, 'Fizz' if divisible by 3, 'Buzz' if divisible by 5, otherwise str(n). Reply with only the code.",
+      "response": "```python\ndef fizzbuzz(n):\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    elif n % 3 == 0:\n        return 'Fizz'\n    elif n % 5 == 0:\n        return 'Buzz'\n    else:\n        return str(n)\n```",
+      "quality": 1.0,
+      "rationale": "The candidate checks divisibility by 15 first, then 3, then 5, and returns str(n) otherwise, exactly matching the reference solution's logic and order.",
+      "latency_ms": 1584.621750000224,
+      "cost_usd": 0.0015509999999999999,
+      "success": true,
+      "error": "",
+      "input_tokens": 72,
+      "output_tokens": 89
+    },
+    {
+      "case_id": "bugfix-max",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "coding",
+        "reasoning"
+      ],
+      "prompt": "This Python function should return the maximum value of a non-empty list, but it has a bug. Return the corrected function only.\n\ndef mx(xs):\n    m = 0\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "response": "```python\ndef mx(xs):\n    m = xs[0]\n    for x in xs:\n        if x > m:\n            m = x\n    return m\n```",
+      "quality": 1.0,
+      "rationale": "The candidate correctly initializes m to xs[0] instead of 0, which fixes the bug for all-negative lists.",
+      "latency_ms": 1365.9793339975295,
+      "cost_usd": 0.00087,
+      "success": true,
+      "error": "",
+      "input_tokens": 70,
+      "output_tokens": 44
+    },
+    {
+      "case_id": "list-comp-even-squares",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a single Python line using a list comprehension that produces the squares of the even numbers from 0 to 9 inclusive. Reply with only the code.",
+      "response": "```python\nsquares = [x**2 for x in range(10) if x % 2 == 0]\n```",
+      "quality": 0.7,
+      "rationale": "The list comprehension is correct and produces [0, 4, 16, 36, 64], but it includes an assignment statement making it not a pure one-line expression that evaluates to the list directly.",
+      "latency_ms": 1188.724749998073,
+      "cost_usd": 0.000603,
+      "success": true,
+      "error": "",
+      "input_tokens": 41,
+      "output_tokens": 32
+    },
+    {
+      "case_id": "summary-endword",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following",
+        "summarization"
+      ],
+      "prompt": "In exactly one sentence that ends with the word 'grounding', explain what a knowledge base does for a language model.",
+      "response": "A knowledge base provides a language model with a structured repository of facts and information that anchors its responses in verified, reliable data, giving its outputs a foundation of factual grounding.",
+      "quality": 0.6,
+      "rationale": "The answer is exactly one sentence and ends with 'grounding', but it describes grounding via a static repository of facts rather than via retrieval, missing the key retrieval mechanism specified in the rubric.",
+      "latency_ms": 1929.101832996821,
+      "cost_usd": 0.000696,
+      "success": true,
+      "error": "",
+      "input_tokens": 32,
+      "output_tokens": 40
+    },
+    {
+      "case_id": "extract-meeting-json",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From 'The meeting with Dr. Lee is on 2026-03-14 at 9am in Room 210', return a JSON object with keys 'date', 'time', and 'room'. Output only JSON.",
+      "response": "```json\n{\n  \"date\": \"2026-03-14\",\n  \"time\": \"9am\",\n  \"room\": \"210\"\n}\n```",
+      "quality": 0.8,
+      "rationale": "The values are correct and match the reference, but the answer includes markdown code fences (```json ... ```) rather than outputting only plain JSON as instructed.",
+      "latency_ms": 1301.4683750006952,
+      "cost_usd": 0.000789,
+      "success": true,
+      "error": "",
+      "input_tokens": 58,
+      "output_tokens": 41
+    },
+    {
+      "case_id": "roman-sum",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "What is XIV plus VI in Roman numerals? Reply with only the Roman numeral.",
+      "response": "XX",
+      "quality": 1.0,
+      "rationale": "The candidate answer XX is exactly correct, matching the reference answer for XIV (14) plus VI (6) = 20 = XX.",
+      "latency_ms": 1077.926584002853,
+      "cost_usd": 0.000135,
+      "success": true,
+      "error": "",
+      "input_tokens": 25,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "sort-desc-csv",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Sort these numbers in descending order as a comma-separated list with no spaces: 3,17,9,1,42,8. Reply with only the list.",
+      "response": "42,17,9,8,3,1",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with correct descending order and proper formatting (comma-separated, no spaces).",
+      "latency_ms": 1038.8812079982017,
+      "cost_usd": 0.000354,
+      "success": true,
+      "error": "",
+      "input_tokens": 43,
+      "output_tokens": 15
+    },
+    {
+      "case_id": "json-array-colors",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "tags": [
+        "structured-output",
+        "instruction-following"
+      ],
+      "prompt": "Return ONLY a JSON array of the three additive primary colors of light as lowercase strings. No prose, no code fence.",
+      "response": "[\"red\",\"green\",\"blue\"]",
+      "quality": 1.0,
+      "rationale": "The candidate answer is exactly the required bare JSON array containing the three correct additive primary colors of light as lowercase strings, with no prose or code fences.",
+      "latency_ms": 1260.5074160019285,
+      "cost_usd": 0.00024900000000000004,
+      "success": true,
+      "error": "",
+      "input_tokens": 33,
+      "output_tokens": 10
+    },
+    {
+      "case_id": "fmt-three-words",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following",
+        "format"
+      ],
+      "prompt": "Respond with exactly three words, all lowercase letters only, separated by single spaces, no punctuation. Describe the ocean.",
+      "response": "vast endless mysterious",
+      "quality": 0.7,
+      "rationale": "The candidate answer correctly follows all formatting rules (exactly three lowercase words, separated by single spaces, no punctuation), but the specific words differ from the reference answer 'deep blue vast'; while 'vast' overlaps, 'endless mysterious' are substitutes that still reasonably describe the ocean, so it's a valid but non-matching response.",
+      "latency_ms": 430.83150000165915,
+      "cost_usd": 2.04e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 31,
+      "output_tokens": 5
+    },
+    {
+      "case_id": "primes-csv",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following",
+        "math"
+      ],
+      "prompt": "Reply with ONLY the first five prime numbers as a comma-separated list, no spaces, no other text.",
+      "response": "2,3,5,7,11",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with the correct first five prime numbers in a comma-separated list with no spaces and no other text.",
+      "latency_ms": 524.4445839998662,
+      "cost_usd": 2.92e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 29,
+      "output_tokens": 11
+    },
+    {
+      "case_id": "uppercase-banana",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following"
+      ],
+      "prompt": "Reply with only the word BANANA in uppercase and nothing else.",
+      "response": "BANANA",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with only the word BANANA in uppercase and nothing else.",
+      "latency_ms": 1122.1135000014328,
+      "cost_usd": 1.52e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 22,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "json-sum-product",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "structured-output",
+        "math"
+      ],
+      "prompt": "Return a JSON object (and nothing else) with integer keys 'sum' and 'product' for the numbers 6 and 7.",
+      "response": "{\"sum\": 13, \"product\": 42}",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with correct sum (13) and product (42), formatted as a JSON object with no extra prose.",
+      "latency_ms": 498.8013330003014,
+      "cost_usd": 3.84e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 36,
+      "output_tokens": 15
+    },
+    {
+      "case_id": "extract-emails-json",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From the text 'ping a@b.co and c@d.io before noon', return a JSON object with key 'emails' whose value is a JSON array of the email addresses. Output only JSON.",
+      "response": "{\"emails\": [\"a@b.co\", \"c@d.io\"]}",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with correct JSON format, correct key, and correct email addresses in the array.",
+      "latency_ms": 804.1919590032194,
+      "cost_usd": 4.3200000000000007e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 48,
+      "output_tokens": 15
+    },
+    {
+      "case_id": "apples-multistep",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "reasoning",
+        "math"
+      ],
+      "prompt": "A store had 120 apples. It sold 3/8 of them in the morning, then 40% of what remained in the afternoon. How many apples are left? Reply with only the number.",
+      "response": "120 \u00d7 (3/8) = 45 apples sold in the morning  \nRemaining after morning: 120 - 45 = 75 apples  \n\n40% of 75 sold in the afternoon: 0.4 \u00d7 75 = 30 apples  \n\nRemaining after afternoon: 75 - 30 = 45 apples  \n\n45",
+      "quality": 0.9,
+      "rationale": "The candidate gives the correct answer of 45, with full correct working shown, though the rubric prefers just the number.",
+      "latency_ms": 1218.2232499981183,
+      "cost_usd": 0.000154,
+      "success": true,
+      "error": "",
+      "input_tokens": 53,
+      "output_tokens": 83
+    },
+    {
+      "case_id": "days-from-now",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "If today is Wednesday, what day of the week is it 100 days from now? Reply with only the day name.",
+      "response": "Saturday",
+      "quality": 0.0,
+      "rationale": "The candidate answered Saturday, but the correct answer is Friday (100 mod 7 = 2, Wednesday + 2 days = Friday).",
+      "latency_ms": 432.31850000302074,
+      "cost_usd": 1.7199999999999998e-05,
+      "success": false,
+      "error": "",
+      "input_tokens": 35,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "tallest-logic",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "Alice is taller than Bob. Carol is shorter than Bob. Who is the shortest? Reply with one word.",
+      "response": "Carol",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with a single word and correct reasoning.",
+      "latency_ms": 232.7736660008668,
+      "cost_usd": 1.52e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 30,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "crt-ball",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "reasoning",
+        "trap"
+      ],
+      "prompt": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How many cents does the ball cost? Reply with only the number of cents.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 5 cents, which matches the reference answer exactly.",
+      "latency_ms": 504.8436249999213,
+      "cost_usd": 2.36e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 51,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "strawberry-r",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "counting",
+        "trap"
+      ],
+      "prompt": "How many times does the letter 'r' appear in the word 'strawberry'? Reply with only the number.",
+      "response": "3",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 3, which matches the reference answer.",
+      "latency_ms": 427.1968340035528,
+      "cost_usd": 1.6e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 32,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "count-words",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "counting"
+      ],
+      "prompt": "How many words are in this sentence: 'The quick brown fox jumps'? Reply with only the number.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer of 5, with no extra prose or formatting issues.",
+      "latency_ms": 621.173749997979,
+      "cost_usd": 1.48e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 29,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "unknown-trap",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "trap",
+        "faithfulness"
+      ],
+      "prompt": "What is the capital city of the fictional country 'Zorbia'? If you do not know or it does not exist, reply with exactly: UNKNOWN",
+      "response": "UNKNOWN",
+      "quality": 1.0,
+      "rationale": "The candidate correctly replied with exactly UNKNOWN for the fictional country Zorbia.",
+      "latency_ms": 254.8313750012312,
+      "cost_usd": 1.84e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 38,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "is-question",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Is the following text phrased as a question? Reply with exactly YES or NO. Text: 'The sky is blue.'",
+      "response": "NO",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer 'NO' with no extra text.",
+      "latency_ms": 262.33283399778884,
+      "cost_usd": 1.6800000000000002e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 34,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "fizzbuzz",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a Python function named fizzbuzz(n) that returns 'FizzBuzz' if n is divisible by 15, 'Fizz' if divisible by 3, 'Buzz' if divisible by 5, otherwise str(n). Reply with only the code.",
+      "response": "def fizzbuzz(n):\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    elif n % 3 == 0:\n        return 'Fizz'\n    elif n % 5 == 0:\n        return 'Buzz'\n    else:\n        return str(n)",
+      "quality": 1.0,
+      "rationale": "The candidate checks divisibility by 15 first, then 3, then 5, and returns str(n) otherwise, exactly matching the required logic and order.",
+      "latency_ms": 1352.3367090019747,
+      "cost_usd": 0.0001216,
+      "success": true,
+      "error": "",
+      "input_tokens": 60,
+      "output_tokens": 61
+    },
+    {
+      "case_id": "bugfix-max",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "coding",
+        "reasoning"
+      ],
+      "prompt": "This Python function should return the maximum value of a non-empty list, but it has a bug. Return the corrected function only.\n\ndef mx(xs):\n    m = 0\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "response": "def mx(xs):\n    m = xs[0]\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "quality": 1.0,
+      "rationale": "The candidate answer correctly initializes m to xs[0] instead of 0, which fixes the bug for all-negative lists and matches the reference solution exactly.",
+      "latency_ms": 584.3490830011433,
+      "cost_usd": 7.68e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 64,
+      "output_tokens": 32
+    },
+    {
+      "case_id": "list-comp-even-squares",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a single Python line using a list comprehension that produces the squares of the even numbers from 0 to 9 inclusive. Reply with only the code.",
+      "response": "[x**2 for x in range(10) if x % 2 == 0]",
+      "quality": 1.0,
+      "rationale": "The candidate answer is identical to the reference answer, producing exactly [0, 4, 16, 36, 64] as required.",
+      "latency_ms": 454.3599169992376,
+      "cost_usd": 4.9199999999999997e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 39,
+      "output_tokens": 21
+    },
+    {
+      "case_id": "summary-endword",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following",
+        "summarization"
+      ],
+      "prompt": "In exactly one sentence that ends with the word 'grounding', explain what a knowledge base does for a language model.",
+      "response": "A knowledge base provides a structured repository of factual information that enables a language model to generate accurate, contextually relevant responses through grounding.",
+      "quality": 0.9,
+      "rationale": "The candidate answer is exactly one sentence, ends with the word 'grounding', and correctly describes how a knowledge base helps a language model, though it emphasizes 'structured repository' and 'accurate responses' rather than specifically mentioning retrieval as the mechanism.",
+      "latency_ms": 692.8492920051212,
+      "cost_usd": 5.6e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 32,
+      "output_tokens": 27
+    },
+    {
+      "case_id": "extract-meeting-json",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From 'The meeting with Dr. Lee is on 2026-03-14 at 9am in Room 210', return a JSON object with keys 'date', 'time', and 'room'. Output only JSON.",
+      "response": "{\"date\": \"2026-03-14\", \"time\": \"9am\", \"room\": \"Room 210\"}",
+      "quality": 0.5,
+      "rationale": "The date and time are correct, but 'room' should be '210' not 'Room 210' as shown in the reference answer.",
+      "latency_ms": 739.9750410040724,
+      "cost_usd": 7.680000000000001e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 60,
+      "output_tokens": 33
+    },
+    {
+      "case_id": "roman-sum",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "What is XIV plus VI in Roman numerals? Reply with only the Roman numeral.",
+      "response": "XX",
+      "quality": 1.0,
+      "rationale": "The candidate answer XX is exactly correct, matching the reference answer for XIV (14) plus VI (6) = 20 = XX.",
+      "latency_ms": 362.73083300329745,
+      "cost_usd": 1.32e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 25,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "sort-desc-csv",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Sort these numbers in descending order as a comma-separated list with no spaces: 3,17,9,1,42,8. Reply with only the list.",
+      "response": "42,17,9,8,3,1",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with correct descending order and proper formatting (comma-separated, no spaces).",
+      "latency_ms": 841.1804999996093,
+      "cost_usd": 4e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 44,
+      "output_tokens": 14
+    },
+    {
+      "case_id": "json-array-colors",
+      "model": "qwen.qwen3-next-80b-a3b",
+      "tags": [
+        "structured-output",
+        "instruction-following"
+      ],
+      "prompt": "Return ONLY a JSON array of the three additive primary colors of light as lowercase strings. No prose, no code fence.",
+      "response": "[\"red\", \"green\", \"blue\"]",
+      "quality": 1.0,
+      "rationale": "The candidate answer is exactly the required bare JSON array with the correct three additive primary colors of light as lowercase strings.",
+      "latency_ms": 394.80345800257055,
+      "cost_usd": 2.8800000000000002e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 32,
+      "output_tokens": 10
+    },
+    {
+      "case_id": "fmt-three-words",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following",
+        "format"
+      ],
+      "prompt": "Respond with exactly three words, all lowercase letters only, separated by single spaces, no punctuation. Describe the ocean.",
+      "response": "deep blue water",
+      "quality": 0.6,
+      "rationale": "The candidate follows all formatting rules (exactly three lowercase words, single spaces, no punctuation) but 'water' differs from the reference answer's 'vast,' making it a near-miss in substance.",
+      "latency_ms": 4566.305792002822,
+      "cost_usd": 2.56e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 28,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "primes-csv",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following",
+        "math"
+      ],
+      "prompt": "Reply with ONLY the first five prime numbers as a comma-separated list, no spaces, no other text.",
+      "response": "2,3,5,7,11",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with the correct first five prime numbers in a comma-separated list with no spaces and no other text.",
+      "latency_ms": 1127.5767920014914,
+      "cost_usd": 3.7600000000000006e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 26,
+      "output_tokens": 10
+    },
+    {
+      "case_id": "uppercase-banana",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following"
+      ],
+      "prompt": "Reply with only the word BANANA in uppercase and nothing else.",
+      "response": "BANANA",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with only the word BANANA in uppercase and nothing else.",
+      "latency_ms": 303.5349999991013,
+      "cost_usd": 2.0200000000000003e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 19,
+      "output_tokens": 4
+    },
+    {
+      "case_id": "json-sum-product",
+      "model": "zai.glm-5",
+      "tags": [
+        "structured-output",
+        "math"
+      ],
+      "prompt": "Return a JSON object (and nothing else) with integer keys 'sum' and 'product' for the numbers 6 and 7.",
+      "response": "```json\n{\n  \"sum\": 13,\n  \"product\": 42\n}\n```",
+      "quality": 0.8,
+      "rationale": "The values are correct (sum=13, product=42), but the answer includes markdown code fences (```json ... ```) rather than returning just the JSON object with nothing else.",
+      "latency_ms": 2198.6131660014507,
+      "cost_usd": 6.6e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 33,
+      "output_tokens": 21
+    },
+    {
+      "case_id": "extract-emails-json",
+      "model": "zai.glm-5",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From the text 'ping a@b.co and c@d.io before noon', return a JSON object with key 'emails' whose value is a JSON array of the email addresses. Output only JSON.",
+      "response": "{\n  \"emails\": [\n    \"a@b.co\",\n    \"c@d.io\"\n  ]\n}",
+      "quality": 1.0,
+      "rationale": "The candidate answer contains the correct email addresses in the correct order, matches the reference answer in substance, and outputs only JSON as instructed.",
+      "latency_ms": 921.467041996948,
+      "cost_usd": 7.76e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 45,
+      "output_tokens": 23
+    },
+    {
+      "case_id": "apples-multistep",
+      "model": "zai.glm-5",
+      "tags": [
+        "reasoning",
+        "math"
+      ],
+      "prompt": "A store had 120 apples. It sold 3/8 of them in the morning, then 40% of what remained in the afternoon. How many apples are left? Reply with only the number.",
+      "response": "75",
+      "quality": 0.0,
+      "rationale": "The candidate answered 75, which is only the intermediate result after morning sales, missing the afternoon sales calculation that reduces the count to 45.",
+      "latency_ms": 452.01929199538426,
+      "cost_usd": 3.26e-05,
+      "success": false,
+      "error": "",
+      "input_tokens": 47,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "days-from-now",
+      "model": "zai.glm-5",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "If today is Wednesday, what day of the week is it 100 days from now? Reply with only the day name.",
+      "response": "Friday",
+      "quality": 1.0,
+      "rationale": "The candidate answer 'Friday' exactly matches the reference answer.",
+      "latency_ms": 444.0284169977531,
+      "cost_usd": 2.2400000000000002e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 30,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "tallest-logic",
+      "model": "zai.glm-5",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "Alice is taller than Bob. Carol is shorter than Bob. Who is the shortest? Reply with one word.",
+      "response": "Carol",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with a single word.",
+      "latency_ms": 1829.5782089990098,
+      "cost_usd": 2.06e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 27,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "crt-ball",
+      "model": "zai.glm-5",
+      "tags": [
+        "reasoning",
+        "trap"
+      ],
+      "prompt": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How many cents does the ball cost? Reply with only the number of cents.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 5 cents, which matches the reference answer.",
+      "latency_ms": 3149.033417001192,
+      "cost_usd": 3.2e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 46,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "strawberry-r",
+      "model": "zai.glm-5",
+      "tags": [
+        "counting",
+        "trap"
+      ],
+      "prompt": "How many times does the letter 'r' appear in the word 'strawberry'? Reply with only the number.",
+      "response": "3",
+      "quality": 1.0,
+      "rationale": "The candidate correctly answered 3, which matches the reference answer.",
+      "latency_ms": 414.4743330034544,
+      "cost_usd": 2.18e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 29,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "count-words",
+      "model": "zai.glm-5",
+      "tags": [
+        "counting"
+      ],
+      "prompt": "How many words are in this sentence: 'The quick brown fox jumps'? Reply with only the number.",
+      "response": "5",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with only the number 5, following all formatting instructions.",
+      "latency_ms": 2328.5509170018486,
+      "cost_usd": 1.9999999999999998e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 26,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "unknown-trap",
+      "model": "zai.glm-5",
+      "tags": [
+        "trap",
+        "faithfulness"
+      ],
+      "prompt": "What is the capital city of the fictional country 'Zorbia'? If you do not know or it does not exist, reply with exactly: UNKNOWN",
+      "response": "UNKNOWN",
+      "quality": 1.0,
+      "rationale": "The candidate correctly replied with exactly UNKNOWN for the fictional country Zorbia.",
+      "latency_ms": 1283.1257500001811,
+      "cost_usd": 2.54e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 35,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "is-question",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Is the following text phrased as a question? Reply with exactly YES or NO. Text: 'The sky is blue.'",
+      "response": "NO",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer 'NO' with no extra text.",
+      "latency_ms": 443.8526660014759,
+      "cost_usd": 2.3000000000000003e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 31,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "fizzbuzz",
+      "model": "zai.glm-5",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a Python function named fizzbuzz(n) that returns 'FizzBuzz' if n is divisible by 15, 'Fizz' if divisible by 3, 'Buzz' if divisible by 5, otherwise str(n). Reply with only the code.",
+      "response": "```python\ndef fizzbuzz(n):\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    elif n % 3 == 0:\n        return 'Fizz'\n    elif n % 5 == 0:\n        return 'Buzz'\n    else:\n        return str(n)\n```",
+      "quality": 1.0,
+      "rationale": "The candidate checks divisibility by 15 first, then 3, then 5, and returns str(n) otherwise, exactly matching the reference solution's logic and order.",
+      "latency_ms": 1342.960875001154,
+      "cost_usd": 0.0001744,
+      "success": true,
+      "error": "",
+      "input_tokens": 56,
+      "output_tokens": 64
+    },
+    {
+      "case_id": "bugfix-max",
+      "model": "zai.glm-5",
+      "tags": [
+        "coding",
+        "reasoning"
+      ],
+      "prompt": "This Python function should return the maximum value of a non-empty list, but it has a bug. Return the corrected function only.\n\ndef mx(xs):\n    m = 0\n    for x in xs:\n        if x > m:\n            m = x\n    return m",
+      "response": "```python\ndef mx(xs):\n    m = xs[0]\n    for x in xs:\n        if x > m:\n            m = x\n    return m\n```",
+      "quality": 1.0,
+      "rationale": "The candidate correctly initializes m to xs[0] instead of 0, which fixes the bug for all-negative lists.",
+      "latency_ms": 922.5760830013314,
+      "cost_usd": 0.000118,
+      "success": true,
+      "error": "",
+      "input_tokens": 61,
+      "output_tokens": 37
+    },
+    {
+      "case_id": "list-comp-even-squares",
+      "model": "zai.glm-5",
+      "tags": [
+        "coding"
+      ],
+      "prompt": "Write a single Python line using a list comprehension that produces the squares of the even numbers from 0 to 9 inclusive. Reply with only the code.",
+      "response": "[x**2 for x in range(10) if x % 2 == 0]",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer, producing [0, 4, 16, 36, 64] as a single-line list comprehension with correct filtering of even numbers.",
+      "latency_ms": 3696.2034169991966,
+      "cost_usd": 6.560000000000001e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 36,
+      "output_tokens": 20
+    },
+    {
+      "case_id": "summary-endword",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following",
+        "summarization"
+      ],
+      "prompt": "In exactly one sentence that ends with the word 'grounding', explain what a knowledge base does for a language model.",
+      "response": "A knowledge base provides a language model with verified, external facts to reduce hallucinations and ensure accuracy through grounding.",
+      "quality": 0.85,
+      "rationale": "The candidate answer is exactly one sentence, ends with 'grounding', and correctly describes how a knowledge base helps a language model, though it doesn't explicitly mention retrieval as the mechanism, which the rubric specifies.",
+      "latency_ms": 637.0156250050059,
+      "cost_usd": 6.8e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 29,
+      "output_tokens": 23
+    },
+    {
+      "case_id": "extract-meeting-json",
+      "model": "zai.glm-5",
+      "tags": [
+        "extraction",
+        "structured-output"
+      ],
+      "prompt": "From 'The meeting with Dr. Lee is on 2026-03-14 at 9am in Room 210', return a JSON object with keys 'date', 'time', and 'room'. Output only JSON.",
+      "response": "{\n  \"date\": \"2026-03-14\",\n  \"time\": \"9am\",\n  \"room\": \"Room 210\"\n}",
+      "quality": 0.5,
+      "rationale": "The date and time values are correct, but the room value is 'Room 210' instead of the expected '210', which does not match the reference answer.",
+      "latency_ms": 908.6590419974527,
+      "cost_usd": 0.000101,
+      "success": true,
+      "error": "",
+      "input_tokens": 51,
+      "output_tokens": 32
+    },
+    {
+      "case_id": "roman-sum",
+      "model": "zai.glm-5",
+      "tags": [
+        "reasoning"
+      ],
+      "prompt": "What is XIV plus VI in Roman numerals? Reply with only the Roman numeral.",
+      "response": "XX",
+      "quality": 1.0,
+      "rationale": "The candidate answer XX is exactly correct, matching the reference answer for XIV (14) plus VI (6) = 20 = XX.",
+      "latency_ms": 1759.2053749976913,
+      "cost_usd": 1.76e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 22,
+      "output_tokens": 2
+    },
+    {
+      "case_id": "sort-desc-csv",
+      "model": "zai.glm-5",
+      "tags": [
+        "instruction-following",
+        "reasoning"
+      ],
+      "prompt": "Sort these numbers in descending order as a comma-separated list with no spaces: 3,17,9,1,42,8. Reply with only the list.",
+      "response": "42,17,9,8,3,1",
+      "quality": 1.0,
+      "rationale": "The candidate answer exactly matches the reference answer with correct descending order and proper formatting (comma-separated, no spaces).",
+      "latency_ms": 1372.5755420018686,
+      "cost_usd": 4.9800000000000004e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 39,
+      "output_tokens": 12
+    },
+    {
+      "case_id": "json-array-colors",
+      "model": "zai.glm-5",
+      "tags": [
+        "structured-output",
+        "instruction-following"
+      ],
+      "prompt": "Return ONLY a JSON array of the three additive primary colors of light as lowercase strings. No prose, no code fence.",
+      "response": "[\"red\", \"green\", \"blue\"]",
+      "quality": 1.0,
+      "rationale": "The candidate answer is exactly the required bare JSON array with the correct three additive primary colors of light as lowercase strings.",
+      "latency_ms": 5353.238250005234,
+      "cost_usd": 3.94e-05,
+      "success": true,
+      "error": "",
+      "input_tokens": 29,
+      "output_tokens": 10
+    }
+  ]
+}
