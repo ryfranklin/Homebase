@@ -1,17 +1,18 @@
-// Dev-only design preview. Renders the chat UI with sample data so the redesign
-// (empty-state node graph, streaming/thinking states, citations) can be viewed on
-// localhost without a real Cognito session. Gated behind import.meta.env.DEV in
+// Dev-only design preview. Renders UI with sample data so the design can be viewed
+// on localhost without a real Cognito session. Gated behind import.meta.env.DEV in
 // App, so it is never part of a production build.
 
-import { ChatView } from "./components/ChatView";
+import { useState } from "react";
+
 import { FlightPlanner } from "./plan/FlightPlanner";
+import { VaultChatPanel, type ChatScope } from "./components/VaultChatPanel";
 import type { ChatMessage } from "./chat/messages";
 
 const SAMPLE: ChatMessage[] = [
   {
     id: "u1",
     role: "user",
-    text: "What did we decide about S3 Vectors, and what's new in #general?",
+    text: "What did we decide about S3 Vectors?",
     citations: [],
     toolEvents: [],
     streaming: false,
@@ -24,45 +25,44 @@ const SAMPLE: ChatMessage[] = [
       "**ADR-002** kept Homebase on **S3 Vectors** (semantic + rerank):\n\n" +
       "- live eval `hit_rate@5 = 1.0` — above the `0.85` threshold\n" +
       "- the OpenSearch fallback was **not** triggered\n\n" +
-      "See [ADR-002](https://example.invalid/adr-002-retrieval-store).\n\n" +
-      "The retrieval call looks like:\n\n" +
-      "```python\n" +
-      "results = kb.retrieve(\n" +
-      '    query="key rotation",   # semantic\n' +
-      "    top_k=5,\n" +
-      "    rerank=True,            # Bedrock Rerank\n" +
-      ")\n" +
-      "```\n\n" +
-      "In **#general**, the latest thread is the Olympic curling rules question and a couple of recipe asks — nothing action-worthy.",
+      "See [ADR-002](https://example.invalid/adr-002-retrieval-store).",
     citations: [
       { sourcePath: "data-engineering/adr-002-retrieval-store.md", score: 0.98 },
       { sourcePath: "data-engineering/retrieval-eval.md", score: 0.91 },
     ],
-    toolEvents: ["search_knowledge_base", "slack_read_messages"],
+    toolEvents: ["search_knowledge_base"],
     streaming: false,
   },
-  {
-    id: "a2",
-    role: "assistant",
-    text: "",
-    citations: [],
-    toolEvents: ["gcal_list_events"],
-    streaming: true,
-  },
 ];
+
+function ChatPreview() {
+  const [scope, setScope] = useState<ChatScope>("vault");
+  return (
+    <div className="vault">
+      <div className="vault-body">
+        <aside className="vault-sidebar" style={{ opacity: 0.4 }}>
+          <div className="vault-side-top">
+            <input className="vault-search" placeholder="Search notes…" readOnly />
+          </div>
+        </aside>
+        <main className="vault-main" />
+        <VaultChatPanel
+          messages={SAMPLE}
+          streaming={false}
+          onSend={() => {}}
+          onStop={() => {}}
+          scope={scope}
+          onScopeChange={setScope}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function DesignPreview() {
   const mode = new URLSearchParams(window.location.search).get("preview");
   // ?preview=plan renders the Flight Planner prototype (board + plan + clearance).
   if (mode === "plan") return <FlightPlanner />;
-  const messages = mode === "chat" ? SAMPLE : [];
-  return (
-    <ChatView
-      messages={messages}
-      streaming={mode === "chat"}
-      onSend={() => {}}
-      onStop={() => {}}
-      onSignOut={() => {}}
-    />
-  );
+  // ?preview / ?preview=chat renders the merged Vault chat panel with sample data.
+  return <ChatPreview />;
 }

@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { UseVault } from "../vault/useVault";
+import type { UseChat } from "../chat/useChat";
 import { newNoteKey } from "../vault/resolve";
 import { timeAgo } from "../vault/format";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
 import { VaultHistory } from "./VaultHistory";
+import { VaultChatPanel, type ChatScope } from "./VaultChatPanel";
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
+import type { ModelOption } from "../config";
 
 export interface VaultViewProps {
   vault: UseVault;
+  // Chat is docked in the Vault surface (the merged Vault + Chat experience).
+  chat: UseChat;
+  scope: ChatScope;
+  onScopeChange: (scope: ChatScope) => void;
+  models?: ModelOption[];
+  model?: string;
+  onModelChange?: (id: string) => void;
   onNavigate: (mode: AppMode) => void;
   onSignOut?: () => void;
   onOpenSettings?: () => void;
@@ -18,10 +28,11 @@ export interface VaultViewProps {
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
+export function VaultView({ vault, chat, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [chatOpen, setChatOpen] = useState(true);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   // Debounced search: empty term clears results.
@@ -69,6 +80,15 @@ export function VaultView({ vault, onNavigate, onSignOut, onOpenSettings }: Vaul
         </span>
         <div className="header-actions">
           <ModeSwitch active="vault" onNavigate={onNavigate} onOpenSettings={onOpenSettings} />
+          <button
+            type="button"
+            className={chatOpen ? "link-button chat-toggle chat-toggle-on" : "link-button chat-toggle"}
+            onClick={() => setChatOpen((v) => !v)}
+            aria-pressed={chatOpen}
+            title="Toggle the chat panel"
+          >
+            Chat
+          </button>
           {onSignOut && (
             <button type="button" className="link-button" onClick={onSignOut}>
               Sign out
@@ -227,6 +247,21 @@ export function VaultView({ vault, onNavigate, onSignOut, onOpenSettings }: Vaul
             </div>
           )}
         </main>
+
+        {chatOpen && (
+          <VaultChatPanel
+            messages={chat.messages}
+            streaming={chat.streaming}
+            onSend={(t) => void chat.send(t)}
+            onStop={chat.stop}
+            scope={scope}
+            onScopeChange={onScopeChange}
+            models={models}
+            model={model}
+            onModelChange={onModelChange}
+            onClose={() => setChatOpen(false)}
+          />
+        )}
       </div>
 
       {vault.history && (

@@ -40,6 +40,7 @@ export async function* streamChat(
       session_id: req.sessionId,
       ...(req.mode ? { mode: req.mode } : {}),
       ...(req.model ? { model: req.model } : {}),
+      ...(req.scope ? { scope: req.scope } : {}),
     }),
     signal: opts.signal,
   });
