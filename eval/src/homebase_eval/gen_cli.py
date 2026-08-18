@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 from .gen_models import load_gen_cases
-from .matrix import format_leaderboard, run_matrix, scorecards
+from .matrix import format_leaderboard, format_tag_breakdown, run_matrix, scorecards, tag_breakdown
 from .pricing import is_priced, load_pricing
 from .targets import MockModelTarget
 
@@ -59,6 +59,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--pricing", default=None, help="Override pricing table JSON.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of the table.")
+    parser.add_argument("--by-tag", action="store_true", help="Also print a per-capability (tag) quality breakdown.")
     parser.add_argument(
         "--min-quality",
         type=float,
@@ -138,6 +139,9 @@ def main(argv=None) -> int:
         print(json.dumps({"suite": suite_name, "scorecards": [c.__dict__ for c in cards]}, indent=2))
     else:
         print(format_leaderboard(cards, suite=suite_name))
+        if args.by_tag:
+            print()
+            print(format_tag_breakdown(tag_breakdown(cases, scores)))
         if unpriced:
             print(f"\nNote: no pricing entry for {', '.join(unpriced)} (cost shown as $0). Add them to the pricing table.")
 

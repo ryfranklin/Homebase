@@ -122,3 +122,46 @@ def format_leaderboard(cards, *, suite: str = "", title: str = "Model leaderboar
         "current Bedrock pricing). Quality is a judge score in [0, 1]."
     )
     return "\n".join(lines)
+
+
+def tag_breakdown(cases, case_scores) -> dict:
+    """Per-capability view: average quality and success by (tag, model).
+
+    Joins scores back to their cases by id to recover tags. Returns
+    {tag: [(model, avg_quality, success_rate, n), ...]} with each tag's models
+    sorted best-quality first. This is what turns a leaderboard into "who wins
+    coding vs reasoning vs instruction-following".
+    """
+    tags_by_case = {c.id: (list(c.tags) if c.tags else ["untagged"]) for c in cases}
+
+    grouped = {}
+    for score in case_scores:
+        for tag in tags_by_case.get(score.case_id, ["untagged"]):
+            grouped.setdefault((tag, score.model), []).append(score)
+
+    by_tag = {}
+    for (tag, model), rows in grouped.items():
+        by_tag.setdefault(tag, []).append(
+            (
+                model,
+                mean(r.quality for r in rows),
+                mean(1.0 if r.success else 0.0 for r in rows),
+                len(rows),
+            )
+        )
+    for tag in by_tag:
+        by_tag[tag].sort(key=lambda row: -row[1])
+    return dict(sorted(by_tag.items()))
+
+
+def format_tag_breakdown(by_tag) -> str:
+    """Render the tag breakdown as Markdown, one small table per capability."""
+    lines = ["## By capability", ""]
+    for tag, rows in by_tag.items():
+        lines.append(f"### {tag}")
+        lines.append("| model | quality | success | n |")
+        lines.append("| ----- | ------- | ------- | - |")
+        for model, quality, success, n in rows:
+            lines.append(f"| `{model}` | {quality:.3f} | {success:.0%} | {n} |")
+        lines.append("")
+    return "\n".join(lines)
