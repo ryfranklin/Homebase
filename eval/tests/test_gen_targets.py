@@ -1,23 +1,14 @@
 """Offline tests for targets. The live Converse target is exercised with a fake
-boto3 client, so no AWS is touched."""
+boto3 client, so no AWS is touched. unittest.TestCase style for CI's discover."""
 
 from __future__ import annotations
 
+import unittest
+
+import _bootstrap  # noqa: F401  (sets up sys.path)
+
 from homebase_eval.gen_models import GenCase
 from homebase_eval.targets import BedrockConverseTarget, MockModelTarget
-
-
-def test_mock_target_deterministic():
-    t = MockModelTarget("m", responder=lambda c: f"answer to {c.prompt}", latency_ms=12.0)
-    r = t.generate(GenCase(id="c", prompt="hello"))
-    assert r.ok and r.text == "answer to hello"
-    assert r.latency_ms == 12.0
-
-
-def test_mock_target_failure_mode():
-    t = MockModelTarget("m", ok=False, error="access denied")
-    r = t.generate(GenCase(id="c", prompt="hi"))
-    assert r.ok is False and r.error == "access denied"
 
 
 class _FakeConverseClient:
@@ -34,47 +25,63 @@ class _FakeConverseClient:
         }
 
 
-def _fake_clock():
-    # A monotonic-ish clock: two ticks 0.5s apart, so latency computes to 500ms.
-    ticks = iter([1.0, 1.5])
-    return lambda: next(ticks)
-
-
-def test_converse_target_builds_request_and_parses_usage():
-    client = _FakeConverseClient()
-    target = BedrockConverseTarget(client, "zai.glm-5", max_tokens=256, temperature=0.0, clock=_fake_clock())
-    case = GenCase(id="c", prompt="say hi", system="be terse")
-    r = target.generate(case)
-
-    # Request shape is model-agnostic Converse.
-    req = client.last_request
-    assert req["modelId"] == "zai.glm-5"
-    assert req["messages"] == [{"role": "user", "content": [{"text": "say hi"}]}]
-    assert req["system"] == [{"text": "be terse"}]
-    assert req["inferenceConfig"] == {"maxTokens": 256, "temperature": 0.0}
-
-    # Response parsing: concatenated text blocks + usage + measured latency.
-    assert r.text == "hi there"
-    assert r.input_tokens == 11 and r.output_tokens == 7
-    assert r.latency_ms == 500.0
-    assert r.ok is True
-
-
-def test_converse_target_no_system_block_when_absent():
-    client = _FakeConverseClient()
-    target = BedrockConverseTarget(client, "m", clock=_fake_clock())
-    target.generate(GenCase(id="c", prompt="hi"))
-    assert "system" not in client.last_request
-
-
 class _BoomClient:
     def converse(self, **kwargs):
         raise RuntimeError("ThrottlingException")
 
 
-def test_converse_target_error_is_scored_miss_not_crash():
-    target = BedrockConverseTarget(_BoomClient(), "m", clock=_fake_clock())
-    r = target.generate(GenCase(id="c", prompt="hi"))
-    assert r.ok is False
-    assert "ThrottlingException" in r.error
-    assert r.latency_ms == 500.0
+def _fake_clock():
+    # Two ticks 0.5s apart, so latency computes to 500ms.
+    ticks = iter([1.0, 1.5])
+    return lambda: next(ticks)
+
+
+class MockTargetTests(unittest.TestCase):
+    def test_deterministic(self):
+        t = MockModelTarget("m", responder=lambda c: f"answer to {c.prompt}", latency_ms=12.0)
+        r = t.generate(GenCase(id="c", prompt="hello"))
+        self.assertTrue(r.ok)
+        self.assertEqual(r.text, "answer to hello")
+        self.assertEqual(r.latency_ms, 12.0)
+
+    def test_failure_mode(self):
+        t = MockModelTarget("m", ok=False, error="access denied")
+        r = t.generate(GenCase(id="c", prompt="hi"))
+        self.assertFalse(r.ok)
+        self.assertEqual(r.error, "access denied")
+
+
+class ConverseTargetTests(unittest.TestCase):
+    def test_builds_request_and_parses_usage(self):
+        client = _FakeConverseClient()
+        target = BedrockConverseTarget(client, "zai.glm-5", max_tokens=256, temperature=0.0, clock=_fake_clock())
+        r = target.generate(GenCase(id="c", prompt="say hi", system="be terse"))
+
+        req = client.last_request
+        self.assertEqual(req["modelId"], "zai.glm-5")
+        self.assertEqual(req["messages"], [{"role": "user", "content": [{"text": "say hi"}]}])
+        self.assertEqual(req["system"], [{"text": "be terse"}])
+        self.assertEqual(req["inferenceConfig"], {"maxTokens": 256, "temperature": 0.0})
+
+        self.assertEqual(r.text, "hi there")
+        self.assertEqual(r.input_tokens, 11)
+        self.assertEqual(r.output_tokens, 7)
+        self.assertEqual(r.latency_ms, 500.0)
+        self.assertTrue(r.ok)
+
+    def test_no_system_block_when_absent(self):
+        client = _FakeConverseClient()
+        target = BedrockConverseTarget(client, "m", clock=_fake_clock())
+        target.generate(GenCase(id="c", prompt="hi"))
+        self.assertNotIn("system", client.last_request)
+
+    def test_error_is_scored_miss_not_crash(self):
+        target = BedrockConverseTarget(_BoomClient(), "m", clock=_fake_clock())
+        r = target.generate(GenCase(id="c", prompt="hi"))
+        self.assertFalse(r.ok)
+        self.assertIn("ThrottlingException", r.error)
+        self.assertEqual(r.latency_ms, 500.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
