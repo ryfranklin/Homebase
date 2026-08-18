@@ -1,0 +1,34 @@
+{
+  "suite": "gen-smoke",
+  "default_rubric": "Rate correctness, completeness, and instruction-following. If a reference is given, judge substance against it, not wording.",
+  "cases": [
+    {
+      "id": "json-extract",
+      "prompt": "Extract the person and city from this sentence as JSON with keys 'name' and 'city': 'Ada moved to Turin last spring.' Reply with only the JSON.",
+      "reference": "{\"name\": \"Ada\", \"city\": \"Turin\"}",
+      "expect_json": true,
+      "expect_json_keys": ["name", "city"],
+      "tags": ["extraction", "structured-output"]
+    },
+    {
+      "id": "summarize",
+      "prompt": "Summarize in one sentence: a knowledge base indexes documents so a model can retrieve relevant passages to ground its answers.",
+      "reference": "A knowledge base indexes documents so a model can retrieve relevant passages to ground its answers.",
+      "tags": ["summarization"]
+    },
+    {
+      "id": "code-fn",
+      "prompt": "Write a Python function named 'is_even' that returns True when its integer argument is even. Reply with only the code.",
+      "reference": "def is_even(n):\n    return n % 2 == 0",
+      "expect_contains": ["def is_even"],
+      "tags": ["coding"]
+    },
+    {
+      "id": "reasoning",
+      "prompt": "If a train leaves at 2:15 PM and the trip takes 90 minutes, what time does it arrive? Give only the time.",
+      "reference": "3:45 PM",
+      "expect_contains": ["3:45"],
+      "tags": ["reasoning"]
+    }
+  ]
+}
