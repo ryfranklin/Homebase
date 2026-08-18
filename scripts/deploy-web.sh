@@ -11,7 +11,9 @@
 # secret is baked in; the bucket/distribution are resolved at run time.
 #
 # Usage:  ./scripts/deploy-web.sh
-# Env:    AWS_PROFILE (MUST be the prod account, e.g. ms3dm.tech), AWS_REGION (default us-east-1)
+# Env:    AWS_PROFILE (MUST be the prod account), AWS_REGION (default us-east-1)
+#         HOMEBASE_AWS_ACCOUNT_ID (optional): when set, the script refuses to run
+#         unless the live AWS caller is that account (guards against a wrong AWS_PROFILE)
 
 set -euo pipefail
 
@@ -26,6 +28,23 @@ command -v terraform >/dev/null 2>&1 || { echo "terraform not found on PATH"; ex
 if [ ! -f "$REPO_ROOT/web/.env.local" ]; then
   echo "web/.env.local not found. Copy web/.env.example to web/.env.local and fill in your VITE_* values first."
   exit 1
+fi
+
+# --- account guard: refuse to deploy to the wrong AWS account ---
+# The expected account is an INPUT (never a literal here, since this repo is
+# public): export HOMEBASE_AWS_ACCOUNT_ID (e.g. in your shell profile) to the prod
+# account id. When set, the script aborts unless the live caller matches it.
+CALLER_ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null)" || {
+  echo "Not authenticated to AWS (token expired?). Run: aws sso login --profile <your-prod-profile>"
+  exit 1
+}
+if [ -n "${HOMEBASE_AWS_ACCOUNT_ID:-}" ] && [ "$CALLER_ACCOUNT" != "$HOMEBASE_AWS_ACCOUNT_ID" ]; then
+  echo "Refusing to deploy: current AWS account $CALLER_ACCOUNT does not match \$HOMEBASE_AWS_ACCOUNT_ID."
+  echo "You are probably on the wrong AWS_PROFILE (current: ${AWS_PROFILE:-default})."
+  exit 1
+fi
+if [ -z "${HOMEBASE_AWS_ACCOUNT_ID:-}" ]; then
+  echo "NOTE: HOMEBASE_AWS_ACCOUNT_ID is not set, so the account guard is OFF. Current account: $CALLER_ACCOUNT (profile: ${AWS_PROFILE:-default})."
 fi
 
 log "Resolving the web bucket + CloudFront distribution from the web stack outputs"
