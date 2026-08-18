@@ -47,6 +47,16 @@ per-model leaderboard ranked by quality then cost.
   `scripts/run-eval.sh`. There is no schedule: runs are on demand, so the stack is
   idle-cost only.
 
+## Interactive dashboard
+
+Every run can produce a self-contained, interactive HTML dashboard (no external
+dependencies): a sortable leaderboard, a models-by-capability quality heatmap, a
+quality-vs-cost scatter, latency bars, and a filterable per-case drill-down that
+shows each case's prompt, the model's response, and the judge's rationale. Locally
+it is `gen_cli --html <path>`; the deployed runner writes one per run to
+`s3://<eval-artifacts-bucket>/dashboards/<run_id>.html`. The payload shape
+(`report.assemble`) is the contract the future web SPA "Evals" tab will reuse.
+
 Full package layout and CLI reference: [../eval/README.md](../eval/README.md).
 
 ## Findings (2026-08-17)
