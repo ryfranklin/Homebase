@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../chat/messages";
 import type { ModelOption } from "../config";
+import type { ThreadSummary } from "../chat/threadsApi";
 import { Citations } from "./Citations";
 
 const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
@@ -18,6 +19,11 @@ export interface VaultChatPanelProps {
   models?: ModelOption[];
   model?: string;
   onModelChange?: (id: string) => void;
+  // Thread memory (saved conversations in the vault).
+  threads?: ThreadSummary[];
+  activeId?: string;
+  onSelectThread?: (id: string) => void;
+  onNewThread?: () => void;
   onClose?: () => void;
 }
 
@@ -56,7 +62,7 @@ function Thinking() {
 // A chat panel docked in the Vault surface. The scope toggle chooses whether the
 // agent answers strictly from vault material (KB docs + connectors) or opens up to
 // general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, onClose }: VaultChatPanelProps) {
+export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +82,30 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
 
   return (
     <aside className="vault-chat" aria-label="Chat">
+      {(onNewThread || threads.length > 0) && (
+        <div className="vault-chat-threads">
+          {onNewThread && (
+            <button type="button" className="link-button" onClick={onNewThread} title="Start a new chat">
+              + New
+            </button>
+          )}
+          {threads.length > 0 && (
+            <select
+              className="vault-chat-threadselect"
+              value={threads.some((t) => t.id === activeId) ? (activeId ?? "") : ""}
+              onChange={(e) => e.target.value && onSelectThread?.(e.target.value)}
+              aria-label="Saved chats"
+            >
+              <option value="">Recent chats…</option>
+              {threads.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
       <div className="vault-chat-head">
         <div className="scope-toggle" role="tablist" aria-label="Chat scope">
           <button

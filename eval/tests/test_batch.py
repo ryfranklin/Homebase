@@ -80,6 +80,13 @@ class MemorySinkTests(unittest.TestCase):
         self.assertEqual({m[1] for m in sink.metrics}, {"Quality", "LatencyMs", "CostUsd"})
         self.assertEqual([c.model for c in cards], ["m1", "m2"])
         self.assertEqual(sink.scorecards[0].model, "m1")
+        # A self-contained dashboard was rendered for the run.
+        self.assertIsNotNone(sink.dashboard)
+        self.assertIn("<!doctype html>", sink.dashboard)
+        # The BFF payload (same shape as the dashboard data) was produced.
+        self.assertIsNotNone(sink.payload)
+        self.assertEqual(sink.payload["meta"]["run_id"], "run123")
+        self.assertEqual(len(sink.payload["cases"]), 4)
 
 
 class AwsSinkTests(unittest.TestCase):
@@ -110,6 +117,9 @@ class AwsSinkTests(unittest.TestCase):
         self.assertIsInstance(s["data"], str)
         self.assertIn(json.loads(s["data"])["case_id"], {"q1", "q2"})
         self.assertIn(("b", "runs/run123/m1/q1.json"), s3.objects)
+        # The per-run dashboard and BFF payload were written to S3.
+        self.assertIn(("b", "dashboards/run123.html"), s3.objects)
+        self.assertIn(("b", "runs/run123/payload.json"), s3.objects)
 
     def test_emits_emf_metric(self):
         table, s3 = _FakeTable(), _FakeS3()

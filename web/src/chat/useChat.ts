@@ -14,6 +14,12 @@ export interface UseChat {
   streaming: boolean;
   send: (input: string) => Promise<void>;
   stop: () => void;
+  // The current thread (chat session) id, used as the vault note key for memory.
+  sessionId: string;
+  // Start a fresh thread: new session id, empty transcript.
+  newThread: () => void;
+  // Load a saved thread's messages under its id, so replies append to it.
+  loadThread: (id: string, messages: ChatMessage[]) => void;
 }
 
 // getToken returns a fresh (refreshed if needed) access token for each send, so
@@ -47,6 +53,26 @@ export function useChat(
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(newSessionId());
+  // Mirror the session id into state so the UI (thread list, "new chat") re-renders
+  // when it changes; sends still read the ref for the current value.
+  const [sessionId, setSessionId] = useState<string>(sessionIdRef.current);
+
+  const newThread = useCallback(() => {
+    abortRef.current?.abort();
+    const id = newSessionId();
+    sessionIdRef.current = id;
+    setSessionId(id);
+    setMessages([]);
+    setStreaming(false);
+  }, []);
+
+  const loadThread = useCallback((id: string, loaded: ChatMessage[]) => {
+    abortRef.current?.abort();
+    sessionIdRef.current = id;
+    setSessionId(id);
+    setMessages(loaded);
+    setStreaming(false);
+  }, []);
 
   const send = useCallback(
     async (input: string) => {
@@ -92,5 +118,5 @@ export function useChat(
     abortRef.current?.abort();
   }, []);
 
-  return { messages, streaming, send, stop };
+  return { messages, streaming, send, stop, sessionId, newThread, loadThread };
 }

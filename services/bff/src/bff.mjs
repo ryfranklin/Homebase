@@ -217,6 +217,54 @@ async function proxyMissionEvents(mc, runId, lastEventId, respond, cors) {
   }
 }
 
+// Chat thread memory: list/get/save/delete threads stored as vault notes. Scoped
+// by the verified actor (tenant + user); persistence + KB-indexing happen in the
+// vault. Retention pruning is lazy, on list.
+async function handleChatThreads(rest, method, event, body, respond, cors, deps, actor) {
+  if (!deps.chatThreads) {
+    return writeError(respond, cors, 503, "chat_memory_unconfigured", "chat memory is not enabled on this deployment");
+  }
+  const ct = deps.chatThreads;
+  const segments = rest.split("/").filter(Boolean); // ["threads"] or ["threads", "<id>"]
+  try {
+    if (segments[0] === "threads" && segments.length === 1 && method === "GET") {
+      return writeJson(respond, cors, 200, await ct.list(actor));
+    }
+    if (segments[0] === "threads" && segments.length === 2) {
+      const id = decodeURIComponent(segments[1]);
+      if (method === "GET") return writeJson(respond, cors, 200, await ct.get(id));
+      if (method === "PUT") return writeJson(respond, cors, 200, await ct.save(id, body || {}, actor));
+      if (method === "DELETE") return writeJson(respond, cors, 200, await ct.remove(id, actor));
+    }
+    return writeError(respond, cors, 404, "not_found", "no such chat-threads route");
+  } catch (err) {
+    const status = err?.status && err.status < 500 ? err.status : 502;
+    return writeError(respond, cors, status, err?.code || "chat_threads_error", err?.message || "chat threads error");
+  }
+}
+
+// Eval harness reads: run list + one run's full payload. Scoped by the verified
+// tenant; the payload is served verbatim from what the harness stored.
+async function handleEvals(rest, method, event, respond, cors, deps, tenantId) {
+  if (!deps.evals) {
+    return writeError(respond, cors, 503, "evals_unconfigured", "evals are not enabled on this deployment");
+  }
+  const segments = rest.split("/").filter(Boolean); // ["runs"], ["runs", "<id>"]
+  const q = queryParams(event);
+  try {
+    if (segments[0] === "runs" && segments.length === 1 && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.evals.listRuns(tenantId, q));
+    }
+    if (segments[0] === "runs" && segments.length === 2 && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.evals.getRun(tenantId, decodeURIComponent(segments[1])));
+    }
+    return writeError(respond, cors, 404, "not_found", "no such evals route");
+  } catch (err) {
+    const status = err?.status && err.status < 500 ? err.status : 502;
+    return writeError(respond, cors, status, err?.code || "evals_error", err?.message || "evals error");
+  }
+}
+
 // handleRequest(event, respond, deps)
 //   respond(statusCode, headers) -> { write(chunk), end() }
 //   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable,
@@ -343,6 +391,13 @@ export async function handleRequest(event, respond, deps) {
     return handleVault(vaultMatch[1], method, event, body, respond, cors, deps, actor);
   }
 
+  // Chat thread memory (list/get/save/delete), stored as vault notes.
+  const chatThreadsMatch = /\/chat\/(threads(?:\/.+)?)$/.exec(path);
+  if (chatThreadsMatch) {
+    const actor = { ...deriveActor(claims), tenantId, userId };
+    return handleChatThreads(chatThreadsMatch[1], method, event, body, respond, cors, deps, actor);
+  }
+
   // Connector connection status (what's actually connected), scoped to the tenant.
   if (method === "GET" && path.endsWith("/connectors/status")) {
     if (!deps.connectorStatus) return writeJson(respond, cors, 200, { connectors: {} });
@@ -403,6 +458,12 @@ export async function handleRequest(event, respond, deps) {
   const missionMatch = /\/missions\/(.+)$/.exec(path);
   if (missionMatch) {
     return handleMissions(missionMatch[1], method, event, body, respond, cors, deps);
+  }
+
+  // Eval harness reads (run list + one run's payload). Authenticated by the checks above.
+  const evalsMatch = /\/evals\/(.+)$/.exec(path);
+  if (evalsMatch) {
+    return handleEvals(evalsMatch[1], method, event, respond, cors, deps, tenantId);
   }
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;

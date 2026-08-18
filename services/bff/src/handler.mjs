@@ -21,6 +21,8 @@ import { makeMissionControl } from "./mission.mjs";
 import { makeConfluence } from "./confluence.mjs";
 import { makeMaterializer } from "./materialize.mjs";
 import { makeSettings } from "./settings.mjs";
+import { makeChatThreads } from "./chatthreads.mjs";
+import { makeEvals } from "./evals.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -45,6 +47,13 @@ if (config.corpusBucket) {
   }
   const writer = config.workerUrl ? makeWorkerClient({ url: config.workerUrl, secret: workerSecret }) : null;
   vault = makeVault({ store, writer });
+}
+
+// Chat thread memory rides on the vault (threads are notes under chat/). Enabled
+// whenever the vault is; save/delete need the git writer (else a 503).
+let chatThreads = null;
+if (vault) {
+  chatThreads = makeChatThreads({ vault, retentionDays: config.chatRetentionDays });
 }
 
 // Connector connection status, enabled when the shim Lambda prefix is configured.
@@ -85,6 +94,12 @@ if (config.mcGithubTokenSecretArn && config.mcCluster && config.mcService) {
     cluster: config.mcCluster,
     service: config.mcService,
   });
+}
+
+// Eval harness read surface, enabled when the table + bucket are configured.
+let evals = null;
+if (config.evalTable && config.evalBucket) {
+  evals = await makeEvals({ region: config.region, tableName: config.evalTable, bucketName: config.evalBucket });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
@@ -156,5 +171,7 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     confluence,
     materializer,
     settings,
+    chatThreads,
+    evals,
   });
 });

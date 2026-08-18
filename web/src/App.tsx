@@ -12,6 +12,8 @@ import { useConnectorCallback } from "./connectors/useConnectorCallback";
 import { makeVaultPlanStore } from "./plan/store";
 import { planOwnerFromIdToken } from "./plan/identity";
 import { useMissions } from "./missions/useMissions";
+import { useChatThreads } from "./chat/useChatThreads";
+import { useEvals } from "./evals/useEvals";
 
 // The workspace views carry the heavy Markdown/highlight/mermaid code. Lazy-load
 // them so the initial bundle is just the shell + login; the vault (default) or
@@ -19,10 +21,11 @@ import { useMissions } from "./missions/useMissions";
 const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ default: m.VaultView })));
 const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
 const MissionControl = lazy(() => import("./components/MissionControl").then((m) => ({ default: m.MissionControl })));
+const EvalsView = lazy(() => import("./components/EvalsView").then((m) => ({ default: m.EvalsView })));
 
 // Chat is merged into the Vault surface (a docked chat panel), so there is no
-// standalone Chat mode.
-type Mode = "vault" | "plan" | "mission";
+// standalone Chat mode; Evals is its own surface.
+type Mode = "vault" | "plan" | "mission" | "evals";
 type ChatScope = "vault" | "general";
 
 export function App() {
@@ -60,6 +63,9 @@ export function App() {
   // agent chat one click away. Both hooks live here, so switching modes preserves
   // their state.
   const [mode, setMode] = useState<Mode>("vault");
+  // Chat thread memory: lists saved threads and auto-saves the current one to the
+  // vault when an exchange completes. Active on the Vault surface (where chat lives).
+  const chatThreads = useChatThreads(config.apiBaseUrl, auth.getAccessToken, chat, getScope, mode === "vault");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Flight plans persist as vault notes. Keep the store identity stable across token
   // refreshes (read the latest token via refs) so the Plan board doesn't reload on
@@ -75,6 +81,8 @@ export function App() {
   const planOwner = useMemo(() => planOwnerFromIdToken(auth.tokens?.idToken), [auth.tokens?.idToken]);
   // Mission Control deck: only polls the engine while the Mission tab is open.
   const missions = useMissions(config.apiBaseUrl, auth.getAccessToken, mode === "mission");
+  // Evals deck: only fetches run data while the Evals tab is open.
+  const evals = useEvals(config.apiBaseUrl, auth.getAccessToken, mode === "evals");
   // Finalize a connector consent if the browser returned with ?session_id=.
   const connector = useConnectorCallback(config.apiBaseUrl, auth.getAccessToken, auth.authenticated);
   // What's actually connected (from the token vault), for the chat's source display.
@@ -115,10 +123,13 @@ export function App() {
           />
         ) : mode === "mission" ? (
           <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
+        ) : mode === "evals" ? (
+          <EvalsView evals={evals} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : (
           <VaultView
             vault={vault}
             chat={chat}
+            threads={chatThreads}
             scope={chatScope}
             onScopeChange={setScope}
             models={config.models}

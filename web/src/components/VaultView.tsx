@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { UseVault } from "../vault/useVault";
 import type { UseChat } from "../chat/useChat";
+import type { UseChatThreads } from "../chat/useChatThreads";
 import { newNoteKey } from "../vault/resolve";
 import { timeAgo } from "../vault/format";
 import { Markdown } from "./Markdown";
@@ -15,6 +16,7 @@ export interface VaultViewProps {
   vault: UseVault;
   // Chat is docked in the Vault surface (the merged Vault + Chat experience).
   chat: UseChat;
+  threads: UseChatThreads;
   scope: ChatScope;
   onScopeChange: (scope: ChatScope) => void;
   models?: ModelOption[];
@@ -28,7 +30,7 @@ export interface VaultViewProps {
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, chat, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
+export function VaultView({ vault, chat, threads, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -259,6 +261,10 @@ export function VaultView({ vault, chat, scope, onScopeChange, models, model, on
             models={models}
             model={model}
             onModelChange={onModelChange}
+            threads={threads.threads}
+            activeId={threads.activeId}
+            onSelectThread={(id) => void threads.selectThread(id)}
+            onNewThread={threads.newThread}
             onClose={() => setChatOpen(false)}
           />
         )}

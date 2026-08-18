@@ -2,12 +2,13 @@
 // Chat is merged into Vault (a docked chat panel), so there is no separate Chat tab.
 // Kept in one place so the tabs stay consistent everywhere.
 
-export type AppMode = "vault" | "plan" | "mission";
+export type AppMode = "vault" | "plan" | "mission" | "evals";
 
 const MODES: { id: AppMode; label: string }[] = [
   { id: "vault", label: "Vault" },
   { id: "plan", label: "Plan" },
   { id: "mission", label: "Mission" },
+  { id: "evals", label: "Evals" },
 ];
 
 export function ModeSwitch({
