@@ -13,6 +13,7 @@ dev = ["pytest>=8"]
 [project.scripts]
 homebase-eval = "homebase_eval.cli:main"
 homebase-eval-models = "homebase_eval.gen_cli:main"
+homebase-eval-batch = "homebase_eval.batch_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

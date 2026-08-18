@@ -13,11 +13,15 @@ from .metrics import mean
 from .scorers import score_cost, score_latency, score_quality, score_success
 
 
-def run_matrix(cases, targets, *, judge, pricing, repeats: int = 1) -> list:
+def run_matrix(cases, targets, *, judge, pricing, repeats: int = 1, on_case=None) -> list:
     """Score every (target, case) pair. Returns a flat list of CaseScore.
 
     repeats > 1 averages the numeric metrics over repeated calls (latency and
     cost vary run to run); success and quality are taken from the last call.
+
+    on_case, if given, is called once per (target, case) as
+    on_case(case, last_response, case_score). The batch runner uses it to persist
+    the raw response and emit metrics without re-implementing the scoring loop.
     """
     scores = []
     for target in targets:
@@ -34,22 +38,23 @@ def run_matrix(cases, targets, *, judge, pricing, repeats: int = 1) -> list:
                 qualities.append(q)
             assert last_response is not None  # repeats >= 1, so the loop always ran
             success = score_success(case, last_response)
-            scores.append(
-                CaseScore(
-                    case_id=case.id,
-                    model=target.model_id,
-                    quality=mean(qualities),
-                    quality_rationale=quality_rationale,
-                    latency_ms=mean(latencies),
-                    cost_usd=mean(costs),
-                    success=success,
-                    input_tokens=last_response.input_tokens,
-                    output_tokens=last_response.output_tokens,
-                    tenant_id=case.tenant_id,
-                    user_id=case.user_id,
-                    error=last_response.error,
-                )
+            case_score = CaseScore(
+                case_id=case.id,
+                model=target.model_id,
+                quality=mean(qualities),
+                quality_rationale=quality_rationale,
+                latency_ms=mean(latencies),
+                cost_usd=mean(costs),
+                success=success,
+                input_tokens=last_response.input_tokens,
+                output_tokens=last_response.output_tokens,
+                tenant_id=case.tenant_id,
+                user_id=case.user_id,
+                error=last_response.error,
             )
+            scores.append(case_score)
+            if on_case is not None:
+                on_case(case, last_response, case_score)
     return scores
 
 

@@ -26,6 +26,19 @@ def load_pricing(path=None) -> dict:
     return {model: (float(rate[0]), float(rate[1])) for model, rate in raw.get("pricing", {}).items()}
 
 
+def load_pricing_from_ssm(name, region=None) -> dict:
+    """Load the pricing table from an SSM String parameter holding the same JSON.
+
+    Lets the deployed stack update prices without a redeploy. boto3 is imported
+    lazily so the offline path never needs it.
+    """
+    import boto3
+
+    client = boto3.client("ssm", region_name=region) if region else boto3.client("ssm")
+    raw = json.loads(client.get_parameter(Name=name)["Parameter"]["Value"])
+    return {model: (float(rate[0]), float(rate[1])) for model, rate in raw.get("pricing", {}).items()}
+
+
 def cost_usd(model_id, input_tokens, output_tokens, pricing) -> float:
     """Cost of one call. Returns 0.0 when the model is not in the table."""
     rate = pricing.get(model_id)
