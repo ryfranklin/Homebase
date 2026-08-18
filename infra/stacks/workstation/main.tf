@@ -37,6 +37,20 @@ locals {
     for id in local.stoppable_instance_ids :
     "arn:${local.partition}:ec2:${var.aws_region}:${local.account_id}:instance/${id}"
   ]
+
+  # Claude Code cockpit. When a model is configured, grant InvokeModel on each
+  # model's inference profile AND its underlying foundation model (the us.* profile
+  # fans out across regions), matching the mission-control worker grant.
+  cockpit_enabled = var.cockpit_model != ""
+  cockpit_models  = local.cockpit_enabled ? distinct(compact([var.cockpit_model, var.cockpit_small_model])) : []
+  cockpit_inference_profile_arns = [
+    for m in local.cockpit_models :
+    "arn:${local.partition}:bedrock:${var.aws_region}:${local.account_id}:inference-profile/${m}"
+  ]
+  cockpit_foundation_model_arns = [
+    for m in local.cockpit_models :
+    "arn:${local.partition}:bedrock:*::foundation-model/${trimprefix(m, "us.")}"
+  ]
 }
 
 # KMS key for the encrypted EBS volumes.
@@ -259,6 +273,18 @@ data "aws_iam_policy_document" "workstation" {
       resources = var.assumable_role_arns
     }
   }
+
+  # Let the interactive Claude Code CLI reach Bedrock via the instance role (no
+  # API key on the box). Scoped to exactly the configured cockpit models.
+  dynamic "statement" {
+    for_each = local.cockpit_enabled ? [1] : []
+    content {
+      sid       = "InvokeBedrockForClaudeCode"
+      effect    = "Allow"
+      actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+      resources = concat(local.cockpit_inference_profile_arns, local.cockpit_foundation_model_arns)
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "workstation" {
@@ -338,11 +364,13 @@ resource "aws_instance" "workstation" {
   }
 
   user_data = templatefile("${path.module}/../../../workstation/bootstrap/user-data.sh.tftpl", {
-    project_name     = var.project_name
-    environment      = var.environment
-    aws_region       = var.aws_region
-    workstation_user = var.workstation_user
-    home_device      = local.home_device
+    project_name        = var.project_name
+    environment         = var.environment
+    aws_region          = var.aws_region
+    workstation_user    = var.workstation_user
+    home_device         = local.home_device
+    cockpit_model       = var.cockpit_model
+    cockpit_small_model = var.cockpit_small_model
   })
 
   tags = merge(local.common_tags, { Name = local.name_prefix })

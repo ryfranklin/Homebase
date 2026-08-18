@@ -128,6 +128,23 @@ variable "assumable_role_arns" {
 }
 
 # ---------------------------------------------------------------------------
+# Claude Code cockpit. The interactive `claude` CLI reaches Bedrock via the
+# instance role (CLAUDE_CODE_USE_BEDROCK=1), so there is no Anthropic API key on
+# the box. The model ids are inputs, mirroring the mission-control worker grant.
+# ---------------------------------------------------------------------------
+variable "cockpit_model" {
+  description = "Bedrock model id (us.* inference profile) Claude Code uses as its primary model on the workstation. Supplied via git-ignored tfvars; not secret, but kept an input so the id is not a literal. Empty disables the Bedrock env wiring."
+  type        = string
+  default     = ""
+}
+
+variable "cockpit_small_model" {
+  description = "Bedrock model id Claude Code uses for its small/fast background tasks (ANTHROPIC_SMALL_FAST_MODEL). Defaults to Haiku 4.5, matching the mission-control worker default. Only used when cockpit_model is set."
+  type        = string
+  default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+}
+
+# ---------------------------------------------------------------------------
 # Auto-stop-when-idle. Neither a standing cost nor a standing target.
 # ---------------------------------------------------------------------------
 variable "auto_stop_mode" {
