@@ -39,6 +39,9 @@ export function useChat(
   getToken: () => Promise<string>,
   fetchImpl?: typeof fetch,
   getModel?: () => string | undefined,
+  // getScope returns the chat scope ("vault" | "general"), read fresh per send so
+  // flipping the Vault chat toggle takes effect immediately.
+  getScope?: () => "vault" | "general" | undefined,
 ): UseChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
@@ -66,7 +69,7 @@ export function useChat(
         for await (const event of streamChat(
           apiBaseUrl,
           token,
-          { input: trimmed, sessionId: sessionIdRef.current, model: getModel?.() },
+          { input: trimmed, sessionId: sessionIdRef.current, model: getModel?.(), scope: getScope?.() },
           { signal: controller.signal, fetchImpl },
         )) {
           setMessages((prev) => prev.map((m) => (m.id === assistantId ? applyEvent(m, event) : m)));
@@ -82,7 +85,7 @@ export function useChat(
         abortRef.current = null;
       }
     },
-    [apiBaseUrl, getToken, fetchImpl, getModel, streaming],
+    [apiBaseUrl, getToken, fetchImpl, getModel, getScope, streaming],
   );
 
   const stop = useCallback(() => {

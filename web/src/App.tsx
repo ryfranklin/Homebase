@@ -17,11 +17,13 @@ import { useMissions } from "./missions/useMissions";
 // them so the initial bundle is just the shell + login; the vault (default) or
 // chat chunk loads once the user is authenticated.
 const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ default: m.VaultView })));
-const ChatView = lazy(() => import("./components/ChatView").then((m) => ({ default: m.ChatView })));
 const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
 const MissionControl = lazy(() => import("./components/MissionControl").then((m) => ({ default: m.MissionControl })));
 
-type Mode = "vault" | "chat" | "plan" | "mission";
+// Chat is merged into the Vault surface (a docked chat panel), so there is no
+// standalone Chat mode.
+type Mode = "vault" | "plan" | "mission";
+type ChatScope = "vault" | "general";
 
 export function App() {
   const config = useMemo(() => loadConfig(), []);
@@ -39,7 +41,20 @@ export function App() {
     localStorage.setItem("homebase.model", id);
   }, []);
   const getModel = useCallback(() => modelRef.current || undefined, []);
-  const chat = useChat(config.apiBaseUrl, auth.getAccessToken, undefined, getModel);
+  // Chat scope for the Vault chat panel: "vault" (only KB + connectors) by default,
+  // "general" opens the model up. Persisted per browser; a ref backs the getter so
+  // useChat reads the current choice per send without re-creating the hook.
+  const [chatScope, setChatScope] = useState<ChatScope>(
+    () => (localStorage.getItem("homebase.chatScope") === "general" ? "general" : "vault"),
+  );
+  const scopeRef = useRef(chatScope);
+  scopeRef.current = chatScope;
+  const setScope = useCallback((s: ChatScope) => {
+    setChatScope(s);
+    localStorage.setItem("homebase.chatScope", s);
+  }, []);
+  const getScope = useCallback(() => scopeRef.current, []);
+  const chat = useChat(config.apiBaseUrl, auth.getAccessToken, undefined, getModel, getScope);
   const vault = useVault(config.apiBaseUrl, auth.getAccessToken, auth.getIdToken, auth.authenticated);
   // Vault-first: Homebase is primarily the knowledge-vault workspace, with the
   // agent chat one click away. Both hooks live here, so switching modes preserves
@@ -88,9 +103,7 @@ export function App() {
         <SettingsPanel apiBaseUrl={config.apiBaseUrl} getToken={auth.getAccessToken} onClose={() => setSettingsOpen(false)} />
       )}
       <Suspense fallback={<div className="app-loading" aria-label="Loading" />}>
-        {mode === "vault" ? (
-          <VaultView vault={vault} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
-        ) : mode === "plan" ? (
+        {mode === "plan" ? (
           <FlightPlanner
             onNavigate={setMode}
             onSignOut={auth.logout}
@@ -103,19 +116,17 @@ export function App() {
         ) : mode === "mission" ? (
           <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : (
-          <ChatView
-            messages={chat.messages}
-            streaming={chat.streaming}
-            onSend={(text) => void chat.send(text)}
-            onStop={chat.stop}
-            onSignOut={auth.logout}
-            onNavigate={setMode}
-            onOpenSettings={openSettings}
-            connectors={connStatus.connectors}
-            onConnect={(url) => window.location.assign(url)}
+          <VaultView
+            vault={vault}
+            chat={chat}
+            scope={chatScope}
+            onScopeChange={setScope}
             models={config.models}
             model={model}
             onModelChange={selectModel}
+            onNavigate={setMode}
+            onSignOut={auth.logout}
+            onOpenSettings={openSettings}
           />
         )}
       </Suspense>

@@ -2435,3 +2435,66 @@ button.fb-row:hover { background: var(--surface); }
 .settings-status { font-size: 0.82rem; margin: 2px 0 0; }
 .settings-status.ok { color: var(--ok, #6ee7a8); }
 .settings-status.err { color: var(--danger, #ff8080); }
+
+/* ---- Vault chat panel (merged Vault + Chat) ---- */
+.chat-toggle.chat-toggle-on { color: var(--text); background: var(--surface-2); border-radius: 8px; }
+.vault-chat {
+  width: 440px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-soft);
+}
+@media (max-width: 1024px) { .vault-chat { width: 360px; } }
+.vault-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.vault-chat-head-right { display: flex; align-items: center; gap: 8px; }
+.scope-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.scope-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.scope-toggle .scope-active { color: var(--bg); background: var(--white); }
+.vault-chat-model {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.vault-chat-close { font-size: 1.1rem; line-height: 1; padding: 0 6px; }
+.vault-chat-transcript {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vault-chat-empty { color: var(--muted); margin: auto 0; text-align: center; padding: 24px 8px; }
+.vault-chat-empty-title { color: var(--text); font-size: 0.95rem; margin: 0 0 6px; }
+.vault-chat-empty-sub { font-size: 0.82rem; margin: 0; }
+.vault-chat-composer { padding: 10px 12px 14px; border-top: 1px solid var(--border); }

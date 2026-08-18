@@ -412,6 +412,9 @@ export async function handleRequest(event, respond, deps) {
   // The GUI's settings-level default model. Passed through verbatim; the agent
   // validates it against its allow-list and ignores anything unknown.
   const model = typeof body.model === "string" && body.model ? body.model : undefined;
+  // Chat scope from the Vault chat toggle: "vault" answers strictly from the KB +
+  // connectors; anything else is the normal grounded-with-general-fallback mode.
+  const scope = body.scope === "vault" ? "vault" : undefined;
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
   // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
@@ -435,6 +438,7 @@ export async function handleRequest(event, respond, deps) {
       prompt,
       mode,
       model,
+      scope,
     });
     for await (const evt of stream) {
       writer.write(sseEvent(evt));

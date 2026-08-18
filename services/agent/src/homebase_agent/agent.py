@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .llm import MockLLMClient
 from .memory import NullMemory
-from .prompts import load_planning_prompt, load_system_prompt
+from .prompts import load_planning_prompt, load_system_prompt, load_vault_only_prompt
 from .toolloop import Outcome, run_tool_loop, run_tool_loop_stream
 
 # Prefix stamped on any answer that comes from the model's general knowledge rather than
@@ -126,6 +126,9 @@ class Agent:
         # The AI-DLC INCEPTION prompt, swapped in when a request runs in plan mode so
         # the agent conducts the planning interview and emits a flight-plan draft.
         self._planning_prompt = load_planning_prompt()
+        # Strict vault-only prompt, swapped in when the chat scope is 'vault': answer
+        # only from the KB + connectors, never general knowledge.
+        self._vault_only_prompt = load_vault_only_prompt()
         # IANA timezone for resolving 'today'/'now' (e.g. America/Chicago). Set on the
         # runtime via HOMEBASE_TIMEZONE; falls back to UTC when unset/unknown.
         self._timezone = os.environ.get("HOMEBASE_TIMEZONE")
@@ -182,10 +185,17 @@ class Agent:
     def _tools(self):
         return [SEARCH_KB_TOOL, *self._connectors.tool_specs()]
 
-    def _system(self, suffix: str = "", *, planning: bool = False) -> str:
+    def _system(self, suffix: str = "", *, planning: bool = False, scope: str = "general") -> str:
         # Fresh date/time preamble each request so relative-time questions resolve.
-        # Plan mode swaps the base prompt for the AI-DLC INCEPTION interview prompt.
-        base = self._planning_prompt if planning else self._system_prompt
+        # Plan mode swaps the base prompt for the AI-DLC INCEPTION interview prompt;
+        # otherwise scope 'vault' uses the strict vault-only prompt and 'general' uses
+        # the default (grounded-first, with a labeled general fallback).
+        if planning:
+            base = self._planning_prompt
+        elif scope == "vault":
+            base = self._vault_only_prompt
+        else:
+            base = self._system_prompt
         return _now_preamble(tz_name=self._timezone) + "\n\n" + base + suffix
 
     def _general_system(self) -> str:
@@ -193,10 +203,10 @@ class Agent:
         # a concise general answer. The disclaimer is added by the caller, not the model.
         return _now_preamble(tz_name=self._timezone) + "\n\n" + _GENERAL_INSTRUCTION
 
-    def _answer_with_tools(self, session, question, *, planning: bool = False, model=None) -> AnswerResult:
+    def _answer_with_tools(self, session, question, *, planning: bool = False, model=None, scope: str = "general") -> AnswerResult:
         loop = run_tool_loop(
             self._resolve_llm(model),
-            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
+            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -213,15 +223,16 @@ class Agent:
             authorization_url=loop.authorization_url,
         )
 
-    def answer_stream(self, session, question, *, planning: bool = False, model=None):
+    def answer_stream(self, session, question, *, planning: bool = False, model=None, scope: str = "general"):
         """Streaming variant: a generator yielding SSE-ready events (token / citation
         / authorization_required / done) as the tool loop runs. Requires connectors
         (a tool-capable LLM); callers should gate on supports_streaming(). In plan
         mode the AI-DLC interview prompt is used and the reply carries a flight-plan
-        draft block."""
+        draft block. Scope 'vault' uses the strict vault-only prompt (no general
+        knowledge); 'general' (default) allows a labeled general fallback."""
         if self._connectors is None:
             # Degrade gracefully to a single token from the buffered path.
-            result = self.answer(session, question, planning=planning, model=model)
+            result = self.answer(session, question, planning=planning, model=model, scope=scope)
             yield {"type": "token", "text": result.text}
             for citation in result.citations:
                 yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
@@ -231,7 +242,7 @@ class Agent:
         text_parts: list = []
         for event in run_tool_loop_stream(
             self._resolve_llm(model),
-            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning),
+            system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
             question=question,
             tools=self._tools(),
             execute=self._make_execute(session, question),
@@ -245,16 +256,22 @@ class Agent:
         if final_text:
             self._remember(session, "assistant", final_text)
 
-    def answer(self, session, question, *, planning: bool = False, model=None, **retrieval_kwargs) -> AnswerResult:
+    def answer(self, session, question, *, planning: bool = False, model=None, scope: str = "general", **retrieval_kwargs) -> AnswerResult:
         if self._connectors is not None:
-            return self._answer_with_tools(session, question, planning=planning, model=model)
+            return self._answer_with_tools(session, question, planning=planning, model=model, scope=scope)
 
         llm = self._resolve_llm(model)
         passages = self._retrieval.retrieve(question, **retrieval_kwargs)
 
         if not passages:
-            # No relevant sources: fall back to general knowledge, but stamp it with a
-            # disclaimer so the answer stays visibly ungrounded (grounded=False, no citations).
+            if scope == "vault":
+                # Vault-only: never fall back to general knowledge. Say it plainly.
+                text = "I could not find anything about that in your vault or connected accounts."
+                self._remember(session, "user", question)
+                self._remember(session, "assistant", text)
+                return AnswerResult(text=text, grounded=False, citations=[], session=session)
+            # General scope: fall back to general knowledge, stamped with a disclaimer so
+            # the answer stays visibly ungrounded (grounded=False, no citations).
             body = llm.generate_general(system=self._general_system(), question=question)
             text = GENERAL_KNOWLEDGE_DISCLAIMER + body
             self._remember(session, "user", question)
@@ -262,7 +279,7 @@ class Agent:
             return AnswerResult(text=text, grounded=False, citations=[], session=session)
 
         text = llm.generate(
-            system=self._system(),
+            system=self._system(scope=scope),
             question=question,
             passages=passages,
             session=session,

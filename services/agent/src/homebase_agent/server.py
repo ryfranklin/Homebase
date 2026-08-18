@@ -114,6 +114,9 @@ def make_handler(agent):
             # Optional model choice (the GUI's settings-level default). The agent
             # validates it against the allow-list and ignores anything unknown.
             model = payload.get("model") or None
+            # Chat scope: 'vault' answers strictly from the KB + connectors (no general
+            # knowledge); anything else (default) is the normal grounded-with-fallback mode.
+            scope = "vault" if payload.get("scope") == "vault" else "general"
 
             # Stream the answer token-by-token when the agent supports it (the tool
             # loop). The BFF consumes this SSE and relays it to the browser.
@@ -123,7 +126,7 @@ def make_handler(agent):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    for event in agent.answer_stream(session, question, planning=planning, model=model):
+                    for event in agent.answer_stream(session, question, planning=planning, model=model, scope=scope):
                         self._sse(event)
                 except Exception:  # noqa: BLE001 - never leave the stream hanging
                     self._sse({"type": "error", "message": "agent_error"})
@@ -131,7 +134,7 @@ def make_handler(agent):
                 return
 
             # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
-            result = agent.answer(session, question, planning=planning, model=model)
+            result = agent.answer(session, question, planning=planning, model=model, scope=scope)
             body = {
                 "answer": result.text,
                 "grounded": result.grounded,

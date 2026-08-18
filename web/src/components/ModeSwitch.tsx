@@ -1,11 +1,11 @@
-// The workspace navigation shared by the Vault, Chat, and Plan views: one brain,
-// three front doors. Kept in one place so the tabs stay consistent everywhere.
+// The workspace navigation shared by the surfaces: one brain, a few front doors.
+// Chat is merged into Vault (a docked chat panel), so there is no separate Chat tab.
+// Kept in one place so the tabs stay consistent everywhere.
 
-export type AppMode = "vault" | "chat" | "plan" | "mission";
+export type AppMode = "vault" | "plan" | "mission";
 
 const MODES: { id: AppMode; label: string }[] = [
   { id: "vault", label: "Vault" },
-  { id: "chat", label: "Chat" },
   { id: "plan", label: "Plan" },
   { id: "mission", label: "Mission" },
 ];
