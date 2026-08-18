@@ -1,0 +1,38 @@
+# Copy to terraform.tfvars (GIT-IGNORED) and fill in your inputs.
+# Every value here is a FAKE placeholder unless noted. The real terraform.tfvars
+# is never committed.
+
+aws_region   = "<YOUR_AWS_REGION>"
+project_name = "homebase"
+environment  = "dev"
+
+tags = {
+  Owner = "<YOUR_NAME_OR_TEAM>"
+}
+
+# Image tag is managed by scripts/deploy-eval.sh (it bumps this on every build).
+# Leave as-is for the first apply that creates the ECR repo; the deploy script
+# pushes an image and updates this to a unique deploy-<timestamp> tag.
+eval_image_tag = "latest"
+
+# The benchmark. These are the defaults baked into the task definition; override
+# per run with EVAL_MODELS / EVAL_JUDGE via scripts/run-eval.sh. All must be
+# ENABLED in Bedrock for the account (verified 2026-08-17: Sonnet 4.6 + Haiku 4.5
+# enabled; Opus 4.8/5 and Sonnet 5 are NOT; Qwen and GLM variants work).
+models = [
+  "us.anthropic.claude-sonnet-4-6",
+  "qwen.qwen3-next-80b-a3b",
+  "zai.glm-5",
+]
+judge = "us.anthropic.claude-sonnet-4-6"
+
+# Escape hatch: extra Bedrock ARNs to allow InvokeModel on, if a provider's
+# on-demand ARN shape differs from the one derived from the model id. Leave empty
+# unless a run hits AccessDenied on a model you expect to work.
+additional_model_arns = []
+
+task_cpu                = 1024
+task_memory             = 2048
+task_cpu_architecture   = "ARM64"
+artifact_retention_days = 90
+log_retention_days      = 30

@@ -59,11 +59,12 @@ outputs it consumes (via SSM parameters, or Terraform variables sourced from a p
 | 10 | **connectors** | AgentCore Gateway authorizes with the same Cognito JWT; needs the bedrock-agentcore endpoint for in-VPC targets. | SSM: `identity/issuer_url`, `identity/app_client_id`; Secrets Manager / tfvars: per-connector client secrets |
 | 11 | **monitoring** | Wires alarms to the P2 budget SNS and dashboards to resources created by earlier stacks. Apply last. | SSM: `foundation/budget_sns_topic_arn`, `foundation/kms_key_arn`; vars: `workstation_instance_id`, `cloudfront_distribution_id` |
 | 12 | **slackbot** (optional door) | A private Fargate Socket Mode app that invokes the agent from Slack. Independent add-on: apply any time after agent + vault-worker. Needs the shared NAT (outbound WebSocket to Slack). | SSM: `agent/runtime_arn`, `vault-worker/private_subnet_id`; var: `vpc_id`; Secrets Manager (by hand): Slack bot + app tokens; SSM SecureString (by hand): `slackbot/allowed-emails` |
+| 13 | **eval** (optional add-on) | On-demand multi-model benchmark runner (quality, latency, cost, task success over the Bedrock Converse API). Independent add-on: apply any time after vault-worker (reuses its private subnet for Bedrock egress). No standing service or schedule. First apply creates the ECR repo; then run `scripts/deploy-eval.sh` to push the image and re-apply. | SSM: `vault-worker/private_subnet_id`; benchmark models + judge must be enabled in Bedrock |
 
 Dependency summary: foundation before everything; retrieval after storage; agent after retrieval;
 api after agent and identity; web after api; the agent-invoking stacks (agent, ssh-chat, workstation,
-connectors, slackbot) after the `bedrock-agentcore` endpoint exists; monitoring last; slackbot is an
-optional add-on door needing only agent + vault-worker.
+connectors, slackbot) after the `bedrock-agentcore` endpoint exists; monitoring last; slackbot and
+eval are optional add-ons needing only vault-worker (eval) or agent + vault-worker (slackbot).
 
 ---
 
