@@ -10,6 +10,8 @@
 #
 # Usage:  ./scripts/run-eval.sh
 # Env:    AWS_REGION (default us-east-1), HOMEBASE_PROJECT (homebase), HOMEBASE_ENV (prod)
+#         HOMEBASE_AWS_ACCOUNT_ID (optional): when set, refuse to run unless the live
+#         AWS caller is that account (guards against a wrong AWS_PROFILE)
 #         EVAL_MODELS, EVAL_JUDGE (optional per-run overrides)
 
 set -euo pipefail
@@ -19,6 +21,23 @@ PROJECT="${HOMEBASE_PROJECT:-homebase}"
 ENV="${HOMEBASE_ENV:-prod}"
 
 ssm() { aws ssm get-parameter --name "/$PROJECT/$ENV/eval/$1" --region "$REGION" --query 'Parameter.Value' --output text; }
+
+# --- account guard: refuse to run against the wrong AWS account ---
+# The expected account is an INPUT (never a literal here, since this repo is
+# public): export HOMEBASE_AWS_ACCOUNT_ID to the prod account id. When set, the
+# script aborts unless the live caller matches it (guards against a wrong AWS_PROFILE).
+CALLER_ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null)" || {
+  echo "Not authenticated to AWS (token expired?). Run: aws sso login --profile <your-prod-profile>"
+  exit 1
+}
+if [ -n "${HOMEBASE_AWS_ACCOUNT_ID:-}" ] && [ "$CALLER_ACCOUNT" != "$HOMEBASE_AWS_ACCOUNT_ID" ]; then
+  echo "Refusing to run: current AWS account $CALLER_ACCOUNT does not match \$HOMEBASE_AWS_ACCOUNT_ID."
+  echo "You are probably on the wrong AWS_PROFILE (current: ${AWS_PROFILE:-default})."
+  exit 1
+fi
+if [ -z "${HOMEBASE_AWS_ACCOUNT_ID:-}" ]; then
+  echo "NOTE: HOMEBASE_AWS_ACCOUNT_ID is not set, so the account guard is OFF. Current account: $CALLER_ACCOUNT (profile: ${AWS_PROFILE:-default})."
+fi
 
 CLUSTER="$(ssm cluster_name)"
 TASKDEF="$(ssm task_definition_arn)"
