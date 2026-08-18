@@ -217,6 +217,32 @@ async function proxyMissionEvents(mc, runId, lastEventId, respond, cors) {
   }
 }
 
+// Chat thread memory: list/get/save/delete threads stored as vault notes. Scoped
+// by the verified actor (tenant + user); persistence + KB-indexing happen in the
+// vault. Retention pruning is lazy, on list.
+async function handleChatThreads(rest, method, event, body, respond, cors, deps, actor) {
+  if (!deps.chatThreads) {
+    return writeError(respond, cors, 503, "chat_memory_unconfigured", "chat memory is not enabled on this deployment");
+  }
+  const ct = deps.chatThreads;
+  const segments = rest.split("/").filter(Boolean); // ["threads"] or ["threads", "<id>"]
+  try {
+    if (segments[0] === "threads" && segments.length === 1 && method === "GET") {
+      return writeJson(respond, cors, 200, await ct.list(actor));
+    }
+    if (segments[0] === "threads" && segments.length === 2) {
+      const id = decodeURIComponent(segments[1]);
+      if (method === "GET") return writeJson(respond, cors, 200, await ct.get(id));
+      if (method === "PUT") return writeJson(respond, cors, 200, await ct.save(id, body || {}, actor));
+      if (method === "DELETE") return writeJson(respond, cors, 200, await ct.remove(id, actor));
+    }
+    return writeError(respond, cors, 404, "not_found", "no such chat-threads route");
+  } catch (err) {
+    const status = err?.status && err.status < 500 ? err.status : 502;
+    return writeError(respond, cors, status, err?.code || "chat_threads_error", err?.message || "chat threads error");
+  }
+}
+
 // handleRequest(event, respond, deps)
 //   respond(statusCode, headers) -> { write(chunk), end() }
 //   deps = { verifyToken(token) -> claims, config, agentStream(args) -> async iterable,
@@ -341,6 +367,13 @@ export async function handleRequest(event, respond, deps) {
     }
     const actor = deriveActor(claims, idClaims);
     return handleVault(vaultMatch[1], method, event, body, respond, cors, deps, actor);
+  }
+
+  // Chat thread memory (list/get/save/delete), stored as vault notes.
+  const chatThreadsMatch = /\/chat\/(threads(?:\/.+)?)$/.exec(path);
+  if (chatThreadsMatch) {
+    const actor = { ...deriveActor(claims), tenantId, userId };
+    return handleChatThreads(chatThreadsMatch[1], method, event, body, respond, cors, deps, actor);
   }
 
   // Connector connection status (what's actually connected), scoped to the tenant.

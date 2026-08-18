@@ -12,6 +12,7 @@ import { useConnectorCallback } from "./connectors/useConnectorCallback";
 import { makeVaultPlanStore } from "./plan/store";
 import { planOwnerFromIdToken } from "./plan/identity";
 import { useMissions } from "./missions/useMissions";
+import { useChatThreads } from "./chat/useChatThreads";
 
 // The workspace views carry the heavy Markdown/highlight/mermaid code. Lazy-load
 // them so the initial bundle is just the shell + login; the vault (default) or
@@ -60,6 +61,9 @@ export function App() {
   // agent chat one click away. Both hooks live here, so switching modes preserves
   // their state.
   const [mode, setMode] = useState<Mode>("vault");
+  // Chat thread memory: lists saved threads and auto-saves the current one to the
+  // vault when an exchange completes. Active on the Vault surface (where chat lives).
+  const chatThreads = useChatThreads(config.apiBaseUrl, auth.getAccessToken, chat, getScope, mode === "vault");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Flight plans persist as vault notes. Keep the store identity stable across token
   // refreshes (read the latest token via refs) so the Plan board doesn't reload on
@@ -119,6 +123,7 @@ export function App() {
           <VaultView
             vault={vault}
             chat={chat}
+            threads={chatThreads}
             scope={chatScope}
             onScopeChange={setScope}
             models={config.models}

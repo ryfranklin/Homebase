@@ -8,7 +8,22 @@ import type { Note, TreeNode } from "../vault/types";
 
 // The Vault surface now docks a chat panel; these props are required by every render.
 const chatProps = {
-  chat: { messages: [], streaming: false, send: async () => {}, stop: () => {} } as UseChat,
+  chat: {
+    messages: [],
+    streaming: false,
+    send: async () => {},
+    stop: () => {},
+    sessionId: "web-test",
+    newThread: () => {},
+    loadThread: () => {},
+  } as UseChat,
+  threads: {
+    threads: [],
+    activeId: "web-test",
+    refresh: async () => {},
+    selectThread: async () => {},
+    newThread: () => {},
+  },
   scope: "vault" as const,
   onScopeChange: () => {},
 };

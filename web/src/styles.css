@@ -2498,3 +2498,21 @@ button.fb-row:hover { background: var(--surface); }
 .vault-chat-empty-title { color: var(--text); font-size: 0.95rem; margin: 0 0 6px; }
 .vault-chat-empty-sub { font-size: 0.82rem; margin: 0; }
 .vault-chat-composer { padding: 10px 12px 14px; border-top: 1px solid var(--border); }
+.vault-chat-threads {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.vault-chat-threadselect {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.78rem;
+}

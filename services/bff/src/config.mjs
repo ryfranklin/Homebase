@@ -66,5 +66,9 @@ export function loadConfig(env = process.env) {
     mcGithubTokenSecretArn: env.HOMEBASE_MC_GITHUB_TOKEN_SECRET_ARN || null,
     mcCluster: env.HOMEBASE_MC_CLUSTER || null,
     mcService: env.HOMEBASE_MC_SERVICE || null,
+    // Chat thread memory: threads are stored as vault notes (KB-indexed) and pruned
+    // after this many days on list. Enabled whenever the vault is (needs the writer
+    // to save/delete). Default 30 days.
+    chatRetentionDays: Number(env.HOMEBASE_CHAT_RETENTION_DAYS) || 30,
   };
 }
