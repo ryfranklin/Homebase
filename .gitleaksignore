@@ -1,0 +1,11 @@
+# Reviewed false positives (fingerprint = commit:file:rule:startline).
+#
+# gitleaks' generic-api-key heuristic misfired on two leaderboard column
+# definitions in the eval SPA tab: `{ key: "p50_latency_ms", ... }` and
+# `{ key: "p95_latency_ms", ... }`. The `key:` property next to a slightly
+# high-entropy column id reads as a secret assignment. These are TypeScript
+# object keys, not secrets. The code was also changed to use a `field` property
+# instead of `key` so the current tree does not trip the rule; these fingerprints
+# only silence the finding in the pre-fix commit still present in the PR history.
+4e87e41a4569f9c137d969728289a30c6c3c44a1:web/src/components/EvalsView.tsx:generic-api-key:146
+4e87e41a4569f9c137d969728289a30c6c3c44a1:web/src/components/EvalsView.tsx:generic-api-key:147
