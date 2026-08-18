@@ -21,6 +21,7 @@ import { makeMissionControl } from "./mission.mjs";
 import { makeConfluence } from "./confluence.mjs";
 import { makeMaterializer } from "./materialize.mjs";
 import { makeSettings } from "./settings.mjs";
+import { makeEvals } from "./evals.mjs";
 
 const config = loadConfig();
 const jwks = new JwksCache({ issuer: config.issuer });
@@ -85,6 +86,12 @@ if (config.mcGithubTokenSecretArn && config.mcCluster && config.mcService) {
     cluster: config.mcCluster,
     service: config.mcService,
   });
+}
+
+// Eval harness read surface, enabled when the table + bucket are configured.
+let evals = null;
+if (config.evalTable && config.evalBucket) {
+  evals = await makeEvals({ region: config.region, tableName: config.evalTable, bucketName: config.evalBucket });
 }
 
 // When the rotating origin secret ARN is configured, load its current/pending
@@ -156,5 +163,6 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
     confluence,
     materializer,
     settings,
+    evals,
   });
 });

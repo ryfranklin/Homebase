@@ -66,5 +66,10 @@ export function loadConfig(env = process.env) {
     mcGithubTokenSecretArn: env.HOMEBASE_MC_GITHUB_TOKEN_SECRET_ARN || null,
     mcCluster: env.HOMEBASE_MC_CLUSTER || null,
     mcService: env.HOMEBASE_MC_SERVICE || null,
+    // Eval harness read surface. When the table + bucket are set, the BFF exposes
+    // GET /api/evals/runs and /api/evals/runs/<id>, serving the run payload the
+    // harness wrote to S3. Both optional so chat-only and tests run without them.
+    evalTable: env.HOMEBASE_EVAL_TABLE || null,
+    evalBucket: env.HOMEBASE_EVAL_BUCKET || null,
   };
 }

@@ -54,8 +54,16 @@ dependencies): a sortable leaderboard, a models-by-capability quality heatmap, a
 quality-vs-cost scatter, latency bars, and a filterable per-case drill-down that
 shows each case's prompt, the model's response, and the judge's rationale. Locally
 it is `gen_cli --html <path>`; the deployed runner writes one per run to
-`s3://<eval-artifacts-bucket>/dashboards/<run_id>.html`. The payload shape
-(`report.assemble`) is the contract the future web SPA "Evals" tab will reuse.
+`s3://<eval-artifacts-bucket>/dashboards/<run_id>.html`.
+
+The same run payload (`report.assemble` shape) also drives an **Evals tab in the
+web SPA**. The deployed runner writes the payload to
+`s3://<eval-artifacts-bucket>/runs/<run_id>/payload.json`; the BFF serves it at
+`GET /api/evals/runs` (list) and `GET /api/evals/runs/<id>` (one run), and the
+React tab renders the same views. The BFF routes and IAM are opt-in: set
+`eval_enabled = true` in the api stack's tfvars **after** applying the eval stack
+(which publishes the table/bucket/key SSM params the api stack reads). Until then
+the tab falls back to a bundled sample run so it is always demoable.
 
 Full package layout and CLI reference: [../eval/README.md](../eval/README.md).
 

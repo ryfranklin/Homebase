@@ -1,13 +1,14 @@
 // The workspace navigation shared by the Vault, Chat, and Plan views: one brain,
 // three front doors. Kept in one place so the tabs stay consistent everywhere.
 
-export type AppMode = "vault" | "chat" | "plan" | "mission";
+export type AppMode = "vault" | "chat" | "plan" | "mission" | "evals";
 
 const MODES: { id: AppMode; label: string }[] = [
   { id: "vault", label: "Vault" },
   { id: "chat", label: "Chat" },
   { id: "plan", label: "Plan" },
   { id: "mission", label: "Mission" },
+  { id: "evals", label: "Evals" },
 ];
 
 export function ModeSwitch({

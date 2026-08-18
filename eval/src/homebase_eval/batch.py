@@ -88,18 +88,24 @@ def run_batch(config: RunConfig, cases, targets, judge, pricing, sink) -> tuple:
     cards = build_scorecards(scores)
     sink.finalize(config, cards)
 
-    # Render the self-contained dashboard for this run (same one gen_cli --html
-    # produces). Sinks that can store it (S3) get a browsable per-run report.
+    # Build the run payload once. It powers two surfaces: the self-contained HTML
+    # dashboard, and the JSON the BFF serves to the web SPA Evals tab. Same shape,
+    # one contract (report.assemble).
+    meta = {
+        "suite": config.suite,
+        "judge": config.judge,
+        "models": config.models,
+        "generated_at": config.created_at,
+        "n_cases": len(cases),
+        "git_sha": config.git_sha,
+        "run_id": config.run_id,
+        "tenant_id": config.tenant_id,
+    }
+    run_data = assemble(meta, cards, records, cases)
+    if hasattr(sink, "write_payload"):
+        sink.write_payload(config.run_id, run_data)
     if hasattr(sink, "write_dashboard"):
-        meta = {
-            "suite": config.suite,
-            "judge": config.judge,
-            "models": config.models,
-            "generated_at": config.created_at,
-            "n_cases": len(cases),
-            "git_sha": config.git_sha,
-        }
-        sink.write_dashboard(config.run_id, render_dashboard(assemble(meta, cards, records, cases)))
+        sink.write_dashboard(config.run_id, render_dashboard(run_data))
 
     return scores, cards
 
@@ -114,6 +120,7 @@ class MemorySink:
         self.metrics = []
         self.scorecards = None
         self.dashboard = None
+        self.payload = None
 
     def record_run(self, config):
         self.run = config
@@ -130,6 +137,9 @@ class MemorySink:
 
     def write_dashboard(self, run_id, html):
         self.dashboard = html
+
+    def write_payload(self, run_id, payload):
+        self.payload = payload
 
 
 class AwsSink:
@@ -236,4 +246,14 @@ class AwsSink:
             Key=f"dashboards/{run_id}.html",
             Body=html.encode("utf-8"),
             ContentType="text/html; charset=utf-8",
+        )
+
+    def write_payload(self, run_id, payload):
+        # The JSON the BFF serves to the web SPA Evals tab (same shape as the
+        # dashboard's embedded data).
+        self._s3.put_object(
+            Bucket=self._bucket,
+            Key=f"runs/{run_id}/payload.json",
+            Body=json.dumps(payload).encode("utf-8"),
+            ContentType="application/json",
         )
