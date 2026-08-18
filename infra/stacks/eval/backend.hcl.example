@@ -1,0 +1,13 @@
+# Copy to backend.hcl (GIT-IGNORED) and fill in with the bootstrap stack outputs.
+# Then run: terraform -chdir=infra/stacks/eval init -backend-config=backend.hcl
+#
+# Every value here is a FAKE placeholder. The real backend.hcl is never committed.
+# NOTE: keep `key` unique to this stack. Never copy another stack's backend.hcl
+# (its key would point this stack at that stack's state and an apply would clobber it).
+
+bucket         = "<YOUR_STATE_BUCKET_NAME>"
+key            = "eval/terraform.tfstate"
+region         = "<YOUR_AWS_REGION>"
+dynamodb_table = "<YOUR_LOCK_TABLE_NAME>"
+encrypt        = true
+kms_key_id     = "<YOUR_STATE_KMS_KEY_ARN>"

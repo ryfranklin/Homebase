@@ -115,7 +115,7 @@ services/       Backend services
 web/            React SPA (Vault · Chat · Plan · Mission surfaces)
 cli/            Thin chat CLI container
 workstation/    EC2 workstation bootstrap
-eval/           Retrieval and agent evaluation harness
+eval/           Evaluation harness: retrieval quality + multi-model generation benchmarks
 docs/           Project documentation
 ```
 

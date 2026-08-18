@@ -54,6 +54,8 @@ command that mutates cloud state. The human runs apply.
 - A thin chat CLI running as a Fargate container
 - A separate EC2 workstation reached over SSM (no public SSH)
 - Six connectors exposed as MCP tools via AgentCore Gateway and AgentCore Identity
+- An on-demand evaluation harness that benchmarks many Bedrock models (quality, latency, cost, task
+  success) over the Converse API, so model choice per seam is made on evidence
 - All infrastructure defined as Terraform IaC
 
 ## Identity and multi-tenancy posture

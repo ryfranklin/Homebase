@@ -1,0 +1,14 @@
+{
+  "_comment": "US dollars per 1,000,000 tokens, as [input, output]. PLACEHOLDER values: confirm current on-demand Bedrock pricing for your region before trusting the cost column. Override with --pricing or the deployed stack's PRICING parameter.",
+  "pricing": {
+    "us.anthropic.claude-opus-4-8": [15.0, 75.0],
+    "us.anthropic.claude-sonnet-4-6": [3.0, 15.0],
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0": [1.0, 5.0],
+    "zai.glm-5": [0.6, 2.2],
+    "moonshotai.kimi-k2.5": [0.6, 2.5],
+    "qwen.qwen3-coder-next": [0.3, 1.2],
+    "qwen.qwen3-next-80b-a3b": [0.4, 1.6],
+    "us.deepseek.r1-v1:0": [1.35, 5.4],
+    "us.meta.llama3-3-70b-instruct-v1:0": [0.72, 0.72]
+  }
+}
