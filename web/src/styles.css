@@ -1084,7 +1084,8 @@ button {
   background: var(--surface);
   margin-right: 4px;
 }
-.mode-switch button {
+.mode-switch button,
+.mode-switch .mode-link {
   border: none;
   background: none;
   color: var(--muted);
@@ -1094,7 +1095,17 @@ button {
   border-radius: 7px;
   transition: color 0.2s, background 0.2s;
 }
-.mode-switch button:hover {
+.mode-switch .mode-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+.mode-switch .mode-link svg {
+  opacity: 0.6;
+}
+.mode-switch button:hover,
+.mode-switch .mode-link:hover {
   color: var(--text);
 }
 .mode-switch .mode-active {
