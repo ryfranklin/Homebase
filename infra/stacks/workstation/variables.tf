@@ -121,6 +121,37 @@ variable "dotfiles_auth_secret_name" {
   default     = ""
 }
 
+# ---------------------------------------------------------------------------
+# Vault clone (Phase 2). Clone the git-authoritative knowledge vault onto the
+# persistent /workspace volume so Claude Code can work over it (edit, commit,
+# push a branch, open a PR) the way the local Obsidian loop does. The repo URL
+# and the git-auth secret name are inputs, never committed; the PAT itself is a
+# by-hand Secrets Manager secret. Empty repo URL skips the vault clone.
+# ---------------------------------------------------------------------------
+variable "vault_repo_url" {
+  description = "HTTPS git URL of the knowledge vault repo, cloned once onto /workspace at session start. Supplied via git-ignored tfvars; stored in SSM, never committed. Empty disables the vault clone."
+  type        = string
+  default     = ""
+}
+
+variable "vault_auth_secret_name" {
+  description = "Secrets Manager secret name holding a GitHub fine-grained PAT (Contents read+write, plus Pull requests read+write for `gh pr create`) on the vault repo. Read on demand by a git credential helper, so the token is never written to disk. Empty means no vault credential (unauthenticated clone, public repos only)."
+  type        = string
+  default     = ""
+}
+
+variable "vault_git_user_name" {
+  description = "Git author name set for commits made on the workstation (git config user.name). Empty leaves whatever the dotfiles configure."
+  type        = string
+  default     = ""
+}
+
+variable "vault_git_user_email" {
+  description = "Git author email for commits made on the workstation (git config user.email). PII, so supplied via git-ignored tfvars. Empty leaves whatever the dotfiles configure."
+  type        = string
+  default     = ""
+}
+
 variable "assumable_role_arns" {
   description = "Task-specific role ARNs the instance role may assume for short-lived credentials. Broad operations use these, not standing instance permissions. Empty by default."
   type        = list(string)

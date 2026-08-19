@@ -45,6 +45,15 @@ dnf_install nodejs20 || dnf_install nodejs || true
 # the instance role (see the profile.d env below), so no API key is ever stored.
 npm install -g @anthropic-ai/claude-code || true
 
+# GitHub CLI (gh): used for `gh pr create` from the box in the Phase 2 vault loop.
+# The token is supplied at runtime by the gh wrapper in the session profile (fetched
+# from Secrets Manager per call), never stored in gh's on-disk config. Non-fatal:
+# if gh is unavailable, `git push` still works and PRs can be opened in the browser.
+dnf_install dnf-plugins-core || true
+dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 2>/dev/null \
+  || curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo -o /etc/yum.repos.d/gh-cli.repo 2>/dev/null || true
+dnf_install gh || echo "gh install skipped (optional; git push still works)"
+
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
   (cd /tmp && unzip -q awscliv2.zip && ./aws/install)
@@ -107,6 +116,46 @@ homebase_session_bootstrap() {
     fi
   fi
 
+  # --- Phase 2: clone the git-authoritative vault onto persistent /workspace and
+  # wire read-write git. The PAT is fetched from Secrets Manager on demand by a
+  # credential helper, so no token is ever written to disk or into a remote URL. ---
+  local vault_url vault_secret vault_name vault_email vault_dir cred
+  vault_url="$(aws ssm get-parameter --region "$region" --name "$prefix/vault_repo_url" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+  if [ "$vault_url" != "unset" ] && [ -n "$vault_url" ]; then
+    mkdir -p "$HOME/.homebase"
+    vault_secret="$(aws ssm get-parameter --region "$region" --name "$prefix/vault_auth_secret_name" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+    vault_name="$(aws ssm get-parameter --region "$region" --name "$prefix/vault_git_user_name" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+    vault_email="$(aws ssm get-parameter --region "$region" --name "$prefix/vault_git_user_email" --query Parameter.Value --output text 2>/dev/null || echo unset)"
+    [ "$vault_name" != "unset" ] && [ -n "$vault_name" ] && git config --global user.name "$vault_name"
+    [ "$vault_email" != "unset" ] && [ -n "$vault_email" ] && git config --global user.email "$vault_email"
+
+    if [ "$vault_secret" != "unset" ] && [ -n "$vault_secret" ]; then
+      # Credential helper: for each github.com git op, fetch the PAT via the instance
+      # role and hand it to git on stdout. The token exists only for that op; it is
+      # never stored on disk or in the repo remote. The baked-in values (region and
+      # the secret NAME) are not secret.
+      cred="$HOME/.homebase/git-credential-vault"
+      cat > "$cred" <<CREDEOF
+#!/bin/sh
+[ "\$1" = get ] || exit 0
+tok=\$(aws secretsmanager get-secret-value --region '$region' --secret-id '$vault_secret' --query SecretString --output text 2>/dev/null)
+[ -n "\$tok" ] || exit 0
+printf 'username=x-access-token\npassword=%s\n' "\$tok"
+CREDEOF
+      chmod 700 "$cred"
+      git config --global "credential.https://github.com.helper" "$cred"
+      # Non-secret pointers so the gh wrapper (below) can fetch a token per call.
+      printf 'HB_VAULT_REGION=%s\nHB_VAULT_SECRET=%s\n' "$region" "$vault_secret" > "$HOME/.homebase/vault-env"
+    fi
+
+    # Clone once onto the persistent volume; later logins skip. The clone survives
+    # instance replacement because /workspace is a separate EBS volume.
+    vault_dir="/workspace/$(basename "$vault_url" .git)"
+    if [ -d /workspace ] && [ ! -d "$vault_dir/.git" ]; then
+      git clone "$vault_url" "$vault_dir" 2>/dev/null || echo "homebase: vault clone deferred (egress or credentials not ready yet)"
+    fi
+  fi
+
   secret_name="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_secret_name" --query Parameter.Value --output text 2>/dev/null || echo)"
   if [ -n "$secret_name" ] && [ "$secret_name" != "unset" ]; then
     if aws secretsmanager get-secret-value --region "$region" --secret-id "$secret_name" \
@@ -119,6 +168,18 @@ homebase_session_bootstrap() {
   fi
 }
 homebase_session_bootstrap
+
+# gh wrapper: hand the GitHub CLI a token fetched from Secrets Manager per call, so
+# `gh pr create` works without persisting a token in gh's on-disk config. No-op if
+# gh is not installed or the vault credential is not configured.
+if command -v gh >/dev/null 2>&1 && [ -f "$HOME/.homebase/vault-env" ]; then
+  gh() {
+    local _t=""
+    . "$HOME/.homebase/vault-env"
+    [ -n "$HB_VAULT_SECRET" ] && _t="$(aws secretsmanager get-secret-value --region "$HB_VAULT_REGION" --secret-id "$HB_VAULT_SECRET" --query SecretString --output text 2>/dev/null)"
+    GH_TOKEN="$_t" command gh "$@"
+  }
+fi
 PROFILE
 
 # Bake only non-secret pointers (region/project/env) into the profile script.
