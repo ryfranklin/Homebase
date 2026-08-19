@@ -34,6 +34,21 @@ export function ModeSwitch({
           {m.label}
         </button>
       ))}
+      {/* The canonical architecture view + diagrams are self-contained static files
+          served alongside the SPA, not React routes, so this is a plain link that
+          opens architecture.html in a new tab. */}
+      <a
+        className="mode-link"
+        href="/architecture.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Architecture and diagrams (opens in a new tab)"
+      >
+        Architecture
+        <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 17 17 7M9 7h8v8" />
+        </svg>
+      </a>
       {onOpenSettings && (
         <button type="button" className="mode-settings" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
