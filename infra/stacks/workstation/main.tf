@@ -251,6 +251,7 @@ data "aws_iam_policy_document" "workstation" {
     resources = concat(
       ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.dotfiles_secret_name}*"],
       var.dotfiles_auth_secret_name != "" ? ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.dotfiles_auth_secret_name}*"] : [],
+      var.vault_auth_secret_name != "" ? ["arn:${local.partition}:secretsmanager:${var.aws_region}:${local.account_id}:secret:${var.vault_auth_secret_name}*"] : [],
     )
   }
 
@@ -323,6 +324,37 @@ resource "aws_ssm_parameter" "dotfiles_auth_secret_name" {
   tags  = local.common_tags
 }
 
+# Vault clone pointers (Phase 2), read by the session bootstrap at login. All are
+# non-secret: the repo URL and git identity, plus the NAME of the by-hand PAT
+# secret (never the token). "unset" disables the corresponding step.
+resource "aws_ssm_parameter" "vault_repo_url" {
+  name  = "/${var.project_name}/${var.environment}/workstation/vault_repo_url"
+  type  = "String"
+  value = var.vault_repo_url == "" ? "unset" : var.vault_repo_url
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "vault_auth_secret_name" {
+  name  = "/${var.project_name}/${var.environment}/workstation/vault_auth_secret_name"
+  type  = "String"
+  value = var.vault_auth_secret_name == "" ? "unset" : var.vault_auth_secret_name
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "vault_git_user_name" {
+  name  = "/${var.project_name}/${var.environment}/workstation/vault_git_user_name"
+  type  = "String"
+  value = var.vault_git_user_name == "" ? "unset" : var.vault_git_user_name
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "vault_git_user_email" {
+  name  = "/${var.project_name}/${var.environment}/workstation/vault_git_user_email"
+  type  = "String"
+  value = var.vault_git_user_email == "" ? "unset" : var.vault_git_user_email
+  tags  = local.common_tags
+}
+
 # ---------------------------------------------------------------------------
 # Workstation instance and persistent home volume. SSM-only: no key pair, no
 # inbound, no public IP. Encrypted root and home volumes. IMDSv2 required.
@@ -372,6 +404,13 @@ resource "aws_instance" "workstation" {
     cockpit_model       = var.cockpit_model
     cockpit_small_model = var.cockpit_small_model
   })
+
+  # A bootstrap change should actually deploy. The root filesystem is ephemeral and
+  # reproducible from user_data; the persistent /workspace volume is a separate EBS
+  # volume that detaches and reattaches, so a replacement keeps your work (vault
+  # clone, scratch) intact. Without this, user_data updates in place and cloud-init
+  # (which runs once per instance) never re-runs the new bootstrap.
+  user_data_replace_on_change = true
 
   tags = merge(local.common_tags, { Name = local.name_prefix })
 

@@ -40,6 +40,18 @@ dotfiles_secret_name = "homebase/workstation/shell-secrets"
 # = unauthenticated clone (public repos only). The token is never committed.
 dotfiles_auth_secret_name = "homebase/workstation/dotfiles-auth"
 
+# Vault clone (Phase 2): clone the git-authoritative knowledge vault onto the
+# persistent /workspace so Claude Code can edit -> commit -> push a branch -> open a
+# PR, like the local Obsidian loop. vault_auth_secret_name is a by-hand Secrets
+# Manager secret holding a GitHub fine-grained PAT on JUST the vault repo, with
+# Contents: read+write and Pull requests: read+write (the latter for `gh pr create`).
+# The token is fetched on demand by a credential helper, never written to disk.
+# Empty vault_repo_url skips the whole vault clone. All values here are fake.
+vault_repo_url         = "<YOUR_VAULT_GIT_URL>"
+vault_auth_secret_name = "homebase/workstation/vault-auth"
+vault_git_user_name    = "<YOUR_GIT_AUTHOR_NAME>"
+vault_git_user_email   = "you@example.invalid"
+
 # Task-specific roles the instance may assume for short-lived credentials.
 # Broad operations go through these, not standing instance permissions.
 assumable_role_arns = []
