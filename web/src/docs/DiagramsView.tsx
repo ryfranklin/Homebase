@@ -60,6 +60,10 @@ export function DiagramsView() {
 
   return (
     <div className="diagrams">
+      <header className="diagrams-intro">
+        <h1>Architecture &amp; diagrams</h1>
+        <p>The canonical UML, ERD, data-flow, and sequence diagrams for Homebase, rendered from the vault&apos;s diagrams source.</p>
+      </header>
       {diagrams.map((d) => (
         <DiagramCard key={d.id} diagram={d} />
       ))}
