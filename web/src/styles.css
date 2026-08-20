@@ -1714,6 +1714,35 @@ button.fb-row:hover { background: var(--surface); }
 .fb-pending { color: var(--pending); margin-left: 5px; }
 .fb-next { color: var(--faint); font-size: 0.8rem; text-align: right; }
 
+/* Per-row delete, revealed on hover over the far right of the row. */
+.fb-rowwrap { position: relative; }
+.fb-rowwrap .fb-row { width: 100%; }
+.fb-del {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 7px;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.fb-rowwrap:hover .fb-del,
+.fb-del:focus-visible {
+  opacity: 0.85;
+}
+.fb-del:hover {
+  opacity: 1;
+  color: var(--danger);
+  background: var(--surface);
+}
+
 /* ---------- Flight plan editor ---------- */
 /* Plan workspace shell (header + scrollable body), matching Vault/Chat. */
 .plan { display: flex; flex-direction: column; height: 100dvh; }

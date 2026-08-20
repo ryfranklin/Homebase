@@ -175,6 +175,18 @@ export function FlightPlanner({
     setSelectedId(plan.id);
   };
 
+  // Delete a plan: drop it from the board and remove its plans/<id>.md note from the
+  // vault. Confirmed by title, since this is destructive. Returns to the board if the
+  // deleted plan was open.
+  const onDeletePlan = (plan: FlightPlan) => {
+    if (!store) return;
+    if (!window.confirm(`Delete flight plan "${plan.title}"? This removes it from the vault.`)) return;
+    setPlans((prev) => prev.filter((p) => p.id !== plan.id));
+    if (selectedId === plan.id) setSelectedId(null);
+    setSaveError(false);
+    void store.remove(plan).catch(() => setSaveError(true));
+  };
+
   // A plan the agent drafted in the interview: persist and open it.
   const onDraftCreate = (plan: FlightPlan) => {
     if (plansRef.current.some((p) => p.id === plan.id)) plan.id = `${plan.id}-${plansRef.current.length + 1}`;
@@ -263,6 +275,7 @@ export function FlightPlanner({
         onCreate={onNewPlan}
         onCancelNew={() => setCreating(false)}
         onDraft={canDraft ? () => setDrafting(true) : undefined}
+        onDelete={store ? onDeletePlan : undefined}
       />
     );
   } else {
@@ -279,6 +292,7 @@ export function FlightPlanner({
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
           onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
+          onDelete={store ? () => onDeletePlan(selected) : undefined}
         />
         {preflight && (
           <PreflightModal

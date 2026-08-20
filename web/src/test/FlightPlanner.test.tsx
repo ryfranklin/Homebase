@@ -122,6 +122,27 @@ describe("FlightPlanner vault persistence", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Approve" })[0]);
     expect(store.save).toHaveBeenCalled();
   });
+
+  it("deletes a plan from the board when confirmed and removes it from the vault", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const store = fakeStore();
+    render(<FlightPlanner store={store} />);
+    await screen.findByText("Homebase MCP relay");
+    fireEvent.click(screen.getByRole("button", { name: "Delete Homebase MCP relay" }));
+    expect(store.remove).toHaveBeenCalledTimes(1);
+    // The row is gone and the empty state shows.
+    expect(await screen.findByText(/No flight plans yet/)).toBeInTheDocument();
+  });
+
+  it("does not delete when the confirm is dismissed", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const store = fakeStore();
+    render(<FlightPlanner store={store} />);
+    await screen.findByText("Homebase MCP relay");
+    fireEvent.click(screen.getByRole("button", { name: "Delete Homebase MCP relay" }));
+    expect(store.remove).not.toHaveBeenCalled();
+    expect(screen.getByText("Homebase MCP relay")).toBeInTheDocument();
+  });
 });
 
 describe("resolvePlanSources", () => {
