@@ -38,6 +38,7 @@ export function FlightBoard({
   onCreate,
   onCancelNew,
   onDraft,
+  onDelete,
 }: {
   plans: FlightPlan[];
   onOpen: (id: string) => void;
@@ -46,6 +47,7 @@ export function FlightBoard({
   onCreate?: (title: string) => void;
   onCancelNew?: () => void;
   onDraft?: () => void;
+  onDelete?: (plan: FlightPlan) => void;
 }) {
   const needsReview = plans.reduce((n, p) => n + (p.status === "in_review" ? pendingCount(p) : 0), 0);
   const [title, setTitle] = useState("");
@@ -116,22 +118,41 @@ export function FlightBoard({
         {plans.map((p) => {
           const pend = pendingCount(p);
           return (
-            <button key={p.id} type="button" className="fb-row" role="row" onClick={() => onOpen(p.id)}>
-              <span className={`fb-status status-${p.status}`}>
-                <span className="fb-glyph" aria-hidden="true">
-                  {STATUS_GLYPH[p.status]}
+            <div key={p.id} className="fb-rowwrap" role="row">
+              <button type="button" className="fb-row" onClick={() => onOpen(p.id)}>
+                <span className={`fb-status status-${p.status}`}>
+                  <span className="fb-glyph" aria-hidden="true">
+                    {STATUS_GLYPH[p.status]}
+                  </span>
+                  {STATUS_LABEL[p.status]}
                 </span>
-                {STATUS_LABEL[p.status]}
-              </span>
-              <span className="fb-title">{p.title}</span>
-              <span className="fb-owner">{p.owner.name}</span>
-              <span className="fb-ac">
-                {approvedCount(p)}/{p.criteria.length}
-                {pend > 0 && <span className="fb-pending" title="pending review">{`•${pend}`}</span>}
-              </span>
-              <span className="fb-updated">{new Date(p.updatedAt).toLocaleDateString()}</span>
-              <span className="fb-next">{nextAction(p)}</span>
-            </button>
+                <span className="fb-title">{p.title}</span>
+                <span className="fb-owner">{p.owner.name}</span>
+                <span className="fb-ac">
+                  {approvedCount(p)}/{p.criteria.length}
+                  {pend > 0 && <span className="fb-pending" title="pending review">{`•${pend}`}</span>}
+                </span>
+                <span className="fb-updated">{new Date(p.updatedAt).toLocaleDateString()}</span>
+                <span className="fb-next">{nextAction(p)}</span>
+              </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  className="fb-del"
+                  aria-label={`Delete ${p.title}`}
+                  title="Delete flight plan"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(p);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                </button>
+              )}
+            </div>
           );
         })}
       </div>

@@ -197,6 +197,7 @@ export function FlightPlanView({
   onSetTarget,
   onLaunchUnit,
   onSetUnitCriteria,
+  onDelete,
 }: {
   plan: FlightPlan;
   catalog: Record<string, VaultDoc>;
@@ -208,6 +209,7 @@ export function FlightPlanView({
   onSetTarget?: (target: string) => void;
   onLaunchUnit?: (wp: string | Waypoint) => void;
   onSetUnitCriteria?: (index: number, criteria: string[]) => void;
+  onDelete?: () => void;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
   const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
@@ -256,6 +258,11 @@ export function FlightPlanView({
           >
             File clearance ▸
           </button>
+          {onDelete && (
+            <button type="button" className="vault-btn danger" onClick={onDelete} title="Delete this flight plan">
+              Delete
+            </button>
+          )}
         </div>
       </header>
 
