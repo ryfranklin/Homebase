@@ -9,6 +9,8 @@ import {
   splitFrontMatter,
   noteTitle,
   assertSafeKey,
+  normalizeDirPrefix,
+  keysUnderPrefix,
 } from "../src/vault.mjs";
 import { handleRequest } from "../src/bff.mjs";
 
@@ -212,6 +214,56 @@ test("del removes the note through the worker", async () => {
   assert.equal(writer.writes[0].op, "remove");
 });
 
+// ---------------------------------------------------------------------------
+// Directory delete
+// ---------------------------------------------------------------------------
+
+test("normalizeDirPrefix strips trailing slash and rejects root/traversal", () => {
+  assert.equal(normalizeDirPrefix("work/aws/"), "work/aws");
+  assert.equal(normalizeDirPrefix("work"), "work");
+  assert.throws(() => normalizeDirPrefix(""), { code: "invalid_prefix" });
+  assert.throws(() => normalizeDirPrefix("/"), { code: "invalid_prefix" });
+  assert.throws(() => normalizeDirPrefix("../etc"), { code: "invalid_prefix" });
+  assert.throws(() => normalizeDirPrefix("/abs"), { code: "invalid_prefix" });
+});
+
+test("keysUnderPrefix matches children on the path boundary only", () => {
+  const keys = ["work/a.md", "work/sub/b.md", "workshop/c.md", "top.md"];
+  assert.deepEqual(keysUnderPrefix(keys, "work"), ["work/a.md", "work/sub/b.md"]);
+  assert.deepEqual(keysUnderPrefix(keys, "work/"), ["work/a.md", "work/sub/b.md"]); // trailing slash ok
+  assert.deepEqual(keysUnderPrefix(keys, "workshop"), ["workshop/c.md"]); // not matched by "work"
+});
+
+test("delDir removes every note under a folder through the worker", async () => {
+  const store = fakeStore({ "work/a.md": "a", "work/sub/b.md": "b", "workshop/c.md": "c", "top.md": "t" });
+  const writer = fakeWriter(store);
+  const vault = makeVault({ store, writer });
+  const res = await vault.delDir("work", { id: "u1", name: "ryan" });
+  assert.equal(res.ok, true);
+  assert.equal(res.deletedCount, 2);
+  assert.deepEqual(res.deleted.sort(), ["work/a.md", "work/sub/b.md"]);
+  assert.equal(store.map.has("work/a.md"), false);
+  assert.equal(store.map.has("work/sub/b.md"), false);
+  assert.equal(store.map.has("workshop/c.md"), true); // sibling folder untouched
+  assert.equal(store.map.has("top.md"), true);
+  assert.ok(writer.writes.every((w) => w.op === "remove"));
+});
+
+test("delDir 404s when the folder has no notes", async () => {
+  const store = fakeStore({ "other/x.md": "x" });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
+  await assert.rejects(() => vault.delDir("missing", { name: "ryan" }), { code: "not_found" });
+});
+
+test("delDir 503s without a worker and rejects the vault root", async () => {
+  const noWriter = makeVault({ store: fakeStore({ "work/a.md": "a" }) });
+  await assert.rejects(() => noWriter.delDir("work", { name: "ryan" }), { code: "writes_unavailable" });
+  const store = fakeStore({ "work/a.md": "a" });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
+  await assert.rejects(() => vault.delDir("", { name: "ryan" }), { code: "invalid_prefix" });
+  assert.equal(store.map.has("work/a.md"), true); // nothing deleted on a bad prefix
+});
+
 test("search matches title and body, ranking title hits higher", async () => {
   const vault = makeVault({
     store: fakeStore({ "rerank.md": "# Rerank\ncohere model", "other.md": "mentions rerank once" }),
@@ -345,6 +397,16 @@ test("PUT /api/vault/note writes via the body", async () => {
   const { rec } = await route({ method: "PUT", path: "/api/vault/note", body: { key: "n.md", content: "# hi" }, vault });
   assert.equal(rec.statusCode, 200);
   assert.equal(store.map.get("n.md"), "# hi");
+});
+
+test("DELETE /api/vault/dir removes the folder's notes via the route", async () => {
+  const store = fakeStore({ "work/a.md": "a", "work/b.md": "b", "keep.md": "k" });
+  const vault = makeVault({ store, writer: fakeWriter(store) });
+  const { rec, json } = await route({ method: "DELETE", path: "/api/vault/dir", query: { prefix: "work" }, vault });
+  assert.equal(rec.statusCode, 200);
+  assert.equal(json().deletedCount, 2);
+  assert.equal(store.map.has("work/a.md"), false);
+  assert.equal(store.map.has("keep.md"), true); // sibling note kept
 });
 
 test("vault routes 503 when the vault is not configured", async () => {

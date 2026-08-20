@@ -28,6 +28,35 @@ export function assertSafeKey(key) {
   return key;
 }
 
+// A directory delete loops per-file through the worker (one git commit each), so it
+// is bounded to keep a single request within the Lambda's time budget. A personal
+// folder rarely exceeds this; larger deletes should target sub-folders or use git.
+export const MAX_DIR_DELETE = 50;
+
+// Normalize a directory prefix for a bulk delete: a relative path with no traversal,
+// never the bucket root (which would wipe the whole vault). Trailing slashes are
+// stripped; unlike a note key it need not end in .md.
+export function normalizeDirPrefix(prefix) {
+  if (typeof prefix !== "string" || !prefix.trim()) {
+    throw httpError(400, "invalid_prefix", "a directory is required");
+  }
+  const p = prefix.replace(/\/+$/, "");
+  if (!p) throw httpError(400, "invalid_prefix", "refusing to delete the vault root");
+  if (p.startsWith("/") || p.includes("..") || p.includes("\\") || p.includes("\0")) {
+    throw httpError(400, "invalid_prefix", "prefix must be a relative path with no traversal");
+  }
+  if (p.length > 1024) throw httpError(400, "invalid_prefix", "prefix too long");
+  return p;
+}
+
+// Keys under a directory prefix. The directory is a path boundary: match the prefix
+// itself or its children (prefix + "/"), never a sibling that merely shares the
+// string, so "work" does not match "workshop/x.md".
+export function keysUnderPrefix(keys, prefix) {
+  const p = prefix.replace(/\/+$/, "");
+  return keys.filter((k) => k === p || k.startsWith(p + "/"));
+}
+
 // Split leading YAML-ish front matter. Intentionally light (key: value lines) so
 // the BFF needs no YAML dependency; it only feeds titles/tags, not full parsing.
 export function splitFrontMatter(content) {
@@ -220,6 +249,33 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
       await requireWriter().remove(key, actor);
       invalidate();
       return { ok: true, key, deletedBy: actor?.name || null };
+    },
+
+    // Delete every note under a directory prefix. Each file is removed via the worker
+    // (one git commit + reingest per file); failures are collected so a partial
+    // delete still reports what went. Bounded by MAX_DIR_DELETE to stay within the
+    // request budget; re-running finishes any remainder (delete is idempotent).
+    async delDir(prefix, actor) {
+      const p = normalizeDirPrefix(prefix);
+      requireWriter();
+      const keys = keysUnderPrefix(await store.listKeys(), p);
+      if (keys.length === 0) throw httpError(404, "not_found", "no notes under that directory");
+      if (keys.length > MAX_DIR_DELETE) {
+        throw httpError(422, "too_many", `directory has ${keys.length} notes (max ${MAX_DIR_DELETE} per delete); remove sub-folders first or use git`);
+      }
+      const deleted = [];
+      const failed = [];
+      for (const key of keys) {
+        try {
+          await requireWriter().remove(key, actor);
+          deleted.push(key);
+        } catch {
+          failed.push(key);
+        }
+      }
+      invalidate();
+      if (deleted.length === 0) throw httpError(502, "delete_failed", "no notes could be deleted");
+      return { ok: failed.length === 0, prefix: p, deletedCount: deleted.length, deleted, failed, deletedBy: actor?.name || null };
     },
 
     // Version history straight from git: each commit that touched the note is a
