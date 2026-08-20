@@ -100,6 +100,9 @@ async function handleVault(resource, method, event, body, respond, cors, deps, a
     if (resource === "note" && method === "DELETE") {
       return writeJson(respond, cors, 200, await deps.vault.del(q.key ?? body.key ?? "", actor));
     }
+    if (resource === "dir" && method === "DELETE") {
+      return writeJson(respond, cors, 200, await deps.vault.delDir(q.prefix ?? body.prefix ?? "", actor));
+    }
     return writeError(respond, cors, 405, "method_not_allowed", `${method} not allowed on ${resource}`);
   } catch (err) {
     const status = err.status || 500;
@@ -371,7 +374,7 @@ export async function handleRequest(event, respond, deps) {
 
   // Vault workspace: browse / read / edit / search the Markdown corpus. Scoped by
   // the verified tenant (single-tenant seed: the whole corpus is the vault).
-  const vaultMatch = /\/vault\/(tree|note|search|backlinks|history|restore)$/.exec(path);
+  const vaultMatch = /\/vault\/(tree|note|dir|search|backlinks|history|restore)$/.exec(path);
   if (vaultMatch) {
     // Attribution: the access token authorizes the request but, for a federated
     // user, has no email/name. If the SPA also sent a verified ID token (x-id-token)

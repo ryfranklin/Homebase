@@ -1205,6 +1205,40 @@ button {
   color: var(--faint);
   font-size: 0.82rem;
 }
+/* A tree row: the open/toggle control plus a delete button that appears on hover. */
+.vault-row {
+  display: flex;
+  align-items: center;
+}
+.vault-row .vault-file,
+.vault-row .vault-dir-toggle {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.vault-del {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.vault-row:hover .vault-del,
+.vault-del:focus-visible {
+  opacity: 0.75;
+}
+.vault-del:hover {
+  opacity: 1;
+  color: var(--danger);
+  background: var(--surface);
+}
+
 .vault-dir-toggle,
 .vault-file {
   display: flex;

@@ -29,6 +29,7 @@ export interface UseVault {
   save: () => Promise<void>;
   create: (key: string) => Promise<void>;
   remove: (key: string) => Promise<void>;
+  removeDir: (prefix: string) => Promise<void>;
   search: (q: string) => Promise<void>;
   clearSearch: () => void;
   loadHistory: () => Promise<void>;
@@ -178,6 +179,25 @@ export function useVault(
     [api, note, refreshTree],
   );
 
+  const removeDir = useCallback(
+    async (prefix: string) => {
+      try {
+        await api.removeDir(prefix);
+        // Close the open note if it lived in the folder we just deleted.
+        const p = prefix.replace(/\/+$/, "");
+        if (note && (note.key === p || note.key.startsWith(p + "/"))) {
+          setNote(null);
+          setDraft("");
+          setBacklinks([]);
+        }
+        await refreshTree();
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [api, note, refreshTree],
+  );
+
   const search = useCallback(
     async (q: string) => {
       if (!q.trim()) {
@@ -241,6 +261,7 @@ export function useVault(
     save,
     create,
     remove,
+    removeDir,
     search,
     clearSearch: () => setResults(null),
     loadHistory,

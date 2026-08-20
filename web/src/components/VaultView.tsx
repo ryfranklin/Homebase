@@ -73,6 +73,24 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
     }
   };
 
+  // Delete a single note from the tree (hover trash), confirmed by name.
+  const onDeleteFileFromTree = (key: string) => {
+    const name = key.split("/").pop()!.replace(/\.(md|markdown)$/i, "");
+    if (window.confirm(`Delete "${name}"? This removes it from the vault.`)) {
+      void vault.remove(key);
+    }
+  };
+
+  // Delete a whole folder and every note under it. The confirm names the folder and
+  // the exact count, since this removes many notes at once.
+  const onDeleteDirFromTree = (prefix: string) => {
+    const p = prefix.replace(/\/+$/, "");
+    const count = vault.keys.filter((k) => k === p || k.startsWith(p + "/")).length;
+    if (window.confirm(`Delete folder "${p}" and its ${count} note${count === 1 ? "" : "s"}? This cannot be undone.`)) {
+      void vault.removeDir(p);
+    }
+  };
+
   return (
     <div className="vault">
       <header className="chat-header">
@@ -133,7 +151,13 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
           <div className="vault-count">
             {vault.count} {vault.count === 1 ? "note" : "notes"}
           </div>
-          <VaultTree tree={vault.tree} activeKey={vault.note?.key ?? null} onOpen={(k) => void vault.open(k)} />
+          <VaultTree
+            tree={vault.tree}
+            activeKey={vault.note?.key ?? null}
+            onOpen={(k) => void vault.open(k)}
+            onDeleteFile={onDeleteFileFromTree}
+            onDeleteDir={onDeleteDirFromTree}
+          />
         </aside>
 
         <main className="vault-main">

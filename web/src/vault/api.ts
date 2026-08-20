@@ -46,6 +46,7 @@ export interface VaultApi {
   get(key: string): Promise<Note>;
   put(key: string, content: string): Promise<{ ok: true; key: string; title: string }>;
   remove(key: string): Promise<{ ok: true; key: string }>;
+  removeDir(prefix: string): Promise<{ ok: boolean; prefix: string; deletedCount: number; failed: string[] }>;
   search(q: string): Promise<{ results: SearchResult[] }>;
   backlinks(key: string): Promise<{ backlinks: Backlink[] }>;
   history(key: string): Promise<{ key: string; versions: NoteVersion[] }>;
@@ -68,6 +69,7 @@ export function makeVaultApi(
     get: (key) => call(`note?key=${q(key)}`),
     put: (key, content) => call("note", { method: "PUT", body: JSON.stringify({ key, content }) }),
     remove: (key) => call(`note?key=${q(key)}`, { method: "DELETE" }),
+    removeDir: (prefix) => call(`dir?prefix=${q(prefix)}`, { method: "DELETE" }),
     search: (query) => call(`search?q=${q(query)}`),
     backlinks: (key) => call(`backlinks?key=${q(key)}`),
     history: (key) => call(`history?key=${q(key)}`),
