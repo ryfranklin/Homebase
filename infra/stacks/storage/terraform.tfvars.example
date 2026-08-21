@@ -13,6 +13,8 @@ tags = {
 #   <project_name>-<environment>-corpus-<bucket_suffix>
 bucket_suffix = "<YOUR_UNIQUE_SUFFIX>"
 
-# Lifecycle policy tuning (optional; defaults are sensible).
-noncurrent_version_expiration_days = 90
+# Lifecycle policy tuning. Git is the vault's history store, so S3 noncurrent
+# versions are only a short safety buffer; keep this small so version churn cannot
+# accumulate.
+noncurrent_version_expiration_days = 1
 abort_incomplete_multipart_days    = 7

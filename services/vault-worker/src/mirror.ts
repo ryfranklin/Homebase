@@ -50,6 +50,16 @@ export class Mirror {
     return { mirrored: files.length, pruned };
   }
 
+  // Mirror only the files that changed between two git commits: upsert the changed
+  // notes, delete the removed ones. The poll loop uses this instead of full() so an
+  // unchanged (or lightly changed) vault does not re-put every object every cycle —
+  // which was creating a new S3 version of every file on every poll.
+  async sync(changed: string[], deleted: string[]): Promise<{ mirrored: number; pruned: number }> {
+    for (const key of deleted) await this.store.deleteObject(key);
+    for (const f of changed) await this.put(f);
+    return { mirrored: changed.length, pruned: deleted.length };
+  }
+
   // Best-effort KB sync; a lagging or already-running ingestion never fails a write.
   async reingest(): Promise<void> {
     await this.store.reingest().catch(() => {});
