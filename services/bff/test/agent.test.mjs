@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeSseStream, invokeAgentRuntimeStream } from "../src/agent.mjs";
+import { decodeSseStream, invokeAgentRuntimeStream, normalizeRuntimeSessionId } from "../src/agent.mjs";
 
 function byteStreamOf(chunks) {
   const encoder = new TextEncoder();
@@ -49,6 +49,39 @@ test("decodeSseStream: a JSON blob split across chunks still decodes", async () 
 test("decodeSseStream: non-JSON, non-SSE body is surfaced as a token", async () => {
   const events = await collect(decodeSseStream(byteStreamOf(["plain text answer"])));
   assert.deepEqual(events, [{ type: "token", text: "plain text answer" }]);
+});
+
+test("normalizeRuntimeSessionId: pads short ids to AgentCore's 33-char floor, clamps long", () => {
+  // A slug-derived plan session ("plan-mc-testflight" = 18) must be padded, not rejected.
+  const padded = normalizeRuntimeSessionId("plan-mc-testflight");
+  assert.equal(padded.length, 33);
+  assert.ok(padded.startsWith("plan-mc-testflight")); // deterministic + stable prefix
+  assert.equal(normalizeRuntimeSessionId("plan-mc-testflight"), padded); // same input -> same id
+  // Already-valid ids pass through untouched; over-long ids clamp to 100.
+  const ok = "web-123e4567-e89b-12d3-a456-426614174000";
+  assert.equal(normalizeRuntimeSessionId(ok), ok);
+  assert.equal(normalizeRuntimeSessionId("x".repeat(150)).length, 100);
+});
+
+test("invokeAgentRuntimeStream: sends a normalized (>=33) runtimeSessionId, payload keeps the original", async () => {
+  let seen = null;
+  const client = {
+    async invoke(args) {
+      seen = args;
+      return { stream: (async function* () {})() };
+    },
+  };
+  await collect(
+    invokeAgentRuntimeStream(client, {
+      runtimeArn: "arn:x",
+      sessionId: "plan-mc-testflight", // 18 chars -> would 400 without normalization
+      userId: "u1",
+      tenantId: "homebase",
+      prompt: "revise",
+    }),
+  );
+  assert.equal(seen.sessionId.length, 33); // AgentCore constraint satisfied
+  assert.equal(JSON.parse(seen.body).session_id, "plan-mc-testflight"); // memory keying unchanged
 });
 
 test("invokeAgentRuntimeStream: includes plan_context in the payload only when set", async () => {

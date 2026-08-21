@@ -515,6 +515,16 @@ export async function handleRequest(event, respond, deps) {
     }
     writer.write(sseEvent({ type: "done" }));
   } catch (err) {
+    // Log the real cause (name + status + message); the client only sees a generic
+    // "agent_error", so without this the failure is invisible in CloudWatch.
+    console.error(
+      JSON.stringify({
+        event: "agent_error",
+        name: err?.name,
+        http: err?.$metadata?.httpStatusCode,
+        message: err?.message,
+      }),
+    );
     writer.write(sseEvent({ type: "error", message: "agent_error" }));
   } finally {
     clearInterval(heartbeat);

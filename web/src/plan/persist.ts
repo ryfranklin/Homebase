@@ -36,6 +36,15 @@ export function planChatKey(plan: Pick<FlightPlan, "id" | "title">): string {
   return `plans/${planSlug(plan)}.chat.md`;
 }
 
+// AgentCore requires an invoke session id of at least 33 characters. Derive a STABLE
+// per-plan session id (so the planning agent's memory stays continuous across a team's
+// turns) that always clears that floor: short slugs like "plan-mc-testflight" (18) are
+// padded, longer ones pass through. Deterministic, so the same plan keeps the same session.
+export function planSessionId(plan: Pick<FlightPlan, "id" | "title">): string {
+  const base = `plan-${planSlug(plan)}`;
+  return base.length >= 33 ? base : base.padEnd(33, "0");
+}
+
 // Front-matter values are cosmetic (the JSON block is authoritative); quote them so
 // a colon or hash in a title can't break the vault's front-matter parse.
 function yaml(value: string): string {
