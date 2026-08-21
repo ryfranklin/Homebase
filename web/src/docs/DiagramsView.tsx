@@ -33,13 +33,25 @@ function DiagramCard({ diagram }: { diagram: Diagram }) {
   );
 }
 
-export function DiagramsView() {
+// Renders the Mermaid diagrams parsed from a Markdown source (default: the canonical
+// diagrams.md). `src` lets the Docs surface host multiple pages from one component.
+export function DiagramsView({
+  src = "/diagrams.md",
+  title = "Architecture & diagrams",
+  blurb = "The canonical UML, ERD, data-flow, and sequence diagrams for Homebase, rendered from the vault's diagrams source.",
+}: {
+  src?: string;
+  title?: string;
+  blurb?: string;
+} = {}) {
   const [diagrams, setDiagrams] = useState<Diagram[] | null>(null);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/diagrams.md")
+    setDiagrams(null);
+    setError(undefined);
+    fetch(src)
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.text();
@@ -53,7 +65,7 @@ export function DiagramsView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [src]);
 
   if (error) return <p className="docs-status">{error}</p>;
   if (!diagrams) return <p className="docs-status">Loading diagrams…</p>;
@@ -61,8 +73,8 @@ export function DiagramsView() {
   return (
     <div className="diagrams">
       <header className="diagrams-intro">
-        <h1>Architecture &amp; diagrams</h1>
-        <p>The canonical UML, ERD, data-flow, and sequence diagrams for Homebase, rendered from the vault&apos;s diagrams source.</p>
+        <h1>{title}</h1>
+        <p>{blurb}</p>
       </header>
       {diagrams.map((d) => (
         <DiagramCard key={d.id} diagram={d} />

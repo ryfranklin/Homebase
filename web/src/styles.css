@@ -166,6 +166,30 @@ button {
   flex-direction: column;
   height: 100dvh;
 }
+/* Page switcher (Diagrams | RAG pipeline): a clean underline tab bar. */
+.docs-pages {
+  display: flex;
+  gap: 14px;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.docs-pages button {
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 2px 9px;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.docs-pages button:hover {
+  color: var(--text);
+}
+.docs-pages button.on {
+  color: var(--text);
+  border-bottom-color: var(--white);
+}
 .docs-body {
   flex: 1;
   min-height: 0;

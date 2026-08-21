@@ -1,8 +1,8 @@
 # Homebase diagrams
 
 Canonical UML, ERD, data-flow, and sequence diagrams for Homebase. These render on
-GitHub and are also surfaced in the app's **Docs → Diagrams** tab (parsed from this
-file). Keep them in sync with the code; every identifier here is a placeholder.
+GitHub and in the app's **Docs** surface (rendered natively from this file). Keep
+them in sync with the code; every identifier here is a placeholder.
 
 ---
 
@@ -418,4 +418,48 @@ flowchart LR
   GATE -->|approve| APPLY["apply_burn<br/>push to git remote"]
   GATE -->|reject| TEAR["teardown"]
   VER -. "red build auto-blocks;<br/>unverified still needs human" .-> GATE
+```
+
+---
+
+## Sequence: vault mirror (git to S3 to KB)
+
+Git is the source of truth for the vault. The vault-worker owns the one clone: GUI,
+CLI, and workstation-cockpit writes commit through it, and a poll loop picks up
+external commits (for example a push from the cockpit). It mirrors to the corpus S3
+bucket and triggers a Knowledge Base reingest ONLY when git actually moved, and then
+only for the changed files, so an idle vault does no S3 writes. That is what keeps the
+versioned corpus bucket from accumulating noncurrent-version churn.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as GUI / CLI / Cockpit
+  participant BFF as BFF
+  participant W as vault-worker (Fargate)
+  participant Git as homebase-vault (git)
+  participant S3 as Corpus S3 (KMS)
+  participant KB as Bedrock KB (S3 Vectors)
+
+  Note over U,KB: Write path (a note edit)
+  U->>BFF: PUT /api/vault/note
+  BFF->>W: POST /write {path, content, author}
+  W->>Git: commit + push (author-attributed)
+  W->>S3: put the changed object
+  W->>KB: StartIngestionJob (best-effort)
+
+  Note over W,KB: Poll loop (external commits)
+  loop every pullIntervalMs
+    W->>Git: fetch + rebase
+    alt HEAD unchanged
+      W-->>W: no-op (no S3 write, no reingest)
+    else HEAD moved
+      W->>Git: diff (changed vs deleted)
+      W->>S3: put changed / delete removed (only the diff)
+      W->>KB: StartIngestionJob
+    end
+  end
+
+  Note over S3,KB: Read path
+  KB->>S3: index + serve at query time (the agent grounds here)
 ```

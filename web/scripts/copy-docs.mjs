@@ -12,6 +12,7 @@ mkdirSync(publicDir, { recursive: true });
 const files = [
   ["..", "architecture.html", "architecture.html"],
   ["..", "docs/diagrams.md", "diagrams.md"],
+  ["..", "docs/rag-pipeline.md", "rag-pipeline.md"],
 ];
 
 for (const [base, src, dest] of files) {
