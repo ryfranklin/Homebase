@@ -141,6 +141,8 @@ export function App() {
             onNavigate={setMode}
             onSignOut={auth.logout}
             onOpenSettings={openSettings}
+            connectors={connStatus.connectors}
+            onConnect={(url) => window.location.assign(url)}
           />
         )}
       </Suspense>

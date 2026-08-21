@@ -3,7 +3,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../chat/messages";
 import type { ModelOption } from "../config";
 import type { ThreadSummary } from "../chat/threadsApi";
+import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 import { Citations } from "./Citations";
+import { ChatConnections } from "./ChatConnections";
 
 const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
 
@@ -25,6 +27,9 @@ export interface VaultChatPanelProps {
   onSelectThread?: (id: string) => void;
   onNewThread?: () => void;
   onClose?: () => void;
+  // What's connected, for the empty-state "Connected / Connect" strip.
+  connectors?: ConnectorStatuses;
+  onConnect?: (url: string) => void;
 }
 
 // Settings-level model picker, shown only when the deploy configured model choices.
@@ -62,7 +67,7 @@ function Thinking() {
 // A chat panel docked in the Vault surface. The scope toggle chooses whether the
 // agent answers strictly from vault material (KB docs + connectors) or opens up to
 // general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose }: VaultChatPanelProps) {
+export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -150,6 +155,7 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
                 ? "Answers come only from your knowledge base and connected accounts, with citations."
                 : "General knowledge is on; vault sources are still cited when used."}
             </p>
+            {connectors && <ChatConnections connectors={connectors} onConnect={onConnect} />}
           </div>
         )}
         {messages.map((m) => (

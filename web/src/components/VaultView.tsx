@@ -11,6 +11,7 @@ import { VaultHistory } from "./VaultHistory";
 import { VaultChatPanel, type ChatScope } from "./VaultChatPanel";
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import type { ModelOption } from "../config";
+import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 
 export interface VaultViewProps {
   vault: UseVault;
@@ -25,12 +26,15 @@ export interface VaultViewProps {
   onNavigate: (mode: AppMode) => void;
   onSignOut?: () => void;
   onOpenSettings?: () => void;
+  // What's connected + how to start a connector's consent flow, for the chat panel.
+  connectors?: ConnectorStatuses;
+  onConnect?: (url: string) => void;
 }
 
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, chat, threads, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings }: VaultViewProps) {
+export function VaultView({ vault, chat, threads, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings, connectors, onConnect }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -290,6 +294,8 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             onSelectThread={(id) => void threads.selectThread(id)}
             onNewThread={threads.newThread}
             onClose={() => setChatOpen(false)}
+            connectors={connectors}
+            onConnect={onConnect}
           />
         )}
       </div>
