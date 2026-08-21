@@ -158,7 +158,11 @@ export function FlightPlanner({
     (msgs: ChatMessage[]) => {
       if (!store || !selected) return;
       setChat(msgs);
-      void store.saveChat(selected, msgs).catch(() => setSaveError(true));
+      // Clear a stale banner on success so a one-off failure doesn't stick around.
+      void store
+        .saveChat(selected, msgs)
+        .then(() => setSaveError(false))
+        .catch(() => setSaveError(true));
     },
     [store, selected],
   );

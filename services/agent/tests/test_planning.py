@@ -122,6 +122,21 @@ class PlanContextTest(unittest.TestCase):
         user_turns = [t for role, t in memory.turns if role == "user"]
         self.assertEqual(user_turns, ["Add AC-9"])
 
+    def test_plan_mode_raises_the_output_token_budget(self):
+        # A full plan draft must not truncate; plan mode uses a larger max_tokens than
+        # the default answer path, so the fenced JSON block always closes.
+        class TokenLLM:
+            def __init__(self, mx):
+                self.max_tokens = mx
+
+            def with_max_tokens(self, n):
+                return TokenLLM(n)
+
+        agent = Agent(FakeRetrieval(), llm=TokenLLM(1024), system_prompt="SYS")
+        agent._planning_max_tokens = 4096
+        self.assertEqual(agent._resolve_llm(None, planning=True).max_tokens, 4096)
+        self.assertEqual(agent._resolve_llm(None, planning=False).max_tokens, 1024)
+
     def test_no_plan_context_leaves_the_turn_clean(self):
         memory = RecordingMemory()
         agent, llm = self._revise_agent(memory)

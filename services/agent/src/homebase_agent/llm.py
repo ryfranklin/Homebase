@@ -138,6 +138,18 @@ class BedrockLLMClient:
             guardrail=(self._gc.get("guardrailConfig") if self._gc else None),
         )
 
+    def with_max_tokens(self, max_tokens):
+        # A clone with a different output-token cap. Plan mode uses a larger cap so a
+        # full flight-plan draft (the fenced JSON block) is never truncated mid-object;
+        # a truncated block cannot be parsed and the plan can't be applied. Immutable.
+        return BedrockLLMClient(
+            self._client,
+            self._model_id,
+            max_tokens=max_tokens,
+            temperature=self._temperature,
+            guardrail=(self._gc.get("guardrailConfig") if self._gc else None),
+        )
+
     def generate(self, *, system, question, passages, session) -> str:
         context = _passages_block(passages)
         user_text = (

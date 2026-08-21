@@ -155,6 +155,10 @@ class Agent:
         # When set, answer() runs a tool-use loop with the knowledge base AND the
         # connector read tools; otherwise it uses the single-shot RAG path below.
         self._connectors = connectors
+        # Output-token budget for plan mode. A flight-plan draft (the fenced JSON block)
+        # runs long; the default 1024 truncates it mid-object so the block never closes
+        # and cannot be applied. Overridable via HOMEBASE_PLANNING_MAX_TOKENS.
+        self._planning_max_tokens = int(os.environ.get("HOMEBASE_PLANNING_MAX_TOKENS", "4096"))
 
     def _remember(self, session, role, text):
         # Memory is best-effort context, never on the answer's critical path: a
@@ -178,12 +182,16 @@ class Agent:
     def supports_streaming(self) -> bool:
         return self._connectors is not None
 
-    def _resolve_llm(self, model):
+    def _resolve_llm(self, model, *, planning: bool = False):
         # Honor a requested model only if it is in the allow-list; otherwise use the
         # default. Returns the LLM client to use for this request.
-        if model and model in self._allowed_models:
-            return self._llm.with_model(model)
-        return self._llm
+        llm = self._llm.with_model(model) if (model and model in self._allowed_models) else self._llm
+        # Plan mode must emit a complete flight-plan draft (a fenced JSON block); the
+        # default output cap truncates it mid-object, leaving an unparseable block. Give
+        # planning a larger budget. Guarded so lightweight test doubles are unaffected.
+        if planning and hasattr(llm, "with_max_tokens"):
+            llm = llm.with_max_tokens(self._planning_max_tokens)
+        return llm
 
     def _make_execute(self, session, question):
         """The tool dispatcher shared by the buffered and streaming loops."""
@@ -226,7 +234,7 @@ class Agent:
     def _answer_with_tools(self, session, question, *, planning: bool = False, model=None, scope: str = "general", plan_context=None) -> AnswerResult:
         asked = _with_plan_context(question, plan_context) if planning else question
         loop = run_tool_loop(
-            self._resolve_llm(model),
+            self._resolve_llm(model, planning=planning),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
             question=asked,
             tools=self._tools(),
@@ -266,7 +274,7 @@ class Agent:
         asked = _with_plan_context(question, plan_context) if planning else question
         text_parts: list = []
         for event in run_tool_loop_stream(
-            self._resolve_llm(model),
+            self._resolve_llm(model, planning=planning),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
             question=asked,
             tools=self._tools(),
@@ -285,7 +293,7 @@ class Agent:
         if self._connectors is not None:
             return self._answer_with_tools(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context)
 
-        llm = self._resolve_llm(model)
+        llm = self._resolve_llm(model, planning=planning)
         passages = self._retrieval.retrieve(question, **retrieval_kwargs)
 
         if not passages:
