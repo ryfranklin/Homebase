@@ -117,6 +117,9 @@ def make_handler(agent):
             # Chat scope: 'vault' answers strictly from the KB + connectors (no general
             # knowledge); anything else (default) is the normal grounded-with-fallback mode.
             scope = "vault" if payload.get("scope") == "vault" else "general"
+            # In plan mode, the current flight plan being revised (JSON string). Folded
+            # into the operator's turn so the agent edits it; ignored outside plan mode.
+            plan_context = payload.get("plan_context") if planning else None
 
             # Stream the answer token-by-token when the agent supports it (the tool
             # loop). The BFF consumes this SSE and relays it to the browser.
@@ -126,7 +129,7 @@ def make_handler(agent):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    for event in agent.answer_stream(session, question, planning=planning, model=model, scope=scope):
+                    for event in agent.answer_stream(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context):
                         self._sse(event)
                 except Exception:  # noqa: BLE001 - never leave the stream hanging
                     self._sse({"type": "error", "message": "agent_error"})
@@ -134,7 +137,7 @@ def make_handler(agent):
                 return
 
             # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
-            result = agent.answer(session, question, planning=planning, model=model, scope=scope)
+            result = agent.answer(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context)
             body = {
                 "answer": result.text,
                 "grounded": result.grounded,

@@ -78,6 +78,23 @@ describe("streamChat", () => {
     expect("model" in JSON.parse(captured!.body as string)).toBe(false);
   });
 
+  it("sends plan_context (revise mode) only when set", async () => {
+    let captured: RequestInit | null = null;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      captured = init;
+      return sseResponse(['data: {"type":"done"}\n\n']);
+    }) as unknown as typeof fetch;
+
+    await collect(
+      streamChat("https://app.example.invalid", "t", { input: "revise it", mode: "plan", planContext: '{"title":"Ship"}' }, { fetchImpl }),
+    );
+    expect(JSON.parse(captured!.body as string)).toMatchObject({ mode: "plan", plan_context: '{"title":"Ship"}' });
+
+    captured = null;
+    await collect(streamChat("https://app.example.invalid", "t", { input: "hi", mode: "plan" }, { fetchImpl }));
+    expect("plan_context" in JSON.parse(captured!.body as string)).toBe(false);
+  });
+
   it("throws StreamError on a non-ok response", async () => {
     const fetchImpl = (async () => sseResponse([], { ok: false, status: 401 })) as unknown as typeof fetch;
     await expect(

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeSseStream } from "../src/agent.mjs";
+import { decodeSseStream, invokeAgentRuntimeStream } from "../src/agent.mjs";
 
 function byteStreamOf(chunks) {
   const encoder = new TextEncoder();
@@ -49,4 +49,32 @@ test("decodeSseStream: a JSON blob split across chunks still decodes", async () 
 test("decodeSseStream: non-JSON, non-SSE body is surfaced as a token", async () => {
   const events = await collect(decodeSseStream(byteStreamOf(["plain text answer"])));
   assert.deepEqual(events, [{ type: "token", text: "plain text answer" }]);
+});
+
+test("invokeAgentRuntimeStream: includes plan_context in the payload only when set", async () => {
+  const seen = [];
+  const client = {
+    async invoke(args) {
+      seen.push(JSON.parse(args.body));
+      return { stream: (async function* () {})() };
+    },
+  };
+  await collect(
+    invokeAgentRuntimeStream(client, {
+      runtimeArn: "arn:x",
+      sessionId: "plan-ship",
+      userId: "u1",
+      tenantId: "homebase",
+      prompt: "revise",
+      mode: "plan",
+      planContext: '{"title":"Ship"}',
+    }),
+  );
+  assert.equal(seen[0].plan_context, '{"title":"Ship"}');
+  assert.equal(seen[0].mode, "plan");
+
+  await collect(
+    invokeAgentRuntimeStream(client, { runtimeArn: "arn:x", sessionId: "s", userId: "u1", tenantId: "homebase", prompt: "hi" }),
+  );
+  assert.equal("plan_context" in seen[1], false);
 });

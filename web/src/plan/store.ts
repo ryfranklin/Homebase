@@ -5,13 +5,17 @@
 
 import { makeVaultApi } from "../vault/api";
 import type { TreeNode } from "../vault/types";
-import type { FlightPlan } from "./types";
-import { planFromMarkdown, planKey, planToMarkdown } from "./persist";
+import type { ChatMessage, FlightPlan } from "./types";
+import { chatFromMarkdown, chatToMarkdown, planChatKey, planFromMarkdown, planKey, planToMarkdown } from "./persist";
 
 export interface PlanStore {
   list(): Promise<FlightPlan[]>;
   save(plan: FlightPlan): Promise<void>;
   remove(plan: FlightPlan): Promise<void>;
+  // The copilot transcript for a plan (async-shared: persisted to the vault so the
+  // whole team can read and resume it). Empty array when the plan has no chat yet.
+  loadChat(plan: Pick<FlightPlan, "id" | "title">): Promise<ChatMessage[]>;
+  saveChat(plan: Pick<FlightPlan, "id" | "title">, messages: ChatMessage[]): Promise<void>;
 }
 
 // Markdown note keys under plans/, flattened from the vault tree.
@@ -47,6 +51,15 @@ export function makeVaultPlanStore(
     },
     async remove(plan) {
       await api.remove(planKey(plan));
+      // Best-effort: drop the transcript too, but never let its absence fail the delete.
+      await api.remove(planChatKey(plan)).catch(() => {});
+    },
+    async loadChat(plan) {
+      const note = await api.get(planChatKey(plan)).catch(() => null);
+      return note ? chatFromMarkdown(note.content) : [];
+    },
+    async saveChat(plan, messages) {
+      await api.put(planChatKey(plan), chatToMarkdown(plan, messages));
     },
   };
 }

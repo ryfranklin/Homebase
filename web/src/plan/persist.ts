@@ -4,10 +4,13 @@
 // Because it is a vault note, it inherits versioning + "Edited by" attribution and
 // the git conflict policy for free.
 
-import type { AcStatus, Contributor, FlightPlan, Phase, Waypoint } from "./types";
+import type { AcceptanceCriterion, AcStatus, ChatMessage, Contributor, FlightPlan, Phase, Waypoint } from "./types";
 
 const PLAN_FENCE = "homebase-plan";
 const PLAN_BLOCK = new RegExp("```" + PLAN_FENCE + "\\s*\\n([\\s\\S]*?)\\n```");
+
+const CHAT_FENCE = "homebase-plan-chat";
+const CHAT_BLOCK = new RegExp("```" + CHAT_FENCE + "\\s*\\n([\\s\\S]*?)\\n```");
 
 export function slugify(s: string): string {
   return s
@@ -23,6 +26,14 @@ export function planSlug(plan: Pick<FlightPlan, "id" | "title">): string {
 
 export function planKey(plan: Pick<FlightPlan, "id" | "title">): string {
   return `plans/${planSlug(plan)}.md`;
+}
+
+// The copilot transcript lives beside the plan note (plans/<slug>.chat.md), so the
+// conversation is versioned + attributed like any vault note and a teammate opening
+// the plan can read and resume it. Kept separate from the plan note so a long
+// conversation does not churn the plan's own history on every message.
+export function planChatKey(plan: Pick<FlightPlan, "id" | "title">): string {
+  return `plans/${planSlug(plan)}.chat.md`;
 }
 
 // Front-matter values are cosmetic (the JSON block is authoritative); quote them so
@@ -123,16 +134,6 @@ export function planFromDraft(draft: PlanDraft, owner: Contributor, at: string):
   }));
   // Preserve the units as { title, phase } so a CONSTRUCTION unit launches as a burn
   // and an INCEPTION unit as a sim; bare strings stay strings.
-  const route: (string | Waypoint)[] = (draft.route || []).map((r) => {
-    if (typeof r === "string") return r;
-    const phase: Phase | undefined = r.phase === "INCEPTION" || r.phase === "CONSTRUCTION" ? r.phase : undefined;
-    // Preserve any per-unit acceptance criteria the planner attached (its own DoD).
-    const criteria = Array.isArray(r.criteria) && r.criteria.length ? r.criteria.map(String) : undefined;
-    const wp: Waypoint = { title: r.title };
-    if (phase) wp.phase = phase;
-    if (criteria) wp.criteria = criteria;
-    return wp;
-  });
   return {
     ...base,
     project: draft.project || base.project,
@@ -140,10 +141,111 @@ export function planFromDraft(draft: PlanDraft, owner: Contributor, at: string):
     context: draft.context || "",
     criteria,
     sources: draft.sources || [],
-    route,
+    route: draftRoute(draft),
     risks: draft.risks || [],
     ...(draft.target ? { target: draft.target } : {}),
   };
+}
+
+// Map an agent draft's route (which may mix bare strings and { title, phase, criteria }
+// objects) to persisted waypoints, preserving phase and any per-unit acceptance criteria.
+function draftRoute(draft: PlanDraft): (string | Waypoint)[] {
+  return (draft.route || []).map((r) => {
+    if (typeof r === "string") return r;
+    const phase: Phase | undefined = r.phase === "INCEPTION" || r.phase === "CONSTRUCTION" ? r.phase : undefined;
+    const criteria = Array.isArray(r.criteria) && r.criteria.length ? r.criteria.map(String) : undefined;
+    const wp: Waypoint = { title: r.title };
+    if (phase) wp.phase = phase;
+    if (criteria) wp.criteria = criteria;
+    return wp;
+  });
+}
+
+// Normalize an AC statement for matching a draft criterion against an existing one, so a
+// re-emitted plan keeps the reviewed AC (its id, status, comments) instead of resetting it.
+function acKey(statement: string): string {
+  return statement.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// Merge a re-emitted agent draft into an existing plan, NON-DESTRUCTIVELY. The revise
+// flow sends the agent the current plan and it emits the full updated plan; folding that
+// back must never quietly undo human review, so:
+//   - acceptance criteria are matched by statement: an existing (possibly approved) AC is
+//     preserved as-is; a draft criterion with no match is added as a fresh `proposed`
+//     proposal; an existing AC absent from the draft is KEPT (deletion stays a human action).
+//   - objective/context/project/target update from the draft only when it provides a value.
+//   - route and risks are replaced from the draft (no review state to protect); sources are
+//     unioned so a manually-added source is not dropped.
+export function mergeDraftIntoPlan(plan: FlightPlan, draft: PlanDraft, at: string): FlightPlan {
+  const agent: Contributor = { id: "a-planner", name: "planner·agent", kind: "agent" };
+  const existingByKey = new Map(plan.criteria.map((c) => [acKey(c.statement), c]));
+  const seen = new Set<string>();
+
+  // Existing criteria first (order preserved), then any genuinely new proposals.
+  const merged: AcceptanceCriterion[] = plan.criteria.map((c) => {
+    seen.add(acKey(c.statement));
+    return c;
+  });
+  let nextNum = plan.criteria.reduce((n, c) => Math.max(n, parseInt(c.id.replace(/^AC-/, ""), 10) || 0), 0);
+  for (const dc of draft.criteria || []) {
+    const key = acKey(dc.statement);
+    if (!key || existingByKey.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    merged.push({
+      id: `AC-${(nextNum += 1)}`,
+      statement: dc.statement,
+      status: "proposed",
+      author: agent,
+      links: dc.links || [],
+      comments: [],
+    });
+  }
+
+  const route = draft.route !== undefined ? draftRoute(draft) : plan.route;
+  const sources = Array.from(new Set([...plan.sources, ...(draft.sources || [])]));
+  return {
+    ...plan,
+    project: draft.project || plan.project,
+    objective: draft.objective || plan.objective,
+    context: draft.context || plan.context,
+    criteria: merged,
+    route,
+    sources,
+    risks: draft.risks && draft.risks.length ? draft.risks : plan.risks,
+    ...(draft.target ? { target: draft.target } : {}),
+    updatedAt: at,
+  };
+}
+
+// Serialize a copilot transcript as a vault note: a human-readable header over a fenced
+// `homebase-plan-chat` JSON block (the authoritative record), mirroring how a plan note
+// is stored so it round-trips losslessly and reads sensibly in the Vault view.
+export function chatToMarkdown(plan: Pick<FlightPlan, "title">, messages: ChatMessage[]): string {
+  const frontMatter = ["---", `title: ${yaml(`${plan.title} · planning chat`)}`, "kind: plan-chat", "---"].join("\n");
+  const body = [
+    `# ${plan.title} · planning chat`,
+    "",
+    "<!-- Copilot transcript for this flight plan (source of truth). Managed in the Plan view. -->",
+    "```" + CHAT_FENCE,
+    JSON.stringify(messages, null, 2),
+    "```",
+    "",
+  ].join("\n");
+  return `${frontMatter}\n\n${body}`;
+}
+
+// Parse a transcript back out of a chat note. Returns [] for a note that is not a chat
+// transcript or whose block is corrupt, so a stray note is simply treated as empty.
+export function chatFromMarkdown(markdown: string): ChatMessage[] {
+  const match = CHAT_BLOCK.exec(markdown || "");
+  if (!match) return [];
+  try {
+    const obj = JSON.parse(match[1]);
+    if (Array.isArray(obj)) return obj.filter((m) => m && typeof m.text === "string") as ChatMessage[];
+  } catch {
+    /* corrupt block: treat as empty */
+  }
+  return [];
 }
 
 // A blank plan to seed a new flight plan, owned by whoever created it.
