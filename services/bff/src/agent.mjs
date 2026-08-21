@@ -6,6 +6,17 @@
 
 const SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id";
 
+// AgentCore requires the runtime session id to be 33..100 chars; a shorter id (e.g. a
+// slug-derived plan session like "plan-mc-testflight") 400s the invoke before the agent
+// runs. Normalize defensively at the boundary so no client can trip it. Deterministic
+// (pad short, clamp long) so the same session keeps the same runtime across turns. Only
+// the AgentCore runtimeSessionId is normalized; the payload session_id stays as sent, so
+// the agent's memory keying is unchanged.
+export function normalizeRuntimeSessionId(id) {
+  const s = String(id ?? "");
+  return s.length >= 33 ? s.slice(0, 100) : s.padEnd(33, "0");
+}
+
 // createAgentStream yields event objects: { type: "token" | "tool_call" |
 // "citation" | ..., ... }. The default implementation parses the SSE body of
 // InvokeAgentRuntime. Callers pass a session that already carries the verified
@@ -26,13 +37,14 @@ export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId,
     ...(planContext ? { plan_context: planContext } : {}),
   };
 
+  const runtimeSessionId = normalizeRuntimeSessionId(sessionId);
   const response = await client.invoke({
     agentRuntimeArn: runtimeArn,
-    sessionId,
+    sessionId: runtimeSessionId,
     contentType: "application/json",
     accept: "text/event-stream",
     body: JSON.stringify(payload),
-    headers: { [SESSION_HEADER]: sessionId },
+    headers: { [SESSION_HEADER]: runtimeSessionId },
   });
 
   // response.stream is an async iterable of decoded SSE event objects (the real

@@ -4,7 +4,7 @@ import { streamChat } from "../api/sseClient";
 import {
   planDraftFromMarkdown,
   planFromDraft,
-  planSlug,
+  planSessionId,
   stripDraftBlock,
   type PlanDraft,
 } from "../plan/persist";
@@ -57,9 +57,10 @@ export function PlanCopilot({
   const endRef = useRef<HTMLDivElement>(null);
 
   // A stable session per plan keeps the agent's server-side memory continuous across a
-  // team's turns; a fresh draft gets an ephemeral session until it becomes a plan.
+  // team's turns; a fresh draft gets an ephemeral session until it becomes a plan. Both
+  // clear AgentCore's 33-char session-id floor (planSessionId pads short slugs).
   const sessionId = useMemo(
-    () => (plan ? `plan-${planSlug(plan)}` : `plan-draft-${crypto.randomUUID()}`),
+    () => (plan ? planSessionId(plan) : `plan-draft-${crypto.randomUUID()}`),
     [plan],
   );
 
