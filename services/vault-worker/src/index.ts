@@ -43,9 +43,26 @@ async function main(): Promise<void> {
   setInterval(() => {
     void mutex
       .run(async () => {
+        const before = await vault.head();
         await vault.pull();
-        await mirror.full();
+        const after = await vault.head();
+        // Common case: nothing new landed -> touch neither S3 nor the KB. Re-putting
+        // every object every poll piled up millions of noncurrent versions on the
+        // versioned bucket (and ran a pointless reingest each time).
+        if (before && after && before === after) return;
+        // Safety: if either commit is unresolvable, fall back to a full reconcile.
+        if (!before || !after) {
+          const r = await mirror.full();
+          await mirror.reingest();
+          console.log(JSON.stringify({ event: "vault_synced", mode: "full", mirrored: r.mirrored, pruned: r.pruned }));
+          return;
+        }
+        // Otherwise mirror only what changed between the two commits.
+        const { changed, deleted } = await vault.changedFiles(before, after);
+        if (changed.length === 0 && deleted.length === 0) return;
+        const r = await mirror.sync(changed, deleted);
         await mirror.reingest();
+        console.log(JSON.stringify({ event: "vault_synced", mode: "diff", mirrored: r.mirrored, pruned: r.pruned, from: before, to: after }));
       })
       .catch((err) => {
         // Enrich the log: transient S3/network errors often carry their detail in

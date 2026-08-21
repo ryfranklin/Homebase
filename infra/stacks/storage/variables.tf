@@ -33,9 +33,9 @@ variable "bucket_suffix" {
 }
 
 variable "noncurrent_version_expiration_days" {
-  description = "Days after which noncurrent object versions expire under the lifecycle policy."
+  description = "Days after which noncurrent object versions expire under the lifecycle policy. Git is the vault's history store, so S3 versions are only a short safety buffer; keep this small so version churn cannot accumulate."
   type        = number
-  default     = 90
+  default     = 7
 }
 
 variable "abort_incomplete_multipart_days" {

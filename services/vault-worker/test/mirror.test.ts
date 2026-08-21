@@ -79,6 +79,17 @@ describe("Mirror", () => {
     expect(store.puts.map(([k]) => k)).toEqual(["a.md"]);
   });
 
+  it("sync mirrors only the changed and deleted files (no full re-put)", async () => {
+    const store = fakeStore(["a.md", "old.md"]);
+    const m = new Mirror(store, fakeVault({ "a.md": "A2", "b.md": "B", "untouched.md": "U" }));
+    const { mirrored, pruned } = await m.sync(["a.md", "b.md"], ["old.md"]);
+    expect(mirrored).toBe(2);
+    expect(pruned).toBe(1);
+    // Only the changed files are put; untouched.md is NOT re-put.
+    expect(store.puts.map(([k]) => k).sort()).toEqual(["a.md", "b.md"]);
+    expect(store.deletes).toEqual(["old.md"]);
+  });
+
   it("reingest is best-effort and never throws", async () => {
     const store = fakeStore();
     store.setThrow(true);

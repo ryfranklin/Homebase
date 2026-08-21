@@ -137,6 +137,26 @@ export class GitVault {
     return r.code === 0 ? r.stdout.trim() : null;
   }
 
+  // Markdown notes that changed between two commits, split into upserts and deletes.
+  // The poll loop mirrors only these instead of re-putting every object every cycle
+  // (which, on a versioned bucket, piles up millions of noncurrent versions).
+  async changedFiles(from: string, to: string): Promise<{ changed: string[]; deleted: string[] }> {
+    const r = await this.git(["diff", "--name-status", "--no-renames", from, to]);
+    if (r.code !== 0) throw new Error(`diff failed: ${r.stderr || r.stdout}`);
+    const changed: string[] = [];
+    const deleted: string[] = [];
+    for (const line of r.stdout.split("\n")) {
+      const tab = line.indexOf("\t");
+      if (tab < 0) continue;
+      const status = line.slice(0, tab);
+      const path = line.slice(tab + 1).trim();
+      if (!/\.(md|markdown)$/i.test(path)) continue;
+      if (status.startsWith("D")) deleted.push(path);
+      else changed.push(path);
+    }
+    return { changed, deleted };
+  }
+
   // Fast-forward the local branch to the remote. The working tree is clean and has
   // no unpushed commits at this point, so this cannot conflict.
   async pull(): Promise<void> {
