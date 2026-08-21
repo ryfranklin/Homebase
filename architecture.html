@@ -204,7 +204,7 @@
           <div class="col">
             <div class="card">
               <h3>Workstation <span class="pill core">ssh-side</span></h3>
-              <p>Isolated EC2 dev/ops box, SSM-only (no key pair, no inbound, no public IP), encrypted volumes, scoped non-admin role, auto-stop when idle.</p>
+              <p>Isolated EC2 dev/ops box, SSM-only (no key pair, no inbound, no public IP), encrypted volumes, scoped non-admin role, auto-stop when idle. Doubles as a <strong>Claude Code cockpit</strong>: <code>claude</code> runs on Bedrock via the instance role (no API key), and the git vault is cloned to a persistent <code>/workspace</code> for an edit → commit → push → PR loop (the PAT is fetched from Secrets Manager per git op, never on disk).</p>
             </div>
           </div>
           <div class="col">
@@ -239,7 +239,7 @@
         <div class="grid2">
           <div class="card"><h3>Agent core</h3><p>Claude on Bedrock via AgentCore Runtime, running a tool-use loop over knowledge-base search and the connector read tools, streaming its answer token by token (SSE end to end). Knowledge-base answers cite their sources; AgentCore Memory (short + long term); OTEL observability to CloudWatch.</p></div>
           <div class="card"><h3>Identity model</h3><p>User (<code>sub</code>) and tenant (<code>custom:tenant_id</code>) are explicit end to end: JWT claims, memory actor id, and connector token namespace. Single-tenant today, no one-way doors.</p></div>
-          <div class="card"><h3>Infrastructure</h3><p>Terraform across fifteen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation, connectors, monitoring, mission-control (the execution engine on Fargate + RDS), slackbot (the optional Slack door), and eval (the on-demand multi-model benchmark runner). A vault-worker Fargate service owns the git source of truth.</p></div>
+          <div class="card"><h3>Infrastructure</h3><p>Terraform across seventeen stacks: remote-state bootstrap, foundation (VPC/KMS/budget), storage, identity, retrieval, agent, api, web, ssh-chat, workstation (also the Claude Code cockpit), connectors, monitoring, mission-control (the execution engine on Fargate + RDS), slackbot (the optional Slack door), eval (the on-demand multi-model benchmark runner), vault-worker (the git → S3 → KB mirror that owns the git source of truth), and cicd (the OIDC deploy pipeline).</p></div>
         </div>
       </section>
 
