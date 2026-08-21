@@ -23,4 +23,7 @@ export interface ChatRequest {
   // Chat scope: "vault" restricts the agent to the knowledge base + connectors (no
   // general knowledge); "general" (or omitted) allows a labeled general fallback.
   scope?: "vault" | "general";
+  // Plan mode only: the current flight plan being revised, serialized as JSON. The
+  // agent folds it into the turn so it edits the existing plan instead of drafting anew.
+  planContext?: string;
 }

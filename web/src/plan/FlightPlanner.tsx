@@ -4,14 +4,14 @@ import { FlightBoard } from "../components/FlightBoard";
 import { FlightPlanView } from "../components/FlightPlanView";
 import { PreflightModal } from "../components/PreflightModal";
 import { AddSourceModal } from "../components/AddSourceModal";
-import { PlanDraftPanel } from "../components/PlanDraftPanel";
+import { PlanCopilot } from "../components/PlanCopilot";
 import { ModeSwitch, type AppMode } from "../components/ModeSwitch";
 import type { GateAction } from "../components/AcCard";
 import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
-import { newPlan, slugify } from "./persist";
+import { mergeDraftIntoPlan, newPlan, slugify, type PlanDraft } from "./persist";
 import type { PlanStore } from "./store";
-import { waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type Contributor, type FlightPlan, type Waypoint } from "./types";
+import { waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 import { materializePlan } from "./materialize";
@@ -56,6 +56,10 @@ export function FlightPlanner({
   const [adding, setAdding] = useState(false);
   const [creating, setCreating] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  // The selected plan's copilot transcript, loaded from the vault so it is team-visible
+  // and resumable (async collaboration). Keyed by plan id in `chatFor`.
+  const [chatFor, setChatFor] = useState<string | null>(null);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
 
   const owner = user ?? DEFAULT_OWNER;
   const plansRef = useRef(plans);
@@ -80,6 +84,39 @@ export function FlightPlanner({
 
   const selected = plans.find((p) => p.id === selectedId) ?? null;
   const catalog = useMemo(() => buildCatalog(extraDocs), [extraDocs]);
+
+  // Load the selected plan's copilot transcript from the vault. The copilot re-seeds
+  // when `chatFor` catches up to the open plan, so a team member sees prior turns.
+  useEffect(() => {
+    if (!selected) {
+      setChat([]);
+      setChatFor(null);
+      return;
+    }
+    if (!store) {
+      // No vault store (dev preview): the copilot still runs, just without persistence.
+      setChat([]);
+      setChatFor(selected.id);
+      return;
+    }
+    let alive = true;
+    setChat([]);
+    setChatFor(null);
+    store
+      .loadChat(selected)
+      .then((msgs) => {
+        if (!alive) return;
+        setChat(msgs);
+        setChatFor(selected.id);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setChatFor(selected.id); // start a fresh transcript if none loads
+      });
+    return () => {
+      alive = false;
+    };
+  }, [store, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const savePlan = useCallback(
     (plan: FlightPlan) => {
@@ -108,26 +145,23 @@ export function FlightPlanner({
     }));
   };
 
-  const onCritique = () => {
+  // Fold a copilot re-draft back into the open plan (non-destructive: preserves reviewed
+  // acceptance criteria, adds new ones as proposals), then persist the merged plan.
+  const onApplyDraft = (d: PlanDraft) => {
     if (!selected) return;
-    const nextNum = selected.criteria.length + 1;
-    mutate(selected.id, (p) => ({
-      ...p,
-      criteria: [
-        ...p.criteria,
-        {
-          id: `AC-${nextNum}`,
-          statement: "A rejected proposal returns a reviewer note and a revised-resubmit path; the relay never silently drops it.",
-          status: "proposed",
-          author: { id: "a-copilot", name: "copilot·agent", kind: "agent" },
-          rationale: "Surfaced by the completeness check: no criterion covered the rejection path.",
-          links: ["review-gate"],
-          comments: [],
-        },
-      ],
-      updatedAt: new Date().toISOString(),
-    }));
+    mutate(selected.id, (p) => mergeDraftIntoPlan(p, d, new Date().toISOString()));
   };
+
+  // Persist the copilot transcript for the open plan (one commit per turn), so the
+  // conversation is versioned and any teammate can resume it.
+  const onPersistChat = useCallback(
+    (msgs: ChatMessage[]) => {
+      if (!store || !selected) return;
+      setChat(msgs);
+      void store.saveChat(selected, msgs).catch(() => setSaveError(true));
+    },
+    [store, selected],
+  );
 
   const addSource = (ref: string) => {
     if (!selected) return;
@@ -287,12 +321,25 @@ export function FlightPlanner({
           onBack={() => setSelectedId(null)}
           onGate={onGate}
           onFileClearance={() => setPreflight(true)}
-          onCritique={onCritique}
           onAddSource={() => setAdding(true)}
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
           onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
           onDelete={store ? () => onDeletePlan(selected) : undefined}
+          copilot={
+            canDraft && chatFor === selected.id ? (
+              <PlanCopilot
+                key={selected.id}
+                apiBaseUrl={apiBaseUrl!}
+                getToken={getToken!}
+                owner={owner}
+                plan={selected}
+                initialMessages={chat}
+                onPersist={store ? onPersistChat : undefined}
+                onApplyDraft={onApplyDraft}
+              />
+            ) : undefined
+          }
         />
         {preflight && (
           <PreflightModal
@@ -337,11 +384,12 @@ export function FlightPlanner({
       </header>
       <div className="plan-body">{content}</div>
       {drafting && canDraft && (
-        <PlanDraftPanel
+        <PlanCopilot
+          variant="modal"
           apiBaseUrl={apiBaseUrl!}
           getToken={getToken!}
-          owner={user}
-          onCreate={onDraftCreate}
+          owner={owner}
+          onCreatePlan={onDraftCreate}
           onClose={() => setDrafting(false)}
         />
       )}

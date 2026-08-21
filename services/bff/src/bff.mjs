@@ -479,6 +479,11 @@ export async function handleRequest(event, respond, deps) {
   // Chat scope from the Vault chat toggle: "vault" answers strictly from the KB +
   // connectors; anything else is the normal grounded-with-general-fallback mode.
   const scope = body.scope === "vault" ? "vault" : undefined;
+  // In plan mode, the flight plan being revised (JSON string) so the agent edits it
+  // rather than drafting anew. Only honored in plan mode; capped so a malformed client
+  // payload can't bloat the runtime request.
+  const planContext =
+    mode === "plan" && typeof body.plan_context === "string" ? body.plan_context.slice(0, 24000) : undefined;
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
   // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
@@ -503,6 +508,7 @@ export async function handleRequest(event, respond, deps) {
       mode,
       model,
       scope,
+      planContext,
     });
     for await (const evt of stream) {
       writer.write(sseEvent(evt));

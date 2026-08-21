@@ -38,14 +38,6 @@ describe("FlightPlanner prototype", () => {
     expect(screen.getAllByRole("button", { name: "Approve" }).length).toBe(approves.length - 1);
   });
 
-  it("completeness check proposes a new criterion", () => {
-    render(<FlightPlanner />);
-    fireEvent.click(screen.getByText("Homebase MCP relay"));
-    const before = screen.getAllByRole("button", { name: "Approve" }).length;
-    fireEvent.click(screen.getByRole("button", { name: /Draft it as a proposal/ }));
-    expect(screen.getAllByRole("button", { name: "Approve" }).length).toBe(before + 1);
-  });
-
   it("shows the corpus sources the plan is grounded on", () => {
     render(<FlightPlanner />);
     fireEvent.click(screen.getByText("Homebase MCP relay"));
@@ -91,6 +83,8 @@ describe("FlightPlanner vault persistence", () => {
         saved.push({ title: p.title, status: p.status });
       }),
       remove: vi.fn(async () => {}),
+      loadChat: vi.fn(async () => []),
+      saveChat: vi.fn(async () => {}),
     };
   }
 

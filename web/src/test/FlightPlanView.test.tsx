@@ -31,7 +31,6 @@ function renderView(onSetUnitCriteria = vi.fn()) {
       onBack={noop}
       onGate={noop}
       onFileClearance={noop}
-      onCritique={noop}
       onAddSource={noop}
       onSetUnitCriteria={onSetUnitCriteria}
     />,
@@ -76,7 +75,7 @@ describe("per-unit acceptance criteria editor", () => {
 
   it("without the editor callback, a unit shows no criteria toggle (read-only view)", () => {
     render(
-      <FlightPlanView plan={PLAN} catalog={{}} onBack={noop} onGate={noop} onFileClearance={noop} onCritique={noop} onAddSource={noop} />,
+      <FlightPlanView plan={PLAN} catalog={{}} onBack={noop} onGate={noop} onFileClearance={noop} onAddSource={noop} />,
     );
     // The per-unit toggle (e.g. "1 criterion ▸") is absent; the section-nav "Criteria"
     // tab is a different control and is not asserted here.

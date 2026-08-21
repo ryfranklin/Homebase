@@ -95,6 +95,26 @@ general knowledge, label it plainly so the grounded and general parts stay disti
 """
 
 
+# The plan being revised is folded into the operator's turn (not the system prompt or
+# memory) so the planning agent edits the existing flight plan instead of drafting a new
+# one. Trimmed defensively: a runaway plan JSON must not blow the model's context.
+_MAX_PLAN_CONTEXT_CHARS = 20000
+
+
+def _with_plan_context(question: str, plan_context) -> str:
+    if not plan_context:
+        return question
+    plan_json = str(plan_context)[:_MAX_PLAN_CONTEXT_CHARS]
+    return (
+        "The operator is revising an existing flight plan. Here is its current state as JSON:\n\n"
+        f"```homebase-plan\n{plan_json}\n```\n\n"
+        "Apply the operator's request below as an edit to THIS plan. Preserve acceptance criteria "
+        "that are not changing (keep their statements verbatim); only add, reword, or drop what the "
+        "request calls for. When you emit the plan draft, emit the full updated plan.\n\n"
+        f"Operator: {question}"
+    )
+
+
 @dataclass(frozen=True)
 class Citation:
     source_path: str
@@ -203,15 +223,17 @@ class Agent:
         # a concise general answer. The disclaimer is added by the caller, not the model.
         return _now_preamble(tz_name=self._timezone) + "\n\n" + _GENERAL_INSTRUCTION
 
-    def _answer_with_tools(self, session, question, *, planning: bool = False, model=None, scope: str = "general") -> AnswerResult:
+    def _answer_with_tools(self, session, question, *, planning: bool = False, model=None, scope: str = "general", plan_context=None) -> AnswerResult:
+        asked = _with_plan_context(question, plan_context) if planning else question
         loop = run_tool_loop(
             self._resolve_llm(model),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
-            question=question,
+            question=asked,
             tools=self._tools(),
             execute=self._make_execute(session, question),
         )
 
+        # Remember the operator's own words, not the plan JSON we fold in for context.
         self._remember(session, "user", question)
         if loop.text:
             self._remember(session, "assistant", loop.text)
@@ -223,27 +245,30 @@ class Agent:
             authorization_url=loop.authorization_url,
         )
 
-    def answer_stream(self, session, question, *, planning: bool = False, model=None, scope: str = "general"):
+    def answer_stream(self, session, question, *, planning: bool = False, model=None, scope: str = "general", plan_context=None):
         """Streaming variant: a generator yielding SSE-ready events (token / citation
         / authorization_required / done) as the tool loop runs. Requires connectors
         (a tool-capable LLM); callers should gate on supports_streaming(). In plan
         mode the AI-DLC interview prompt is used and the reply carries a flight-plan
-        draft block. Scope 'vault' uses the strict vault-only prompt (no general
-        knowledge); 'general' (default) allows a labeled general fallback."""
+        draft block; a plan_context (the plan being revised, as JSON) is folded in so
+        the agent edits the existing plan rather than starting from scratch. Scope
+        'vault' uses the strict vault-only prompt (no general knowledge); 'general'
+        (default) allows a labeled general fallback."""
         if self._connectors is None:
             # Degrade gracefully to a single token from the buffered path.
-            result = self.answer(session, question, planning=planning, model=model, scope=scope)
+            result = self.answer(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context)
             yield {"type": "token", "text": result.text}
             for citation in result.citations:
                 yield {"type": "citation", "source_path": citation.source_path, "score": citation.score}
             yield {"type": "done"}
             return
 
+        asked = _with_plan_context(question, plan_context) if planning else question
         text_parts: list = []
         for event in run_tool_loop_stream(
             self._resolve_llm(model),
             system=self._system(_TOOL_SYSTEM_SUFFIX, planning=planning, scope=scope),
-            question=question,
+            question=asked,
             tools=self._tools(),
             execute=self._make_execute(session, question),
         ):
@@ -256,9 +281,9 @@ class Agent:
         if final_text:
             self._remember(session, "assistant", final_text)
 
-    def answer(self, session, question, *, planning: bool = False, model=None, scope: str = "general", **retrieval_kwargs) -> AnswerResult:
+    def answer(self, session, question, *, planning: bool = False, model=None, scope: str = "general", plan_context=None, **retrieval_kwargs) -> AnswerResult:
         if self._connectors is not None:
-            return self._answer_with_tools(session, question, planning=planning, model=model, scope=scope)
+            return self._answer_with_tools(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context)
 
         llm = self._resolve_llm(model)
         passages = self._retrieval.retrieve(question, **retrieval_kwargs)

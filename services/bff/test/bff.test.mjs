@@ -121,6 +121,22 @@ test("a settings-level model choice is forwarded to the agent", async () => {
   assert.equal(agentStream.calls[0].model, "model-b");
 });
 
+test("plan mode forwards the revise plan_context to the agent (capped)", async () => {
+  const token = signJwt(claims(), key);
+  const { agentStream } = await run({
+    token,
+    body: { input: "add an AC", mode: "plan", plan_context: '{"title":"Ship"}' },
+  });
+  assert.equal(agentStream.calls[0].mode, "plan");
+  assert.equal(agentStream.calls[0].planContext, '{"title":"Ship"}');
+});
+
+test("plan_context is ignored outside plan mode", async () => {
+  const token = signJwt(claims(), key);
+  const { agentStream } = await run({ token, body: { input: "hi", plan_context: '{"title":"Ship"}' } });
+  assert.equal(agentStream.calls[0].planContext, undefined);
+});
+
 // Connector consent finalize (/api/connectors/complete).
 test("connector complete: finalizes with the token's tenant as the AgentCore userId", async () => {
   const token = signJwt(claims({ sub: "user-1", "custom:tenant_id": "tenant-1" }), key);

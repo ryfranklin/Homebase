@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { pendingCount, readyToClear, waypointCriteria, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
+import { pendingCount, waypointCriteria, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
 import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
 import { AcCard, type GateAction } from "./AcCard";
 import { PlanSources } from "./PlanSources";
@@ -12,51 +12,6 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
   in_flight: "in flight",
   landed: "landed",
 };
-
-function Copilot({
-  plan,
-  onCritique,
-  onOpenSource,
-}: {
-  plan: FlightPlan;
-  onCritique: () => void;
-  onOpenSource: (slug: string) => void;
-}) {
-  const gap = pendingCount(plan) === 0 && !readyToClear(plan);
-  const ref = (slug: string) => (
-    <button type="button" className="ac-link linkable" onClick={() => onOpenSource(slug)}>
-      [[{slug}]]
-    </button>
-  );
-  return (
-    <aside className="copilot" aria-label="Planning copilot">
-      <div className="copilot-head">
-        <span className="copilot-mark" aria-hidden="true">
-          ✈
-        </span>
-        Planning copilot
-        <span className="copilot-tag">vault-grounded</span>
-      </div>
-      <div className="copilot-chips">
-        <button type="button" className="copilot-chip">Draft ACs for the objective</button>
-        <button type="button" className="copilot-chip" onClick={onCritique}>
-          What&apos;s missing?
-        </button>
-        <button type="button" className="copilot-chip">Find related ADRs</button>
-      </div>
-      <div className="copilot-msg">
-        <p>
-          I grounded on {ref("identity")}, {ref("retrieval")}, and {ref("review-gate")}. The plan has no
-          criterion covering the <strong>rejection path</strong> or a review SLA
-          {gap ? "" : " — and a couple are still awaiting review"}.
-        </p>
-        <button type="button" className="vault-btn" onClick={onCritique}>
-          Draft it as a proposal →
-        </button>
-      </div>
-    </aside>
-  );
-}
 
 // A route unit: its title + phase badge + Launch, and (when editable) an expandable
 // editor for the unit's OWN acceptance criteria. Manages only its expand state; the
@@ -192,24 +147,26 @@ export function FlightPlanView({
   onBack,
   onGate,
   onFileClearance,
-  onCritique,
   onAddSource,
   onSetTarget,
   onLaunchUnit,
   onSetUnitCriteria,
   onDelete,
+  copilot,
 }: {
   plan: FlightPlan;
   catalog: Record<string, VaultDoc>;
   onBack: () => void;
   onGate: (id: string, action: GateAction) => void;
   onFileClearance: () => void;
-  onCritique: () => void;
   onAddSource: () => void;
   onSetTarget?: (target: string) => void;
   onLaunchUnit?: (wp: string | Waypoint) => void;
   onSetUnitCriteria?: (index: number, criteria: string[]) => void;
   onDelete?: () => void;
+  // The planning copilot, docked beside the plan (side-by-side). Injected by the
+  // parent so this view stays presentational; absent in the store-less dev preview.
+  copilot?: React.ReactNode;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
   const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
@@ -354,7 +311,7 @@ export function FlightPlanView({
           </section>
         </main>
 
-        <Copilot plan={plan} onCritique={onCritique} onOpenSource={openSource} />
+        {copilot}
       </div>
     </div>
   );

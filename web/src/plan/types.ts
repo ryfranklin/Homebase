@@ -27,6 +27,17 @@ export interface AcceptanceCriterion {
   comments: AcComment[];
 }
 
+// One turn in a plan's copilot conversation. The transcript is persisted alongside the
+// plan in the vault so it is team-visible and resumable (async collaboration): any
+// contributor can open the plan and see how it was reasoned into shape. `author` names
+// the human or agent that spoke; `at` is an ISO timestamp.
+export interface ChatMessage {
+  role: "user" | "agent";
+  author: string;
+  text: string;
+  at: string;
+}
+
 export type Phase = "INCEPTION" | "CONSTRUCTION";
 
 // A unit of work in the plan's route. Persisted plans and the sample data use bare

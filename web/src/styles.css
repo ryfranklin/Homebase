@@ -2039,6 +2039,26 @@ button.fb-row:hover { background: var(--surface); }
 .copilot-msg p { font-size: 0.86rem; line-height: 1.6; color: var(--muted); margin: 0 0 12px; }
 .copilot-msg .ac-link { font-size: 0.72rem; }
 
+/* Live planning copilot: a persistent, grounded conversation docked beside the plan
+   (side-by-side workspace). The convo scrolls; the composer stays pinned to the bottom. */
+.copilot-live { width: 340px; display: flex; flex-direction: column; padding: 18px 16px; overflow: hidden; }
+.copilot-live .copilot-head { flex-shrink: 0; }
+.copilot-convo { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 12px; }
+.copilot-composer { flex-shrink: 0; display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.copilot-composer .pd-input { flex: 1; }
+/* The draft/apply card reuses the .pd-draft styles from the draft modal. */
+.copilot-live .pd-draft, .copilot-modal .pd-draft { margin: 0 0 12px; }
+
+/* Modal variant: the copilot in an overlay for drafting a brand-new plan (no plan yet
+   to sit beside). Reuses the .pd-overlay backdrop. */
+.copilot-modal {
+  width: 100%; max-width: 560px; height: min(80vh, 680px);
+  border: 1px solid var(--border-strong); border-left: 1px solid var(--border-strong);
+  border-radius: var(--radius); background: var(--bg-soft);
+  display: flex; flex-direction: column; padding: 18px 20px; overflow: hidden;
+}
+.copilot-modal .copilot-head .link-button { margin-left: 8px; }
+
 /* ---------- Pre-flight clearance ---------- */
 .preflight-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
@@ -2063,7 +2083,7 @@ button.fb-row:hover { background: var(--surface); }
 .preflight-note { font-size: 0.76rem; color: var(--faint); margin: 12px 0 0; text-align: center; }
 
 @media (max-width: 860px) {
-  .fp-outline, .copilot { display: none; }
+  .fp-outline, .copilot-live { display: none; }
   .fb-row { grid-template-columns: 110px 1fr 70px; }
   .fb-row > .fb-updated, .fb-row > .fb-next, .fb-labels > *:nth-child(n+4) { display: none; }
 }
