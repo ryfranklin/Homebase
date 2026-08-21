@@ -5,6 +5,7 @@ import {
   planFromMarkdown,
   planKey,
   planChatKey,
+  planSessionId,
   planSlug,
   newPlan,
   planDraftFromMarkdown,
@@ -44,6 +45,17 @@ describe("plan persistence", () => {
   it("keys a plan under plans/ by a stable slug", () => {
     expect(planSlug({ id: "", title: "My New Plan!" })).toBe("my-new-plan");
     expect(planKey({ id: "fp-relay", title: "x" })).toBe("plans/fp-relay.md");
+  });
+
+  it("planSessionId always clears AgentCore's 33-char floor and stays stable", () => {
+    // A short slug ("plan-mc-testflight" = 18) must be padded, not sent as-is (it 400s).
+    const short = planSessionId({ id: "mc-testflight", title: "x" });
+    expect(short.length).toBeGreaterThanOrEqual(33);
+    expect(short.startsWith("plan-mc-testflight")).toBe(true);
+    expect(planSessionId({ id: "mc-testflight", title: "x" })).toBe(short); // deterministic
+    // A long id passes through unpadded.
+    const long = planSessionId({ id: "a-really-long-plan-identifier-that-exceeds-33", title: "x" });
+    expect(long).toBe("plan-a-really-long-plan-identifier-that-exceeds-33");
   });
 
   it("newPlan seeds a draft owned by the creator", () => {
