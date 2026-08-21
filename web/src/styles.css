@@ -159,63 +159,17 @@ button {
 }
 
 /* ---------- Docs overlay ---------- */
-.docs-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
+/* The Docs surface: a first-class page (not an overlay), same shell as the other
+   surfaces. Its body holds the natively-rendered diagrams gallery. */
+.docs {
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  animation: fade-in 0.25s var(--ease);
+  height: 100dvh;
 }
-.docs-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
-  padding-top: max(12px, env(safe-area-inset-top));
-  border-bottom: 1px solid var(--border);
-  background: rgba(10, 10, 10, 0.6);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-.docs-tabs {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-}
-.docs-tabs button {
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 14px;
-  transition: 0.18s var(--ease);
-}
-.docs-tabs button:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-}
-.docs-tabs button.on {
-  color: #0a0a0a;
-  background: var(--white);
-  border-color: transparent;
-  font-weight: 600;
-}
-
 .docs-body {
   flex: 1;
   min-height: 0;
   display: flex;
-}
-.docs-frame {
-  flex: 1;
-  width: 100%;
-  border: none;
-  background: var(--bg);
 }
 
 .docs-status {
@@ -234,6 +188,23 @@ button {
   gap: 18px;
   scrollbar-width: thin;
   scrollbar-color: var(--surface-3) transparent;
+}
+.diagrams-intro {
+  max-width: 940px;
+  width: 100%;
+  margin: 0 auto 4px;
+}
+.diagrams-intro h1 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.diagrams-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 72ch;
 }
 .diagram {
   max-width: 940px;
@@ -1084,8 +1055,7 @@ button {
   background: var(--surface);
   margin-right: 4px;
 }
-.mode-switch button,
-.mode-switch .mode-link {
+.mode-switch button {
   border: none;
   background: none;
   color: var(--muted);
@@ -1095,17 +1065,7 @@ button {
   border-radius: 7px;
   transition: color 0.2s, background 0.2s;
 }
-.mode-switch .mode-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-}
-.mode-switch .mode-link svg {
-  opacity: 0.6;
-}
-.mode-switch button:hover,
-.mode-switch .mode-link:hover {
+.mode-switch button:hover {
   color: var(--text);
 }
 .mode-switch .mode-active {

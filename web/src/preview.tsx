@@ -7,6 +7,7 @@ import { useState } from "react";
 import { FlightPlanner } from "./plan/FlightPlanner";
 import { VaultChatPanel, type ChatScope } from "./components/VaultChatPanel";
 import { EvalsView } from "./components/EvalsView";
+import { DocsView } from "./components/DocsView";
 import { SAMPLE_PAYLOAD, SAMPLE_SUMMARY } from "./evals/api";
 import type { UseEvals } from "./evals/useEvals";
 import type { ChatMessage } from "./chat/messages";
@@ -66,6 +67,8 @@ export function DesignPreview() {
   const mode = new URLSearchParams(window.location.search).get("preview");
   // ?preview=plan renders the Flight Planner prototype (board + plan + clearance).
   if (mode === "plan") return <FlightPlanner />;
+  // ?preview=docs renders the Docs surface (architecture + diagrams, full page).
+  if (mode === "docs") return <DocsView onNavigate={() => {}} onSignOut={() => {}} />;
   // ?preview=evals renders the Evals diagnostics tab on the bundled sample run.
   if (mode === "evals") {
     const sampleEvals: UseEvals = {

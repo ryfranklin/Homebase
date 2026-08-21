@@ -22,10 +22,11 @@ const VaultView = lazy(() => import("./components/VaultView").then((m) => ({ def
 const FlightPlanner = lazy(() => import("./plan/FlightPlanner").then((m) => ({ default: m.FlightPlanner })));
 const MissionControl = lazy(() => import("./components/MissionControl").then((m) => ({ default: m.MissionControl })));
 const EvalsView = lazy(() => import("./components/EvalsView").then((m) => ({ default: m.EvalsView })));
+const DocsView = lazy(() => import("./components/DocsView").then((m) => ({ default: m.DocsView })));
 
 // Chat is merged into the Vault surface (a docked chat panel), so there is no
-// standalone Chat mode; Evals is its own surface.
-type Mode = "vault" | "plan" | "mission" | "evals";
+// standalone Chat mode; Evals and Docs are their own surfaces.
+type Mode = "vault" | "plan" | "mission" | "evals" | "docs";
 type ChatScope = "vault" | "general";
 
 export function App() {
@@ -125,6 +126,8 @@ export function App() {
           <MissionControl missions={missions} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : mode === "evals" ? (
           <EvalsView evals={evals} onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
+        ) : mode === "docs" ? (
+          <DocsView onNavigate={setMode} onSignOut={auth.logout} onOpenSettings={openSettings} />
         ) : (
           <VaultView
             vault={vault}
