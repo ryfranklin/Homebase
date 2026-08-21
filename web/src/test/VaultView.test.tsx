@@ -111,6 +111,28 @@ describe("VaultView", () => {
     expect(loadHistory).toHaveBeenCalled();
   });
 
+  it("shows the connection strip in the docked chat and connects a needs-auth account", () => {
+    const onConnect = vi.fn();
+    render(
+      <VaultView
+        {...chatProps}
+        vault={fakeVault()}
+        onNavigate={() => {}}
+        connectors={{
+          slack: { status: "connected" },
+          gmail: { status: "needs_auth", authorizationUrl: "https://consent.example/gmail" },
+        }}
+        onConnect={onConnect}
+      />,
+    );
+    // The "Connected / Connect" strip renders in the chat empty state.
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("Slack")).toBeInTheDocument();
+    // Clicking a needs-auth chip starts that connector's consent flow.
+    fireEvent.click(screen.getByText("Gmail"));
+    expect(onConnect).toHaveBeenCalledWith("https://consent.example/gmail");
+  });
+
   it("renders the history panel and restores a version", () => {
     const restore = vi.fn();
     const history = [
