@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
-import { isTerminal, type Run, type RunEvent } from "../missions/types";
+import { isTerminal, type Run, type RunChanges, type RunEvent } from "../missions/types";
 import type { UseMissions } from "../missions/useMissions";
 
 // The worker's result is markdown; render it like the chat transcript does. Lazy so
@@ -104,7 +104,65 @@ function ResultPanel({ text }: { text: string }) {
   );
 }
 
-function RunDetail({ run, events, onDecide }: { run: Run; events: RunEvent[]; onDecide: (d: "approve" | "reject") => void }) {
+// The diff a burn produced: what the reviewer is actually approving at the gate. Shows
+// the commit message, a per-file +/- summary, and the full unified diff on demand.
+function ChangesPanel({ changes }: { changes: RunChanges }) {
+  const [showPatch, setShowPatch] = useState(false);
+  const files = changes.files ?? [];
+  const count = changes.file_count ?? files.length;
+  if (files.length === 0 && !changes.patch) {
+    return <p className="mc-empty">No file changes were recorded for this run.</p>;
+  }
+  return (
+    <div className="mc-changes">
+      <div className="mc-changes-head">
+        <span className="mc-changes-title">Changes to review</span>
+        <span className="mc-changes-count">
+          {count} file{count === 1 ? "" : "s"}
+        </span>
+      </div>
+      {changes.message && <div className="mc-changes-msg">{changes.message}</div>}
+      {files.length > 0 && (
+        <ul className="mc-changes-files">
+          {files.map((f, i) => (
+            <li key={i} className="mc-changes-file">
+              <span className="mc-changes-path">{f.path}</span>
+              <span className="mc-changes-nums">
+                {f.added !== "-" && <span className="mc-add">+{f.added}</span>}
+                {f.removed !== "-" && <span className="mc-del">−{f.removed}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {changes.patch && (
+        <div className="mc-changes-diff">
+          <button type="button" className="link-button" onClick={() => setShowPatch((v) => !v)}>
+            {showPatch ? "Hide diff" : "View diff"}
+          </button>
+          {showPatch && (
+            <pre className="mc-diff">
+              {changes.patch}
+              {changes.truncated ? "\n… (diff truncated)" : ""}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RunDetail({
+  run,
+  events,
+  changes,
+  onDecide,
+}: {
+  run: Run;
+  events: RunEvent[];
+  changes: RunChanges | null;
+  onDecide: (d: "approve" | "reject") => void;
+}) {
   const gating = run.status === "awaiting_gate";
   return (
     <div className="mc-detail">
@@ -121,9 +179,11 @@ function RunDetail({ run, events, onDecide }: { run: Run; events: RunEvent[]; on
         </div>
       </div>
 
+      {changes && <ChangesPanel changes={changes} />}
+
       {gating && (
         <div className="mc-gate">
-          <span>This burn is paused at the go/no-go gate.</span>
+          <span>{changes ? "Review the changes above, then decide." : "This burn is paused at the go/no-go gate."}</span>
           <div className="mc-gate-actions">
             <button type="button" className="vault-btn primary" onClick={() => onDecide("approve")}>
               Approve (go)
@@ -219,7 +279,12 @@ export function MissionControl({
 
           <main className="mc-main">
             {missions.selected ? (
-              <RunDetail run={missions.selected} events={missions.events} onDecide={(d) => void missions.decide(missions.selected!.run_id, d)} />
+              <RunDetail
+                run={missions.selected}
+                events={missions.events}
+                changes={missions.changes}
+                onDecide={(d) => void missions.decide(missions.selected!.run_id, d)}
+              />
             ) : (
               <div className="mc-placeholder">
                 <h1>Mission Control</h1>

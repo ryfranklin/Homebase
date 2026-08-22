@@ -1803,6 +1803,24 @@ button.fb-row:hover { background: var(--surface); }
 }
 .mc-gate-actions { display: inline-flex; gap: 8px; }
 
+/* Gate review: the diff a burn produced, shown before the go/no-go decision. */
+.mc-changes { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; background: var(--surface); }
+.mc-changes-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.mc-changes-title { font-weight: 600; font-size: 0.9rem; }
+.mc-changes-count { color: var(--muted); font-size: 0.76rem; font-family: var(--font-mono); }
+.mc-changes-msg { color: var(--muted); font-size: 0.82rem; margin-bottom: 10px; white-space: pre-wrap; }
+.mc-changes-files { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mc-changes-file { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.8rem; }
+.mc-changes-path { font-family: var(--font-mono); color: var(--text); word-break: break-all; }
+.mc-changes-nums { display: inline-flex; gap: 8px; font-family: var(--font-mono); font-size: 0.76rem; flex-shrink: 0; }
+.mc-add { color: #6ee7a8; }
+.mc-del { color: var(--danger); }
+.mc-diff {
+  white-space: pre-wrap; word-break: break-word; background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; margin: 8px 0 0; font-family: var(--font-mono); font-size: 0.74rem;
+  max-height: 360px; overflow: auto; color: var(--text);
+}
+
 .mc-telemetry { border-top: 1px solid var(--border); padding-top: 14px; }
 .mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #35c07d; display: inline-block; animation: pulse 1.4s infinite; }
 .mc-events { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 0.78rem; }

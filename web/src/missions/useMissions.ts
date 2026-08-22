@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { makeMissionsApi } from "./api";
-import { isTerminal, type LaunchInput, type Run, type RunEvent } from "./types";
+import { isTerminal, type LaunchInput, type Run, type RunChanges, type RunEvent } from "./types";
 
 export interface UseMissions {
   runs: Run[];
   selected: Run | null;
   events: RunEvent[];
+  // The selected run's diff, loaded once it is at the gate or terminal (else null).
+  changes: RunChanges | null;
   error: string | null;
   refresh: () => Promise<void>;
   launch: (input: LaunchInput) => Promise<void>;
@@ -26,8 +28,27 @@ export function useMissions(apiBaseUrl: string, getToken: () => Promise<string>,
   const [runs, setRuns] = useState<Run[]>([]);
   const [selected, setSelected] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
+  const [changes, setChanges] = useState<RunChanges | null>(null);
   const [error, setError] = useState<string | null>(null);
   const watchRef = useRef<AbortController | null>(null);
+
+  // Load the diff for review once the selected run reaches the gate or a terminal state
+  // (before that the worker has not committed anything, so there is nothing to show).
+  useEffect(() => {
+    const s = selected;
+    if (!s || !(s.status === "awaiting_gate" || isTerminal(s.status))) {
+      setChanges(null);
+      return;
+    }
+    let alive = true;
+    api
+      .changes(s.run_id)
+      .then((c) => alive && setChanges(c))
+      .catch(() => alive && setChanges(null));
+    return () => {
+      alive = false;
+    };
+  }, [selected?.run_id, selected?.status, api]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = useCallback(async () => {
     try {
@@ -120,5 +141,5 @@ export function useMissions(apiBaseUrl: string, getToken: () => Promise<string>,
     [api, refresh],
   );
 
-  return { runs, selected, events, error, refresh, launch, select, decide };
+  return { runs, selected, events, changes, error, refresh, launch, select, decide };
 }

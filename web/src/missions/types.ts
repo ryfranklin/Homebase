@@ -20,6 +20,23 @@ export interface RunEvent {
   data?: unknown;
 }
 
+// The diff a burn produced, from GET /runs/<id>/changes. This is what a reviewer
+// actually approves at the go/no-go gate: the code the worker wrote, ready to merge.
+export interface RunChangeFile {
+  path: string;
+  added: string; // git numstat count (or "-" for binary)
+  removed: string;
+}
+export interface RunChanges {
+  branch?: string | null;
+  message?: string | null; // the worker's commit message
+  files: RunChangeFile[];
+  file_count?: number;
+  stat?: string | null; // git --stat summary
+  patch?: string | null; // the unified diff (capped by the engine)
+  truncated?: boolean;
+}
+
 export interface LaunchInput {
   target: string;
   taskType: "sim" | "burn";
