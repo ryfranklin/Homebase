@@ -20,6 +20,13 @@ class ScopeSystemPromptTests(unittest.TestCase):
         self.assertIn("Vault-only mode", text)
         self.assertIn("Do NOT use general knowledge", text)
 
+    def test_vault_only_prompt_supports_note_creation(self):
+        # Creating a note is a vault action, so Vault-only mode must offer it (not refuse
+        # and point at an outside app) and know the homebase-note emit block + intent.
+        text = load_vault_only_prompt()
+        self.assertIn("homebase-note", text)
+        self.assertIn("document-creation intent", text)
+
     def test_vault_scope_uses_strict_prompt(self):
         a = _agent()
         sys_vault = a._system(scope="vault")
