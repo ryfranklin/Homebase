@@ -1949,6 +1949,42 @@ button.fb-row:hover { background: var(--surface); }
 .mc-diff-hunk { color: #7aa2f7; }
 .mc-diff-meta { color: var(--faint); }
 
+/* Contrail — live burn stage tracker + evaluation */
+.mc-contrail { margin-bottom: 16px; }
+.mc-contrail-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mc-contrail-label { font-weight: 600; font-size: 0.82rem; letter-spacing: 0.02em; color: var(--text); }
+.mc-phases { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.mc-phase {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+  font-size: 0.76rem; color: var(--faint); background: var(--surface);
+}
+.mc-phase-dot { font-size: 0.72rem; }
+.mc-phase-done { color: var(--text); border-color: var(--border-strong); }
+.mc-phase-done .mc-phase-dot { color: #6ee7a8; }
+.mc-phase-active { color: var(--text); border-color: #7aa2f7; }
+.mc-phase-active .mc-phase-dot { color: #7aa2f7; }
+
+.mc-eval { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; background: var(--surface); }
+.mc-eval-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.mc-eval-label { font-weight: 600; font-size: 0.86rem; }
+.mc-grade { font-family: var(--font-mono); font-size: 0.78rem; padding: 2px 8px; border-radius: 6px; }
+.mc-grade.good { color: #6ee7a8; background: rgba(110, 231, 168, 0.12); }
+.mc-grade.bad { color: #ff8b84; background: rgba(255, 95, 86, 0.12); }
+.mc-criteria { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mc-criterion { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: baseline; font-size: 0.82rem; }
+.mc-criterion-mark { font-size: 0.8rem; }
+.mc-criterion.pass .mc-criterion-mark { color: #6ee7a8; }
+.mc-criterion.fail .mc-criterion-mark { color: #ff8b84; }
+.mc-criterion-stmt { color: var(--text); }
+.mc-criterion-score { font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); }
+.mc-criterion-reason { grid-column: 2 / -1; color: var(--faint); font-size: 0.76rem; }
+.mc-checks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mc-check { font-family: var(--font-mono); font-size: 0.74rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); }
+.mc-check.pass { color: #6ee7a8; }
+.mc-check.fail { color: #ff8b84; }
+.mc-eval-rationale { color: var(--muted); font-size: 0.8rem; margin: 4px 0 0; white-space: pre-wrap; }
+
 .mc-telemetry { border-top: 1px solid var(--border); padding-top: 14px; }
 .mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #35c07d; display: inline-block; animation: pulse 1.4s infinite; }
 .mc-events { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 0.78rem; }

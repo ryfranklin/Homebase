@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
-import { isTerminal, type Run, type RunChanges, type RunEvent } from "../missions/types";
+import { isTerminal, type Evaluation, type Run, type RunChanges, type RunEvent } from "../missions/types";
 import type { UseMissions } from "../missions/useMissions";
 
 // The worker's result is markdown; render it like the chat transcript does. Lazy so
@@ -181,6 +181,102 @@ function ChangesPanel({ changes }: { changes: RunChanges }) {
   );
 }
 
+// Contrail — the burn's stages, tracked live. The stepper derives which stage a run is
+// in from the node_transition telemetry (the engine's graph nodes), so it updates as the
+// burn flies: dispatch -> work -> verify -> gate -> apply.
+const PHASES: { node: string; label: string }[] = [
+  { node: "dispatch", label: "dispatch" },
+  { node: "run_worker", label: "work" },
+  { node: "verify", label: "verify" },
+  { node: "gate", label: "gate" },
+  { node: "apply_burn", label: "apply" },
+];
+
+function PhaseStepper({ events, status }: { events: RunEvent[]; status: string }) {
+  const seen = new Set<string>();
+  let last = "";
+  for (const e of events) {
+    if (e.type === "node_transition") {
+      const n = (e.data as { node?: string } | undefined)?.node;
+      if (typeof n === "string") {
+        seen.add(n);
+        last = n;
+      }
+    }
+  }
+  const terminal = isTerminal(status);
+  return (
+    <ol className="mc-phases" aria-label="Burn stages">
+      {PHASES.map((p) => {
+        const done = seen.has(p.node) && (terminal || p.node !== last);
+        const active = !terminal && p.node === last;
+        const state = done ? "done" : active ? "active" : "pending";
+        return (
+          <li key={p.node} className={`mc-phase mc-phase-${state}`}>
+            <span className="mc-phase-dot" aria-hidden="true">{done ? "✓" : active ? "●" : "○"}</span>
+            {p.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function grade(n: number | null | undefined): string {
+  return typeof n === "number" ? n.toFixed(2) : "—";
+}
+
+// The burn's evaluation: the acceptance-criteria judge scores (per-criterion pass/fail +
+// overall grade) and the target repo's own deterministic checks. This is what Mission
+// Control's verify node computed before the gate; Contrail surfaces it here.
+function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
+  const acc = evaluation.acceptance ?? null;
+  const checks = evaluation.checks ?? [];
+  const threshold = typeof acc?.threshold === "number" ? acc.threshold : 0.7;
+  const overall = typeof acc?.score === "number" ? acc.score : null;
+  const pass = overall == null ? null : overall >= threshold;
+  const criteria = acc?.per_criterion ?? [];
+  if (!acc && checks.length === 0) return null;
+  return (
+    <div className="mc-eval">
+      <div className="mc-eval-head">
+        <span className="mc-eval-label">✦ Contrail · evaluation</span>
+        {overall != null && (
+          <span className={`mc-grade ${pass ? "good" : "bad"}`}>
+            grade {grade(overall)} {pass ? "✓" : "✗"}
+          </span>
+        )}
+      </div>
+      {acc?.error && <p className="mc-empty">Judge error: {acc.error}</p>}
+      {criteria.length > 0 && (
+        <ul className="mc-criteria">
+          {criteria.map((c, i) => {
+            const ok = typeof c.score === "number" ? c.score >= threshold : false;
+            return (
+              <li key={i} className={`mc-criterion ${ok ? "pass" : "fail"}`}>
+                <span className="mc-criterion-mark" aria-hidden="true">{ok ? "✓" : "✗"}</span>
+                <span className="mc-criterion-stmt">{c.statement || `Criterion ${(c.index ?? i) + 1}`}</span>
+                <span className="mc-criterion-score">{grade(c.score)}</span>
+                {c.reason && <span className="mc-criterion-reason">{c.reason}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {checks.length > 0 && (
+        <div className="mc-checks">
+          {checks.map((ch, i) => (
+            <span key={i} className={`mc-check ${ch.exit_code === 0 ? "pass" : "fail"}`}>
+              {ch.exit_code === 0 ? "✓" : "✗"} {ch.name || ch.command || "check"}
+            </span>
+          ))}
+        </div>
+      )}
+      {acc?.rationale && <p className="mc-eval-rationale">{acc.rationale}</p>}
+    </div>
+  );
+}
+
 function RunDetail({
   run,
   events,
@@ -211,7 +307,16 @@ function RunDetail({
         </div>
       </div>
 
+      <div className="mc-contrail">
+        <div className="mc-contrail-head">
+          <span className="mc-contrail-label">✦ Contrail</span>
+          {!isTerminal(run.status) && <span className="mc-live-dot" aria-hidden="true" />}
+        </div>
+        <PhaseStepper events={events} status={run.status} />
+      </div>
+
       {changes && <ChangesPanel changes={changes} />}
+      {run.evaluation && <EvaluationCard evaluation={run.evaluation} />}
 
       {inFlight && (
         <div className="mc-inflight">

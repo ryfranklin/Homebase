@@ -11,6 +11,36 @@ export interface Run {
   detail?: string | null;
   created_at?: string | null;
   ended_at?: string | null;
+  // The burn's verification/evaluation report (Contrail): deterministic checks + the
+  // acceptance-criteria judge scores. Present once Mission Control's verify node has run.
+  evaluation?: Evaluation | null;
+}
+
+// One acceptance criterion the judge scored (0..1), with its statement + reason.
+export interface CriterionScore {
+  index?: number;
+  statement?: string;
+  score?: number;
+  weight?: number;
+  reason?: string;
+}
+// A deterministic check the target repo ran (its own tests/build/lint).
+export interface VerifyCheck {
+  name?: string;
+  command?: string;
+  exit_code?: number | null;
+  duration_s?: number | null;
+}
+export interface Evaluation {
+  checks?: VerifyCheck[];
+  acceptance?: {
+    score?: number | null; // overall grade 0..1
+    threshold?: number | null;
+    enforced?: boolean;
+    rationale?: string;
+    per_criterion?: CriterionScore[];
+    error?: string;
+  } | null;
 }
 
 // A relayed telemetry frame: { type: "node_transition" | "step_metric" |
