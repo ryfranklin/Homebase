@@ -6,6 +6,7 @@ import type { ThreadSummary } from "../chat/threadsApi";
 import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 import { Citations } from "./Citations";
 import { ChatConnections } from "./ChatConnections";
+import { noteFromMarkdown, stripNoteBlock } from "../vault/noteDraft";
 
 const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
 
@@ -30,6 +31,8 @@ export interface VaultChatPanelProps {
   // What's connected, for the empty-state "Connected / Connect" strip.
   connectors?: ConnectorStatuses;
   onConnect?: (url: string) => void;
+  // Create a vault note the agent drafted in a `homebase-note` block (path + content).
+  onCreateNote?: (path: string, content: string) => void;
 }
 
 // Settings-level model picker, shown only when the deploy configured model choices.
@@ -67,7 +70,7 @@ function Thinking() {
 // A chat panel docked in the Vault surface. The scope toggle chooses whether the
 // agent answers strictly from vault material (KB docs + connectors) or opens up to
 // general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect }: VaultChatPanelProps) {
+export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect, onCreateNote }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   // Mobile only (CSS-gated <=860px): the chat is a bottom sheet that starts as a
   // collapsed launcher bar above the nav and expands on tap. Ignored on desktop.
@@ -173,22 +176,38 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
             {connectors && <ChatConnections connectors={connectors} onConnect={onConnect} />}
           </div>
         )}
-        {messages.map((m) => (
+        {messages.map((m) => {
+          // A note the agent drafted (only once the block is complete, i.e. not
+          // streaming). The block is stripped from the shown text and surfaced as a card.
+          const note = m.role === "assistant" && !m.streaming ? noteFromMarkdown(m.text) : null;
+          const shown = m.role === "assistant" ? stripNoteBlock(m.text) : m.text;
+          return (
           <article key={m.id} className={`message ${m.role}`} data-testid={`message-${m.role}`}>
             <div className="bubble">
-              {m.text ? (
+              {shown ? (
                 m.role === "assistant" ? (
-                  <Suspense fallback={<div className="prose">{m.text}</div>}>
-                    <Markdown text={m.text} />
+                  <Suspense fallback={<div className="prose">{shown}</div>}>
+                    <Markdown text={shown} />
                   </Suspense>
                 ) : (
-                  <div className="prose">{m.text}</div>
+                  <div className="prose">{shown}</div>
                 )
               ) : m.streaming ? (
                 <Thinking />
               ) : null}
               {m.error && <div className="message-error">{m.error}</div>}
             </div>
+            {note && onCreateNote && (
+              <div className="pd-draft note-draft">
+                <div className="pd-draft-info">
+                  <strong>Create note</strong>
+                  <span>{note.path}</span>
+                </div>
+                <button type="button" className="vault-btn primary" onClick={() => onCreateNote(note.path, note.content)}>
+                  Create note
+                </button>
+              </div>
+            )}
             {m.toolEvents.length > 0 && (
               <div className="tool-events">
                 {m.toolEvents.map((t, i) => (
@@ -200,7 +219,8 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
             )}
             {m.role === "assistant" && <Citations citations={m.citations} />}
           </article>
-        ))}
+          );
+        })}
         <div ref={endRef} />
       </main>
 
