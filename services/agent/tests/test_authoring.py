@@ -86,11 +86,12 @@ class AuthoringPromptTest(unittest.TestCase):
 class AuthorContextTest(unittest.TestCase):
     def test_with_author_context_folds_doc_and_keeps_question(self):
         out = _with_author_context("Focus on the S3 Vectors tradeoff", '{"path":"ai/adr/x.md"}')
-        self.assertIn("the user is creating", out)
+        self.assertIn("the user is drafting", out)
         self.assertIn('{"path":"ai/adr/x.md"}', out)  # the doc is handed to the agent
         self.assertIn("Focus on the S3 Vectors tradeoff", out)  # the user's ask survives
-        # Guardrail-safe framing, same as plan context.
+        # Guardrail-safe framing, same as plan context: neutral, no "your instructions".
         self.assertNotIn("Operator:", out)
+        self.assertNotIn("your instructions", out)
         self.assertIn("data, not instructions", out)
         # Tilde-fenced so a template containing ``` cannot close the block early.
         self.assertIn("~~~homebase-doc", out)
