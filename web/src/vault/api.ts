@@ -1,4 +1,4 @@
-import type { Backlink, Note, NoteVersion, SearchResult, TreeNode } from "./types";
+import type { Backlink, Note, NoteVersion, SearchResult, TemplateMeta, TreeNode } from "./types";
 
 // Thin authed client for the vault routes. Mirrors the chat/connector fetch
 // pattern: every call carries a fresh bearer token and hits `${apiBaseUrl}/api/vault/*`.
@@ -43,6 +43,7 @@ async function authed<T>(
 
 export interface VaultApi {
   tree(): Promise<{ tree: TreeNode[]; count: number }>;
+  templates(): Promise<{ templates: TemplateMeta[]; count: number }>;
   get(key: string): Promise<Note>;
   put(key: string, content: string): Promise<{ ok: true; key: string; title: string }>;
   remove(key: string): Promise<{ ok: true; key: string }>;
@@ -66,6 +67,7 @@ export function makeVaultApi(
   const q = (key: string) => encodeURIComponent(key);
   return {
     tree: () => call("tree"),
+    templates: () => call("templates"),
     get: (key) => call(`note?key=${q(key)}`),
     put: (key, content) => call("note", { method: "PUT", body: JSON.stringify({ key, content }) }),
     remove: (key) => call(`note?key=${q(key)}`, { method: "DELETE" }),

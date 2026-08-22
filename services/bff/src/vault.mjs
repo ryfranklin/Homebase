@@ -74,6 +74,28 @@ export function baseName(key) {
   return key.split("/").pop().replace(/\.(md|markdown)$/i, "");
 }
 
+// The `templates/` subtree holds note skeletons, not content. A clean display name
+// drops the "template" suffix and word-separators: "adr-template.md" -> "adr",
+// "project design template.md" -> "project design".
+export function templateLabel(key) {
+  return baseName(key)
+    .replace(/[-_ ]*template$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Parse the light front-matter tag value ("[adr]", "adr, ai", "") into a string[].
+// splitFrontMatter already stripped surrounding quotes; this only splits the list.
+export function parseListValue(v) {
+  if (!v) return [];
+  return String(v)
+    .replace(/^\[|\]$/g, "")
+    .split(",")
+    .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+}
+
 export function noteTitle(key, content) {
   const { frontMatter, body } = splitFrontMatter(content || "");
   if (frontMatter.title) return frontMatter.title;
@@ -210,6 +232,35 @@ export function makeVault({ store, writer = null, now = () => Date.now(), cacheT
     async tree() {
       const keys = await store.listKeys();
       return { tree: buildTree(keys), count: keys.length };
+    },
+
+    // List the note skeletons under `templates/` so the GUI can recommend one and
+    // seed a new note. Reads only the ~dozens of template objects (not the whole
+    // corpus). `templates/CLAUDE.md` is subtree guidance, not a template, so it is
+    // excluded. Returns light metadata (name, label, tags, type); the body is
+    // fetched with the normal get() when a template is chosen.
+    async templates() {
+      const keys = (await store.listKeys()).filter(
+        (k) => k.startsWith("templates/") && /\.(md|markdown)$/i.test(k) && !/(^|\/)CLAUDE\.md$/i.test(k),
+      );
+      const entries = await mapPool(keys, 16, async (key) => {
+        try {
+          const { content } = await store.getObject(key);
+          const { frontMatter } = splitFrontMatter(content || "");
+          return {
+            path: key,
+            name: baseName(key),
+            label: templateLabel(key),
+            title: frontMatter.title && !/\{\{/.test(frontMatter.title) ? frontMatter.title : templateLabel(key),
+            tags: parseListValue(frontMatter.tags),
+            type: frontMatter.type || null,
+          };
+        } catch {
+          return null;
+        }
+      });
+      const templates = entries.filter(Boolean).sort((a, b) => a.label.localeCompare(b.label));
+      return { templates, count: templates.length };
     },
 
     async get(key) {

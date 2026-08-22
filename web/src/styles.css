@@ -1178,6 +1178,96 @@ button {
   letter-spacing: 0.06em;
 }
 
+/* New-document panel (template-recommending create flow) */
+.newdoc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 12px 0;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.newdoc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.newdoc-label {
+  color: var(--faint);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.newdoc-input,
+.newdoc-select {
+  width: 100%;
+  background: var(--bg, var(--surface-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 7px 9px;
+  outline: none;
+}
+.newdoc-input:focus,
+.newdoc-select:focus {
+  border-color: var(--border-strong);
+}
+.newdoc-template {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.newdoc-rec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.newdoc-star {
+  color: var(--accent, #d8b34a);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
+.newdoc-showall {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--faint);
+  font-size: 0.72rem;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.newdoc-showall:hover {
+  color: var(--text);
+}
+.newdoc-key {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--faint);
+  word-break: break-all;
+}
+.newdoc-error {
+  color: var(--danger, #e06c6c);
+  font-size: 0.76rem;
+}
+.newdoc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vault-btn.ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--faint);
+}
+.vault-btn.ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
 /* Tree */
 .vault-tree {
   overflow-y: auto;
