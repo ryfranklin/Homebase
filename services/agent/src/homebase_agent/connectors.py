@@ -71,12 +71,20 @@ CONNECTOR_TOOLS = [
     {
         "toolSpec": {
             "name": "gdrive_search_files",
-            "description": "Search the user's Google Drive files. Query uses Drive query syntax (e.g. \"name contains 'report'\").",
+            "description": (
+                "Search or list the user's Google Drive files. Optional 'query' uses Drive "
+                "query syntax (e.g. \"name contains 'report'\"). To list a folder's CONTENTS, "
+                "pass 'folder_id' (the folder's Drive id). Find that id first by searching for "
+                "the folder itself: query \"name = 'Folder Name' and mimeType = "
+                "'application/vnd.google-apps.folder'\", then call again with its id as folder_id."
+            ),
             "inputSchema": {
                 "json": {
                     "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"],
+                    "properties": {
+                        "query": {"type": "string", "description": "Drive query syntax (optional)"},
+                        "folder_id": {"type": "string", "description": "List only files inside this folder id (optional)"},
+                    },
                 }
             },
         }

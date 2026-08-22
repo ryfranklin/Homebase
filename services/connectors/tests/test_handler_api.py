@@ -121,6 +121,26 @@ class ApiDispatcherTests(unittest.TestCase):
         self.assertIn("channel=C1", sent["url"])
         self.assertEqual(sent["headers"]["Authorization"], "Bearer TOKEN")
 
+    def test_gdrive_folder_id_builds_parents_clause(self):
+        from urllib.parse import unquote_plus
+
+        api, sent = self._capture()
+        api("gdrive", "gdrive.search_files", {"folder_id": "FID123"}, "TOKEN")
+        q = unquote_plus(sent["url"])
+        self.assertIn("'FID123' in parents", q)  # lists the folder's contents
+        self.assertIn("parents", sent["url"])    # richer fields (parents, webViewLink)
+        self.assertIn("webViewLink", sent["url"])
+
+    def test_gdrive_folder_and_query_combine_with_and(self):
+        from urllib.parse import unquote_plus
+
+        api, sent = self._capture()
+        api("gdrive", "gdrive.search_files", {"folder_id": "FID", "query": "name contains 'x'"}, "TOKEN")
+        q = unquote_plus(sent["url"])
+        self.assertIn("'FID' in parents", q)
+        self.assertIn("(name contains 'x')", q)
+        self.assertIn(" and ", q)
+
     def test_slack_read_with_id_makes_a_single_history_call(self):
         calls = []
 
