@@ -4,6 +4,9 @@ import type { UseVault } from "../vault/useVault";
 import type { UseChat } from "../chat/useChat";
 import type { UseChatThreads } from "../chat/useChatThreads";
 import { timeAgo } from "../vault/format";
+import { deriveNoteKey } from "../vault/templates";
+import { noteFromMarkdown } from "../vault/noteDraft";
+import type { TemplateMeta } from "../vault/types";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
 import { VaultHistory } from "./VaultHistory";
@@ -38,6 +41,9 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
+  // The note path of an active "Draft with AI" authoring session (null when off). While
+  // set, chat sends run in author mode and re-send the evolving draft as context.
+  const [authorPath, setAuthorPath] = useState<string | null>(null);
   // Mobile master-detail (CSS-gated <=860px): the file list and the note are two
   // panes; the list shows by default and opening a note (or a search) reveals the
   // detail pane with a "‹ Notes" back button. Ignored on desktop (both show).
@@ -68,6 +74,52 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [vault.editing, vault.dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The latest note the agent has drafted this session (the newest assistant
+  // `homebase-note` block), used as the evolving artifact re-sent each author turn.
+  const latestDraftContent = (): string | null => {
+    for (let i = chat.messages.length - 1; i >= 0; i--) {
+      const m = chat.messages[i];
+      if (m.role !== "assistant" || m.streaming) continue;
+      const note = noteFromMarkdown(m.text);
+      if (note) return note.content;
+    }
+    return null;
+  };
+
+  // Chat send wrapper: in an author session, thread mode "author" + the document as
+  // context (the current draft once one exists, else just the target path); otherwise
+  // a normal chat turn.
+  const handleSend = (text: string) => {
+    if (authorPath) {
+      const draft = latestDraftContent();
+      const ctx = draft ? { path: authorPath, draft } : { path: authorPath };
+      void chat.send(text, { mode: "author", authorContext: JSON.stringify(ctx) });
+    } else {
+      void chat.send(text);
+    }
+  };
+
+  // Start a guided authoring session from the New-document panel: derive the target
+  // path, fetch the chosen template body, open the chat, and send the first author turn
+  // seeded with the template + intent so the agent begins the interview.
+  const startAuthor = async ({ intent, folder, template }: { intent: string; folder: string; template: TemplateMeta | null }) => {
+    const path = deriveNoteKey(folder, intent || "untitled");
+    setCreating(false);
+    setChatOpen(true);
+    setAuthorPath(path);
+    let templateBody = "";
+    try {
+      if (template) templateBody = await vault.readTemplate(template.path);
+    } catch {
+      /* a missing template just means the agent drafts from scratch */
+    }
+    const seed = JSON.stringify({ path, intent, folder, template: templateBody });
+    void chat.send(intent ? `Help me draft this: ${intent}` : "Help me draft this document.", {
+      mode: "author",
+      authorContext: seed,
+    });
+  };
 
   const onDelete = () => {
     if (!vault.note) return;
@@ -144,6 +196,7 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
                 setTerm("");
                 void vault.create(key, content);
               }}
+              onDraftWithAI={(args) => void startAuthor(args)}
               onClose={() => setCreating(false)}
             />
           )}
@@ -286,7 +339,7 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
           <VaultChatPanel
             messages={chat.messages}
             streaming={chat.streaming}
-            onSend={(t) => void chat.send(t)}
+            onSend={handleSend}
             onStop={chat.stop}
             scope={scope}
             onScopeChange={onScopeChange}
@@ -305,7 +358,9 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
               // attributed commit) and open it. Confirm before overwriting an existing note.
               if (vault.keys.includes(path) && !window.confirm(`"${path}" already exists. Overwrite it?`)) return;
               void vault.create(path, content);
+              setAuthorPath(null); // the note is saved; end any authoring session
             }}
+            authoring={authorPath ? { path: authorPath, onExit: () => setAuthorPath(null) } : null}
           />
         )}
       </div>

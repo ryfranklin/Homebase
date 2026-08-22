@@ -21,13 +21,14 @@ export function normalizeRuntimeSessionId(id) {
 // "citation" | ..., ... }. The default implementation parses the SSE body of
 // InvokeAgentRuntime. Callers pass a session that already carries the verified
 // user and tenant, so identity is never taken from the client payload.
-export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId, userId, tenantId, prompt, mode, model, scope, planContext }) {
+export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId, userId, tenantId, prompt, mode, model, scope, planContext, authorContext }) {
   const payload = {
     input: prompt,
     session_id: sessionId,
     user_id: userId,
     tenant_id: tenantId,
-    // "plan" runs the agent's AI-DLC interview; otherwise the normal answer mode.
+    // "plan" runs the AI-DLC interview; "author" runs the document-authoring interview;
+    // otherwise the normal answer mode.
     ...(mode ? { mode } : {}),
     // Optional settings-level model choice; the agent validates it server-side.
     ...(model ? { model } : {}),
@@ -35,6 +36,8 @@ export async function* invokeAgentRuntimeStream(client, { runtimeArn, sessionId,
     ...(scope ? { scope } : {}),
     // The plan being revised (plan mode only): the agent folds it into the turn.
     ...(planContext ? { plan_context: planContext } : {}),
+    // The document being authored (author mode only): the agent folds it into the turn.
+    ...(authorContext ? { author_context: authorContext } : {}),
   };
 
   const runtimeSessionId = normalizeRuntimeSessionId(sessionId);

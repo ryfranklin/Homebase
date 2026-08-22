@@ -42,6 +42,7 @@ export async function* streamChat(
       ...(req.model ? { model: req.model } : {}),
       ...(req.scope ? { scope: req.scope } : {}),
       ...(req.planContext ? { plan_context: req.planContext } : {}),
+      ...(req.authorContext ? { author_context: req.authorContext } : {}),
     }),
     signal: opts.signal,
   });

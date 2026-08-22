@@ -111,3 +111,31 @@ test("invokeAgentRuntimeStream: includes plan_context in the payload only when s
   );
   assert.equal("plan_context" in seen[1], false);
 });
+
+test("invokeAgentRuntimeStream: includes author_context in the payload only when set", async () => {
+  const seen = [];
+  const client = {
+    async invoke(args) {
+      seen.push(JSON.parse(args.body));
+      return { stream: (async function* () {})() };
+    },
+  };
+  await collect(
+    invokeAgentRuntimeStream(client, {
+      runtimeArn: "arn:x",
+      sessionId: "doc-adr-session-000000000000000",
+      userId: "u1",
+      tenantId: "homebase",
+      prompt: "draft it",
+      mode: "author",
+      authorContext: '{"path":"ai/adr/x.md","template":"# {{title}}"}',
+    }),
+  );
+  assert.equal(seen[0].author_context, '{"path":"ai/adr/x.md","template":"# {{title}}"}');
+  assert.equal(seen[0].mode, "author");
+
+  await collect(
+    invokeAgentRuntimeStream(client, { runtimeArn: "arn:x", sessionId: "s", userId: "u1", tenantId: "homebase", prompt: "hi" }),
+  );
+  assert.equal("author_context" in seen[1], false);
+});

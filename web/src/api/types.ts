@@ -15,8 +15,9 @@ export interface Citation {
 export interface ChatRequest {
   input: string;
   sessionId?: string;
-  // "plan" runs the agent's AI-DLC planning interview instead of a normal answer.
-  mode?: "plan";
+  // "plan" runs the AI-DLC planning interview; "author" runs the document-authoring
+  // interview (template -> guided fill -> homebase-note). Omitted is a normal answer.
+  mode?: "plan" | "author";
   // The settings-level default model id to invoke. Validated server-side against an
   // allow-list; omitting it uses the agent's deploy-time default model.
   model?: string;
@@ -26,4 +27,7 @@ export interface ChatRequest {
   // Plan mode only: the current flight plan being revised, serialized as JSON. The
   // agent folds it into the turn so it edits the existing plan instead of drafting anew.
   planContext?: string;
+  // Author mode only: the document being written (target path, topic, and the chosen
+  // template on turn one or the current draft on later turns), serialized as JSON.
+  authorContext?: string;
 }

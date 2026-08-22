@@ -15,6 +15,7 @@ from pathlib import Path
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system_prompt.md"
 _PLANNING_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "planning_prompt.md"
 _VAULT_ONLY_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "vault_only_prompt.md"
+_AUTHORING_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "authoring_prompt.md"
 _VERSION_RE = re.compile(r"<!--\s*Version:\s*(\d+)\s*-->", re.IGNORECASE)
 
 
@@ -31,6 +32,12 @@ def load_vault_only_prompt(path=None) -> str:
     """Strict vault-only prompt: answer only from the KB + connectors, never general
     knowledge. Used when the chat scope is 'vault'."""
     return Path(path or _VAULT_ONLY_PROMPT_PATH).read_text(encoding="utf-8")
+
+
+def load_authoring_prompt(path=None) -> str:
+    """The document-authoring prompt, used when the agent runs in author mode: run a
+    short guided interview over a chosen template and emit a homebase-note draft."""
+    return Path(path or _AUTHORING_PROMPT_PATH).read_text(encoding="utf-8")
 
 
 def system_prompt_version(path=None) -> int:
