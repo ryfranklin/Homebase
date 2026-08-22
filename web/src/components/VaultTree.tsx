@@ -43,7 +43,9 @@ function TreeItem({
   onDeleteDir?: (prefix: string) => void;
   depth: number;
 }) {
-  const [open, setOpen] = useState(depth < 1);
+  // Start every directory collapsed: the tree renders as just the top-level folders,
+  // expanded on click. Avoids dumping the whole vault open on load.
+  const [open, setOpen] = useState(false);
   const pad = { paddingLeft: 10 + depth * 14 };
 
   if (node.type === "file") {
