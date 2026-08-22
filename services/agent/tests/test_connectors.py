@@ -57,6 +57,14 @@ class ConnectorClientTests(unittest.TestCase):
             },
         )
 
+    def test_gdrive_tool_exposes_folder_id_for_folder_listing(self):
+        client = ConnectorClient(FakeLambda({}), "homebase-prod")
+        gdrive = next(t["toolSpec"] for t in client.tool_specs() if t["toolSpec"]["name"] == "gdrive_search_files")
+        props = gdrive["inputSchema"]["json"]["properties"]
+        self.assertIn("folder_id", props)  # lets the model list a folder's contents
+        # query is now optional (a folder listing needs only folder_id).
+        self.assertNotIn("required", gdrive["inputSchema"]["json"])
+
     def test_confluence_tool_maps_to_confluence_shim(self):
         lam = FakeLambda({"result": {"results": []}})
         client = ConnectorClient(lam, "homebase-prod")

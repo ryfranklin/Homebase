@@ -61,7 +61,19 @@ def _gcal_create(params, token):
 
 
 def _gdrive_search(params, token):
-    qs = urllib.parse.urlencode({"q": params.get("query", ""), "fields": "files(id,name,mimeType,modifiedTime)"})
+    # Combine an optional folder scope with an optional Drive-syntax query, so the model
+    # can list a folder's contents by passing folder_id (-> "'<id>' in parents") without
+    # hand-writing that clause. Both are optional; with neither, Drive returns the first
+    # page of all files. folder_id is quote-stripped since it is interpolated into a
+    # single-quoted clause (Drive ids are [A-Za-z0-9_-], so this only guards malformed input).
+    clauses = []
+    folder_id = str(params.get("folder_id") or "").replace("'", "")
+    if folder_id:
+        clauses.append(f"'{folder_id}' in parents")
+    if params.get("query"):
+        clauses.append(f"({params['query']})")
+    fields = "files(id,name,mimeType,modifiedTime,parents,webViewLink)"
+    qs = urllib.parse.urlencode({"q": " and ".join(clauses), "fields": fields})
     return "GET", f"https://www.googleapis.com/drive/v3/files?{qs}", _bearer(token), None
 
 
