@@ -30,7 +30,9 @@ class GuardrailWiringTest(unittest.TestCase):
         list(llm.converse_with_tools_stream(system="s", messages=[], tools=[]))
         self.assertEqual(len(c.calls), 3)
         for call in c.calls:
-            self.assertEqual(call["guardrailConfig"], GUARDRAIL)
+            # The guardrail id/version are passed on every call, plus trace enabled so an
+            # intervention's assessment is emitted for diagnostics.
+            self.assertEqual(call["guardrailConfig"], {**GUARDRAIL, "trace": "enabled"})
 
     def test_no_guardrail_config_when_unset(self):
         c = _FakeConverseClient()

@@ -55,7 +55,17 @@ def assemble_tool_stream(events):
                 blk["input"] = blk.get("input", "") + delta["toolUse"].get("input", "")
         elif "messageStop" in event:
             stop_reason = event["messageStop"].get("stopReason")
-        # messageStart, contentBlockStop, metadata: nothing to accumulate.
+        elif "metadata" in event:
+            # DIAGNOSTIC: when guardrail trace is enabled, the metadata event carries the
+            # assessment (which policy fired, and whether on input vs output). Log it so a
+            # guardrail block can be pinpointed from the runtime logs instead of guessed.
+            gr = ((event.get("metadata") or {}).get("trace") or {}).get("guardrail")
+            if gr:
+                try:
+                    print("HB_GUARDRAIL_TRACE " + json.dumps(gr)[:6000], flush=True)
+                except Exception:
+                    pass
+        # messageStart, contentBlockStop: nothing to accumulate.
 
     content = []
     for idx in order:
@@ -125,7 +135,9 @@ class BedrockLLMClient:
         # A Bedrock Guardrail applied to every model call (input + output), so the same
         # governance protects all doors (GUI, CLI, Slack). guardrail is
         # {"guardrailIdentifier", "guardrailVersion"} or None (unset -> no guardrail).
-        self._gc = {"guardrailConfig": guardrail} if guardrail else {}
+        # trace=enabled so an intervention emits its assessment in the stream metadata
+        # (logged in assemble_tool_stream), making guardrail blocks diagnosable.
+        self._gc = {"guardrailConfig": {**guardrail, "trace": "enabled"}} if guardrail else {}
 
     def with_model(self, model_id):
         # A lightweight clone sharing the boto3 client, guardrail and inference config,
