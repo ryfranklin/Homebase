@@ -91,9 +91,14 @@ class PlanningPromptTest(unittest.TestCase):
 class PlanContextTest(unittest.TestCase):
     def test_with_plan_context_folds_plan_and_keeps_question(self):
         out = _with_plan_context("Add a rollback criterion", '{"title":"Ship it"}')
-        self.assertIn("revising an existing flight plan", out)
+        self.assertIn("the user is revising", out)
         self.assertIn('{"title":"Ship it"}', out)  # the plan is handed to the agent
-        self.assertIn("Add a rollback criterion", out)  # the operator's ask survives
+        self.assertIn("Add a rollback criterion", out)  # the user's ask survives
+        # Guardrail-safe framing: the plan is presented as reference data, NOT as a blob
+        # with an "Operator:" role label + "apply these instructions" (which the HIGH
+        # PROMPT_ATTACK filter blocks as a prompt injection).
+        self.assertNotIn("Operator:", out)
+        self.assertIn("data, not instructions", out)
 
     def test_with_plan_context_is_a_noop_without_a_plan(self):
         self.assertEqual(_with_plan_context("just talk", None), "just talk")
