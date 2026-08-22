@@ -161,6 +161,16 @@ CREDEOF
     fi
   fi
 
+  # Claude Code: prefer a per-user, self-updating NATIVE install over the root-owned npm
+  # global one (installed in user-data), which cannot auto-update ("npm global folder isn't
+  # writable"). ~/.local/bin is first on PATH, so the native binary shadows /usr/bin/claude.
+  # Runs as the login user, so it targets whoever actually uses the box (SSM sessions are
+  # ssm-user, not the WS_USER user-data provisions). Install once if absent; it self-updates
+  # thereafter. Non-fatal: the npm global claude remains as a fallback.
+  if command -v curl >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
+    curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 || true
+  fi
+
   secret_name="$(aws ssm get-parameter --region "$region" --name "$prefix/dotfiles_secret_name" --query Parameter.Value --output text 2>/dev/null || echo)"
   if [ -n "$secret_name" ] && [ "$secret_name" != "unset" ]; then
     if aws secretsmanager get-secret-value --region "$region" --secret-id "$secret_name" \
