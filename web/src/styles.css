@@ -2028,6 +2028,7 @@ button.fb-row:hover { background: var(--surface); }
 .copilot-head { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.9rem; margin-bottom: 16px; }
 .copilot-mark { color: var(--white); }
 .copilot-tag { margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+.copilot-collapse-toggle { display: none; } /* mobile-only launcher chevron; re-shown in the mobile media block */
 .copilot-chips { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
 .copilot-chip {
   text-align: left; border: 1px solid var(--border); background: var(--surface);
@@ -2083,9 +2084,19 @@ button.fb-row:hover { background: var(--surface); }
 .preflight-note { font-size: 0.76rem; color: var(--faint); margin: 12px 0 0; text-align: center; }
 
 @media (max-width: 860px) {
-  .fp-outline, .copilot-live { display: none; }
+  /* The plan outline is a jump-nav that is redundant on a small screen; the copilot
+     is NOT hidden here any more, it becomes a bottom sheet (see the mobile block). */
+  .fp-outline { display: none; }
   .fb-row { grid-template-columns: 110px 1fr 70px; }
   .fb-row > .fb-updated, .fb-row > .fb-next, .fb-labels > *:nth-child(n+4) { display: none; }
+}
+
+/* iPad landscape / narrow desktop (861-1024px): keep the side-by-side layouts but
+   give the docked panes less room so the main content stays usable. */
+@media (min-width: 861px) and (max-width: 1024px) {
+  .copilot-live { width: 300px; }
+  .mc-side { width: 300px; }
+  .vault-sidebar { width: 240px; }
 }
 
 /* ---------- Plan sources (corpus grounding) ---------- */
@@ -2650,4 +2661,132 @@ button.fb-row:hover { background: var(--surface); }
   white-space: pre-wrap; word-break: break-word; background: var(--bg-soft); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 10px; margin: 4px 0; font-family: var(--font-mono); font-size: 0.78rem;
   max-height: 280px; overflow: auto;
+}
+
+/* ======================================================================
+   Mobile / compact layout (phones + iPad portrait, <= 860px).
+   - primary nav becomes a fixed bottom tab bar
+   - multi-column views stack to a single column
+   - the assistant (vault chat + plan copilot) becomes a bottom sheet
+   - modals go full-screen; touch targets grow
+   ====================================================================== */
+@media (max-width: 860px) {
+  :root { --mobile-nav-h: 54px; }
+
+  /* --- Primary navigation: fixed bottom tab bar --- */
+  .mode-switch {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 60;
+    display: flex;
+    gap: 0;
+    margin: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: rgba(12, 12, 13, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .mode-switch button {
+    flex: 1 1 0;
+    min-height: var(--mobile-nav-h);
+    border-radius: 0;
+    font-size: 0.7rem;
+    padding: 6px 2px;
+  }
+  .mode-switch .mode-active {
+    color: var(--text);
+    background: none;
+    box-shadow: inset 0 2px 0 var(--white);
+  }
+  .mode-settings { flex: 0 0 52px; }
+
+  /* Lift scrollable content clear of the fixed bottom bar. */
+  .transcript, .vault-main, .vault-sidebar, .mc-main, .mc-side,
+  .ev-body, .diagrams, .plan-body {
+    padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom) + 16px);
+  }
+  /* The plan view also carries a copilot launcher bar above the nav, so give it more. */
+  .fp-main {
+    padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom) + 76px);
+  }
+
+  /* --- Header: compact --- */
+  .chat-header { padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); }
+  .wordmark { font-size: 0.9rem; }
+
+  /* --- Stack the multi-column views to a single column --- */
+  .vault-body, .fp-body, .mc { flex-direction: column; min-height: 0; }
+  .vault-main, .fp-main, .mc-main { width: 100%; max-width: 100%; }
+
+  /* Vault: the file tree sits above the note as a scrollable strip. */
+  .vault-sidebar {
+    width: 100%;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .vault-editor-split { grid-template-columns: 1fr; }
+  .vault-preview { display: none; }
+
+  /* Mission: launch form + runs list stack above the run detail. */
+  .mc-side {
+    width: 100%;
+    max-height: 46vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* --- Assistant as a bottom sheet (vault chat + plan copilot) --- */
+  .vault-chat, .copilot-live {
+    position: fixed;
+    left: 0; right: 0;
+    top: auto;
+    bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom));
+    width: auto;
+    height: 82vh;
+    max-height: 82vh;
+    z-index: 55;
+    border-left: none;
+    border-top: 1px solid var(--border-strong);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+    background: var(--bg-soft);
+  }
+  /* Collapsed copilot: only its head shows, as a launcher bar. */
+  .copilot-live.collapsed {
+    height: auto;
+    max-height: none;
+  }
+  .copilot-live.collapsed .copilot-convo,
+  .copilot-live.collapsed .copilot-composer,
+  .copilot-live.collapsed .pd-draft { display: none; }
+  .copilot-live .copilot-head { cursor: pointer; margin-bottom: 0; }
+  .copilot-live:not(.collapsed) .copilot-head { margin-bottom: 12px; }
+  .copilot-collapse-toggle { display: inline; margin-left: 10px; color: var(--muted); font-size: 0.9rem; }
+
+  /* --- Modals: full-screen sheets, above the nav bar --- */
+  .preflight, .src-modal, .copilot-modal, .settings-card, .vault-history {
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .preflight-overlay, .src-modal-overlay, .pd-overlay, .settings-overlay, .vault-history-overlay {
+    padding: 0;
+    align-items: stretch;
+    z-index: 70;
+  }
+
+  /* --- Touch targets --- */
+  .link-button, .vault-btn, .fp-launch, .chat-toggle { min-height: 40px; }
+}
+
+/* Extra-tight phones (<= 420px): trim horizontal padding and tab labels. */
+@media (max-width: 420px) {
+  .fp-main, .mc-main, .ev-body, .transcript { padding-left: 14px; padding-right: 14px; }
+  .mode-switch button { font-size: 0.64rem; }
 }

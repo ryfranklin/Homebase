@@ -54,6 +54,9 @@ export function PlanCopilot({
   const [streaming, setStreaming] = useState(false);
   const [draft, setDraft] = useState<PlanDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Mobile only (CSS-gated): the docked copilot starts as a collapsed launcher bar at the
+  // bottom of the screen and expands to a sheet when the head is tapped. Ignored on desktop.
+  const [collapsed, setCollapsed] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   // A stable session per plan keeps the agent's server-side memory continuous across a
@@ -82,6 +85,7 @@ export function PlanCopilot({
     setInput("");
     setError(null);
     setDraft(null);
+    setCollapsed(false); // keep the sheet open while the copilot works (mobile)
     const at = new Date().toISOString();
     const base: ChatMessage[] = [
       ...messages,
@@ -136,7 +140,10 @@ export function PlanCopilot({
 
   const body = (
     <>
-      <div className="copilot-head">
+      <div
+        className="copilot-head"
+        onClick={variant === "dock" ? () => setCollapsed((v) => !v) : undefined}
+      >
         <span className="copilot-mark" aria-hidden="true">
           ✈
         </span>
@@ -146,6 +153,11 @@ export function PlanCopilot({
           <button type="button" className="link-button" onClick={onClose}>
             Close
           </button>
+        )}
+        {variant === "dock" && (
+          <span className="copilot-collapse-toggle" aria-hidden="true">
+            {collapsed ? "▴" : "▾"}
+          </span>
         )}
       </div>
 
@@ -215,7 +227,7 @@ export function PlanCopilot({
     );
   }
   return (
-    <aside className="copilot copilot-live" aria-label="Planning copilot">
+    <aside className={`copilot copilot-live${collapsed ? " collapsed" : ""}`} aria-label="Planning copilot">
       {body}
     </aside>
   );
