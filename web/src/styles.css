@@ -2029,6 +2029,8 @@ button.fb-row:hover { background: var(--surface); }
 .copilot-mark { color: var(--white); }
 .copilot-tag { margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
 .copilot-collapse-toggle { display: none; } /* mobile-only launcher chevron; re-shown in the mobile media block */
+/* Mobile-only affordances, hidden on desktop; re-shown in the mobile media block. */
+.vault-chat-launcher, .vault-back { display: none; }
 .copilot-chips { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
 .copilot-chip {
   text-align: left; border: 1px solid var(--border); background: var(--surface);
@@ -2704,12 +2706,12 @@ button.fb-row:hover { background: var(--surface); }
   .mode-settings { flex: 0 0 52px; }
 
   /* Lift scrollable content clear of the fixed bottom bar. */
-  .transcript, .vault-main, .vault-sidebar, .mc-main, .mc-side,
-  .ev-body, .diagrams, .plan-body {
+  .transcript, .mc-main, .mc-side, .ev-body, .diagrams, .plan-body {
     padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom) + 16px);
   }
-  /* The plan view also carries a copilot launcher bar above the nav, so give it more. */
-  .fp-main {
+  /* The plan (copilot) and vault (chat) views also carry a launcher bar above the
+     nav, so their scroll areas need extra clearance. */
+  .fp-main, .vault-main, .vault-sidebar {
     padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom) + 76px);
   }
 
@@ -2721,13 +2723,13 @@ button.fb-row:hover { background: var(--surface); }
   .vault-body, .fp-body, .mc { flex-direction: column; min-height: 0; }
   .vault-main, .fp-main, .mc-main { width: 100%; max-width: 100%; }
 
-  /* Vault: the file tree sits above the note as a scrollable strip. */
-  .vault-sidebar {
-    width: 100%;
-    max-height: 40vh;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+  /* Vault: master-detail. The file list and the note are two full-screen panes;
+     the list shows by default, and opening a note (or a search) reveals the note
+     pane with a "‹ Notes" back button. */
+  .vault-sidebar { width: 100%; max-height: none; border-right: none; }
+  .vault-body:not(.vault-detail) .vault-main { display: none; }
+  .vault-body.vault-detail .vault-sidebar { display: none; }
+  .vault-back { display: inline-flex; align-items: center; min-height: 40px; }
   .vault-editor-split { grid-template-columns: 1fr; }
   .vault-preview { display: none; }
 
@@ -2766,6 +2768,30 @@ button.fb-row:hover { background: var(--surface); }
   .copilot-live .copilot-head { cursor: pointer; margin-bottom: 0; }
   .copilot-live:not(.collapsed) .copilot-head { margin-bottom: 12px; }
   .copilot-collapse-toggle { display: inline; margin-left: 10px; color: var(--muted); font-size: 0.9rem; }
+
+  /* Vault chat: a persistent launcher bar (matches the copilot). Collapsed shows only
+     the launcher; tapping it expands the sheet. */
+  .vault-chat-launcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 12px 16px;
+    font: inherit;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: none;
+    border: none;
+  }
+  .vault-chat-launcher-chev { margin-left: auto; color: var(--muted); }
+  .vault-chat:not(.collapsed) .vault-chat-launcher { border-bottom: 1px solid var(--border); }
+  .vault-chat.collapsed { height: auto; max-height: none; }
+  .vault-chat.collapsed .vault-chat-threads,
+  .vault-chat.collapsed .vault-chat-head,
+  .vault-chat.collapsed .vault-chat-transcript,
+  .vault-chat.collapsed .composer { display: none; }
 
   /* --- Modals: full-screen sheets, above the nav bar --- */
   .preflight, .src-modal, .copilot-modal, .settings-card, .vault-history {

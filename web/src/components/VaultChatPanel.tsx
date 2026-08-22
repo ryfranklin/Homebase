@@ -69,6 +69,9 @@ function Thinking() {
 // general knowledge. It reuses the same streaming chat engine as before.
 export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
+  // Mobile only (CSS-gated <=860px): the chat is a bottom sheet that starts as a
+  // collapsed launcher bar above the nav and expands on tap. Ignored on desktop.
+  const [collapsed, setCollapsed] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,7 +89,19 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
   };
 
   return (
-    <aside className="vault-chat" aria-label="Chat">
+    <aside className={`vault-chat${collapsed ? " collapsed" : ""}`} aria-label="Chat">
+      <button
+        type="button"
+        className="vault-chat-launcher"
+        onClick={() => setCollapsed((v) => !v)}
+        aria-expanded={!collapsed}
+      >
+        <span className="copilot-mark" aria-hidden="true">
+          ✦
+        </span>
+        Chat
+        <span className="vault-chat-launcher-chev" aria-hidden="true">{collapsed ? "▴" : "▾"}</span>
+      </button>
       {(onNewThread || threads.length > 0) && (
         <div className="vault-chat-threads">
           {onNewThread && (

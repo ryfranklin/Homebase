@@ -39,7 +39,16 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
+  // Mobile master-detail (CSS-gated <=860px): the file list and the note are two
+  // panes; the list shows by default and opening a note (or a search) reveals the
+  // detail pane with a "‹ Notes" back button. Ignored on desktop (both show).
+  const [mobileDetail, setMobileDetail] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Opening a note or running a search moves to the detail pane on mobile.
+  useEffect(() => {
+    if (vault.note || vault.results) setMobileDetail(true);
+  }, [vault.note, vault.results]);
 
   // Debounced search: empty term clears results.
   useEffect(() => {
@@ -121,7 +130,7 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
         </div>
       </header>
 
-      <div className="vault-body">
+      <div className={`vault-body${mobileDetail ? " vault-detail" : ""}`}>
         <aside className="vault-sidebar">
           <div className="vault-side-top">
             <input
@@ -158,7 +167,10 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
           <VaultTree
             tree={vault.tree}
             activeKey={vault.note?.key ?? null}
-            onOpen={(k) => void vault.open(k)}
+            onOpen={(k) => {
+              setMobileDetail(true);
+              void vault.open(k);
+            }}
             onDeleteFile={onDeleteFileFromTree}
             onDeleteDir={onDeleteDirFromTree}
           />
@@ -170,6 +182,9 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
           {vault.results ? (
             <div className="vault-results">
               <div className="vault-results-head">
+                <button type="button" className="vault-back link-button" onClick={() => setMobileDetail(false)}>
+                  ‹ Notes
+                </button>
                 <span>
                   {vault.results.length} result{vault.results.length === 1 ? "" : "s"} for “{term}”
                 </span>
@@ -178,7 +193,7 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
                 </button>
               </div>
               {vault.results.map((r) => (
-                <button key={r.key} type="button" className="vault-result" onClick={() => void vault.open(r.key)}>
+                <button key={r.key} type="button" className="vault-result" onClick={() => { setMobileDetail(true); void vault.open(r.key); }}>
                   <span className="vault-result-title">{r.title}</span>
                   <span className="vault-result-key">{r.key}</span>
                   <span className="vault-result-snippet">{r.snippet}</span>
@@ -187,6 +202,9 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             </div>
           ) : vault.note ? (
             <article className="vault-note">
+              <button type="button" className="vault-back link-button" onClick={() => setMobileDetail(false)}>
+                ‹ Notes
+              </button>
               <div className="vault-note-head">
                 <div className="vault-note-titles">
                   <h1>
