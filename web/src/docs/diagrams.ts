@@ -108,6 +108,13 @@ let renderSeq = 0;
 
 export async function renderMermaid(code: string): Promise<string> {
   const mermaid = await loadMermaid();
+  // Validate first: on invalid/partial syntax mermaid.render RESOLVES with its own
+  // "Syntax error in text" bomb graphic instead of rejecting, which would leak into
+  // notes/chat/plan (e.g. an incomplete fence mid-stream, or a non-diagram fence).
+  // parse() with suppressErrors returns false on bad input; reject so callers fall
+  // back to the raw source.
+  const ok = await mermaid.parse(code, { suppressErrors: true });
+  if (!ok) throw new Error("invalid mermaid syntax");
   const { svg } = await mermaid.render(`hb-mmd-${renderSeq++}`, code);
   return svg;
 }
