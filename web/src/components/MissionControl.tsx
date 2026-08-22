@@ -33,6 +33,13 @@ function eventLine(evt: RunEvent): string {
   }
   if (evt.type === "node_transition") return `→ ${d.node ?? "node"}`;
   if (evt.type === "gate_waiting") return "⏸ awaiting go/no-go";
+  if (evt.type === "worker_activity") {
+    // Live progress from inside the worker step: the tools it invoked this turn, else
+    // a short text snippet of what it's doing.
+    const tools = Array.isArray(d.tools) ? (d.tools as string[]) : [];
+    const detail = tools.length ? tools.join(" · ") : typeof d.text === "string" ? d.text : "";
+    return `⚙ worker${detail ? ` · ${detail}` : "…"}`;
+  }
   if (evt.type === "error") return `error: ${d.message ?? ""}`;
   return evt.type;
 }

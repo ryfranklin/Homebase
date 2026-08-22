@@ -87,6 +87,17 @@ describe("MissionControl", () => {
     expect(screen.getByText(/claude-haiku-4-5/)).toBeInTheDocument();
   });
 
+  it("renders live worker activity (tools invoked this turn)", () => {
+    const selected: Run = { run_id: "r1", status: "running", cost_usd: 0.01 };
+    const events: RunEvent[] = [
+      { type: "worker_activity", data: { turn: 1, model: "m", tools: ["Edit", "Bash"], text: "implementing slugify" } },
+      { type: "worker_activity", data: { turn: 2, model: "m", tools: [], text: "running the tests" } },
+    ];
+    render(<MissionControl missions={fakeMissions({ selected, events })} />);
+    expect(screen.getByText("⚙ worker · Edit · Bash")).toBeInTheDocument();
+    expect(screen.getByText("⚙ worker · running the tests")).toBeInTheDocument();
+  });
+
   it("renders a terminal run's result as markdown, expandable and copyable", async () => {
     const selected: Run = {
       run_id: "r1",
