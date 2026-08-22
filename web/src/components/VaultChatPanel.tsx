@@ -33,6 +33,10 @@ export interface VaultChatPanelProps {
   onConnect?: (url: string) => void;
   // Create a vault note the agent drafted in a `homebase-note` block (path + content).
   onCreateNote?: (path: string, content: string) => void;
+  // Active document-authoring session (from the New-document "Draft with AI" flow): a
+  // banner shows the target path and lets the user exit back to normal chat. When set,
+  // sends run in author mode (the parent's onSend threads the mode + document context).
+  authoring?: { path: string; onExit: () => void } | null;
 }
 
 // Settings-level model picker, shown only when the deploy configured model choices.
@@ -70,7 +74,7 @@ function Thinking() {
 // A chat panel docked in the Vault surface. The scope toggle chooses whether the
 // agent answers strictly from vault material (KB docs + connectors) or opens up to
 // general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect, onCreateNote }: VaultChatPanelProps) {
+export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   // Mobile only (CSS-gated <=860px): the chat is a bottom sheet that starts as a
   // collapsed launcher bar above the nav and expands on tap. Ignored on desktop.
@@ -162,8 +166,19 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
         </div>
       </div>
 
+      {authoring && (
+        <div className="vault-chat-authoring" role="status">
+          <span className="vault-chat-authoring-label">
+            ✦ Drafting <code>{authoring.path}</code>
+          </span>
+          <button type="button" className="link-button" onClick={authoring.onExit}>
+            Exit
+          </button>
+        </div>
+      )}
+
       <main className="vault-chat-transcript" aria-live="polite">
-        {messages.length === 0 && (
+        {messages.length === 0 && !authoring && (
           <div className="vault-chat-empty">
             <p className="vault-chat-empty-title">
               {scope === "vault" ? "Ask about your vault." : "Ask anything."}
@@ -236,7 +251,7 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
                 submit(e);
               }
             }}
-            placeholder={scope === "vault" ? "Ask your vault…" : "Message Homebase…"}
+            placeholder={authoring ? "Answer, or say “just draft it”…" : scope === "vault" ? "Ask your vault…" : "Message Homebase…"}
             rows={1}
             aria-label="Message"
           />

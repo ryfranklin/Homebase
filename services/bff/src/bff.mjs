@@ -474,8 +474,9 @@ export async function handleRequest(event, respond, deps) {
 
   const sessionId = body.session_id || `${tenantId}:${userId}`;
   const prompt = body.input ?? body.prompt ?? "";
-  // Opt into the agent's AI-DLC planning interview; anything else is normal mode.
-  const mode = body.mode === "plan" ? "plan" : undefined;
+  // Opt into the agent's AI-DLC planning interview or the document-authoring interview;
+  // anything else is normal mode.
+  const mode = body.mode === "plan" ? "plan" : body.mode === "author" ? "author" : undefined;
   // The GUI's settings-level default model. Passed through verbatim; the agent
   // validates it against its allow-list and ignores anything unknown.
   const model = typeof body.model === "string" && body.model ? body.model : undefined;
@@ -487,6 +488,11 @@ export async function handleRequest(event, respond, deps) {
   // payload can't bloat the runtime request.
   const planContext =
     mode === "plan" && typeof body.plan_context === "string" ? body.plan_context.slice(0, 24000) : undefined;
+  // In author mode, the document being written (target path, topic, and the chosen
+  // template on turn one or the current draft on later turns), as a JSON string. Only
+  // honored in author mode; capped so a malformed client payload can't bloat the request.
+  const authorContext =
+    mode === "author" && typeof body.author_context === "string" ? body.author_context.slice(0, 24000) : undefined;
 
   const writer = respond(200, { ...SSE_HEADERS, ...cors });
   // Send a byte immediately and keepalives every 10s. The agent can run a multi-step
@@ -512,6 +518,7 @@ export async function handleRequest(event, respond, deps) {
       model,
       scope,
       planContext,
+      authorContext,
     });
     for await (const evt of stream) {
       writer.write(sseEvent(evt));

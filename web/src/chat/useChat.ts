@@ -9,10 +9,17 @@ function nextId(): string {
   return `m${counter}`;
 }
 
+// Per-send overrides. Author mode drives the guided document-authoring session: each
+// turn carries mode "author" and the evolving document as authorContext (JSON).
+export interface SendOptions {
+  mode?: "author";
+  authorContext?: string;
+}
+
 export interface UseChat {
   messages: ChatMessage[];
   streaming: boolean;
-  send: (input: string) => Promise<void>;
+  send: (input: string, opts?: SendOptions) => Promise<void>;
   stop: () => void;
   // The current thread (chat session) id, used as the vault note key for memory.
   sessionId: string;
@@ -75,7 +82,7 @@ export function useChat(
   }, []);
 
   const send = useCallback(
-    async (input: string) => {
+    async (input: string, opts?: SendOptions) => {
       const trimmed = input.trim();
       if (!trimmed || streaming) return;
 
@@ -95,7 +102,14 @@ export function useChat(
         for await (const event of streamChat(
           apiBaseUrl,
           token,
-          { input: trimmed, sessionId: sessionIdRef.current, model: getModel?.(), scope: getScope?.() },
+          {
+            input: trimmed,
+            sessionId: sessionIdRef.current,
+            model: getModel?.(),
+            scope: getScope?.(),
+            ...(opts?.mode ? { mode: opts.mode } : {}),
+            ...(opts?.authorContext ? { authorContext: opts.authorContext } : {}),
+          },
           { signal: controller.signal, fetchImpl },
         )) {
           setMessages((prev) => prev.map((m) => (m.id === assistantId ? applyEvent(m, event) : m)));

@@ -109,8 +109,11 @@ def make_handler(agent):
             session = _session_from_payload(payload)
             question = payload.get("input") or payload.get("prompt") or ""
             # Plan mode runs the AI-DLC INCEPTION interview and emits a flight-plan
-            # draft; any other value is the normal grounded-answer mode.
-            planning = payload.get("mode") == "plan"
+            # draft; author mode runs the document-authoring interview and emits a
+            # homebase-note draft; any other value is the normal grounded-answer mode.
+            mode = payload.get("mode")
+            planning = mode == "plan"
+            authoring = mode == "author"
             # Optional model choice (the GUI's settings-level default). The agent
             # validates it against the allow-list and ignores anything unknown.
             model = payload.get("model") or None
@@ -120,6 +123,10 @@ def make_handler(agent):
             # In plan mode, the current flight plan being revised (JSON string). Folded
             # into the operator's turn so the agent edits it; ignored outside plan mode.
             plan_context = payload.get("plan_context") if planning else None
+            # In author mode, the document being written (target path, topic, and the
+            # chosen template on turn one or the current draft on later turns), as a JSON
+            # string. Folded into the turn so the agent fills/refines it; ignored otherwise.
+            author_context = payload.get("author_context") if authoring else None
 
             # Stream the answer token-by-token when the agent supports it (the tool
             # loop). The BFF consumes this SSE and relays it to the browser.
@@ -129,7 +136,7 @@ def make_handler(agent):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    for event in agent.answer_stream(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context):
+                    for event in agent.answer_stream(session, question, planning=planning, authoring=authoring, model=model, scope=scope, plan_context=plan_context, author_context=author_context):
                         self._sse(event)
                 except Exception:  # noqa: BLE001 - never leave the stream hanging
                     self._sse({"type": "error", "message": "agent_error"})
@@ -137,7 +144,7 @@ def make_handler(agent):
                 return
 
             # Non-streaming fallback (no connectors, e.g. tests/RAG-only).
-            result = agent.answer(session, question, planning=planning, model=model, scope=scope, plan_context=plan_context)
+            result = agent.answer(session, question, planning=planning, authoring=authoring, model=model, scope=scope, plan_context=plan_context, author_context=author_context)
             body = {
                 "answer": result.text,
                 "grounded": result.grounded,

@@ -95,6 +95,28 @@ describe("streamChat", () => {
     expect("plan_context" in JSON.parse(captured!.body as string)).toBe(false);
   });
 
+  it("sends author_context (author mode) only when set", async () => {
+    let captured: RequestInit | null = null;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      captured = init;
+      return sseResponse(['data: {"type":"done"}\n\n']);
+    }) as unknown as typeof fetch;
+
+    await collect(
+      streamChat(
+        "https://app.example.invalid",
+        "t",
+        { input: "draft it", mode: "author", authorContext: '{"path":"ai/adr/x.md"}' },
+        { fetchImpl },
+      ),
+    );
+    expect(JSON.parse(captured!.body as string)).toMatchObject({ mode: "author", author_context: '{"path":"ai/adr/x.md"}' });
+
+    captured = null;
+    await collect(streamChat("https://app.example.invalid", "t", { input: "hi", mode: "author" }, { fetchImpl }));
+    expect("author_context" in JSON.parse(captured!.body as string)).toBe(false);
+  });
+
   it("throws StreamError on a non-ok response", async () => {
     const fetchImpl = (async () => sseResponse([], { ok: false, status: 401 })) as unknown as typeof fetch;
     await expect(
