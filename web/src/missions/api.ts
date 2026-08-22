@@ -2,7 +2,7 @@
 // vault/chat clients: every call carries a fresh bearer token. Run telemetry is an
 // SSE stream read with fetch + ReadableStream (EventSource cannot send the bearer).
 
-import type { LaunchInput, Run, RunEvent } from "./types";
+import type { LaunchInput, Run, RunChanges, RunEvent } from "./types";
 
 async function authed<T>(apiBaseUrl: string, token: string, path: string, init: RequestInit, fetchImpl: typeof fetch): Promise<T> {
   const res = await fetchImpl(`${apiBaseUrl}/api/missions/${path}`, {
@@ -30,6 +30,8 @@ export interface MissionsApi {
   launchUnit(plan: unknown, unit: unknown): Promise<Run>;
   list(): Promise<Run[]>;
   get(id: string): Promise<Run>;
+  // The diff a burn produced (for review at the gate). Empty until the worker commits.
+  changes(id: string): Promise<RunChanges>;
   decide(id: string, decision: "approve" | "reject" | "scrub" | "cancel"): Promise<{ ok?: boolean }>;
   events(id: string, opts?: { signal?: AbortSignal }): AsyncGenerator<RunEvent>;
 }
@@ -43,6 +45,7 @@ export function makeMissionsApi(apiBaseUrl: string, getToken: () => Promise<stri
     launchUnit: (plan, unit) => call<Run>("runs", { method: "POST", body: JSON.stringify({ plan, unit }) }),
     list: () => call<{ runs?: Run[] } | Run[]>("runs").then((r) => (Array.isArray(r) ? r : (r.runs ?? []))),
     get: (id) => call<Run>(`runs/${q(id)}`),
+    changes: (id) => call<RunChanges>(`runs/${q(id)}/changes`),
     decide: (id, decision) => call(`runs/${q(id)}/${decision}`, { method: "POST" }),
     async *events(id, opts = {}) {
       const token = await getToken();

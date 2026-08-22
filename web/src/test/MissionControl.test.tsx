@@ -3,13 +3,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { MissionControl } from "../components/MissionControl";
 import type { UseMissions } from "../missions/useMissions";
-import type { Run, RunEvent } from "../missions/types";
+import type { Run, RunChanges, RunEvent } from "../missions/types";
 
 function fakeMissions(over: Partial<UseMissions> = {}): UseMissions {
   return {
     runs: [],
     selected: null,
     events: [],
+    changes: null,
     error: null,
     refresh: vi.fn(async () => {}),
     launch: vi.fn(async () => {}),
@@ -36,6 +37,26 @@ describe("MissionControl", () => {
     expect(screen.getByText(/paused at the go\/no-go gate/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
     expect(decide).toHaveBeenCalledWith("r1", "approve");
+  });
+
+  it("shows the diff to review at the gate, so approval is not blind", () => {
+    const selected: Run = { run_id: "r1", status: "awaiting_gate", task_type: "burn", target: "repo", cost_usd: 0.12 };
+    const changes: RunChanges = {
+      message: "apply task burn-1",
+      file_count: 1,
+      files: [{ path: "mctf/text.py", added: "6", removed: "1" }],
+      stat: " mctf/text.py | 7 +++++--",
+      patch: "diff --git a/mctf/text.py b/mctf/text.py\n+def slugify(text):\n",
+      truncated: false,
+    };
+    render(<MissionControl missions={fakeMissions({ selected, changes })} />);
+    // The changed file + counts are visible, and the gate copy points to the review.
+    expect(screen.getByText("mctf/text.py")).toBeInTheDocument();
+    expect(screen.getByText("+6")).toBeInTheDocument();
+    expect(screen.getByText(/Review the changes above/)).toBeInTheDocument();
+    // The full unified diff is revealed on demand.
+    fireEvent.click(screen.getByRole("button", { name: "View diff" }));
+    expect(screen.getByText(/def slugify\(text\)/)).toBeInTheDocument();
   });
 
   it("renders telemetry events for the selected run", () => {
