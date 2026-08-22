@@ -23,6 +23,11 @@ output "nat_egress_type" {
   value       = var.nat_egress_type
 }
 
+output "nat_instance_id" {
+  description = "The stoppable NAT instance id (empty unless nat_egress_type = nat_instance). scripts/workstation.sh starts/stops it alongside the workstation so egress is restored on start."
+  value       = local.use_nat_instance ? aws_instance.nat[0].id : ""
+}
+
 output "auto_stop_mode" {
   description = "Auto-stop mode in effect."
   value       = var.auto_stop_mode
