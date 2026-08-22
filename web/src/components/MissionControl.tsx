@@ -183,9 +183,12 @@ function RunDetail({
   run: Run;
   events: RunEvent[];
   changes: RunChanges | null;
-  onDecide: (d: "approve" | "reject") => void;
+  onDecide: (d: "approve" | "reject" | "cancel") => void;
 }) {
   const gating = run.status === "awaiting_gate";
+  // In-flight = still working (not terminal, not paused at the gate). These can be
+  // cancelled: MC stops the run at the next node boundary and marks it scrubbed.
+  const inFlight = !gating && !isTerminal(run.status);
   return (
     <div className="mc-detail">
       <div className="mc-detail-head">
@@ -202,6 +205,21 @@ function RunDetail({
       </div>
 
       {changes && <ChangesPanel changes={changes} />}
+
+      {inFlight && (
+        <div className="mc-inflight">
+          <span>This run is in progress.</span>
+          <button
+            type="button"
+            className="vault-btn danger"
+            onClick={() => {
+              if (window.confirm("Cancel this run? It stops at the next step and is marked scrubbed.")) onDecide("cancel");
+            }}
+          >
+            Cancel run
+          </button>
+        </div>
+      )}
 
       {gating && (
         <div className="mc-gate">
