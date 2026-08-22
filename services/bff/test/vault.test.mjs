@@ -427,6 +427,16 @@ test("GET /api/vault/tree dispatches to the vault", async () => {
   assert.equal(json().count, 1);
 });
 
+test("GET /api/vault/templates dispatches to the vault (router allow-list includes it)", async () => {
+  // Regression: the templates case existed in handleVault but was missing from the
+  // router's resource allow-list regex, so authenticated /api/vault/templates fell
+  // through to a non-JSON 200 ("vault API not available yet" in the client).
+  const vault = makeVault({ store: fakeStore({ "templates/adr-template.md": "---\ntags: [adr]\n---\n# ADR" }) });
+  const { rec, json } = await route({ path: "/api/vault/templates", vault });
+  assert.equal(rec.statusCode, 200);
+  assert.equal(json().templates[0].name, "adr-template");
+});
+
 test("PUT /api/vault/note writes via the body", async () => {
   const store = fakeStore();
   const vault = makeVault({ store, writer: fakeWriter(store) });
