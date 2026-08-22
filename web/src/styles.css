@@ -1816,10 +1816,16 @@ button.fb-row:hover { background: var(--surface); }
 .mc-add { color: #6ee7a8; }
 .mc-del { color: var(--danger); }
 .mc-diff {
-  white-space: pre-wrap; word-break: break-word; background: var(--bg-soft); border: 1px solid var(--border);
+  background: var(--bg-soft); border: 1px solid var(--border);
   border-radius: 8px; padding: 10px; margin: 8px 0 0; font-family: var(--font-mono); font-size: 0.74rem;
   max-height: 360px; overflow: auto; color: var(--text);
 }
+/* Colored unified diff: each line is a block so added/removed rows tint edge to edge. */
+.mc-diff-line { display: block; white-space: pre-wrap; word-break: break-word; }
+.mc-diff-add { color: #6ee7a8; background: rgba(110, 231, 168, 0.10); }
+.mc-diff-del { color: #ff8b84; background: rgba(255, 95, 86, 0.12); }
+.mc-diff-hunk { color: #7aa2f7; }
+.mc-diff-meta { color: var(--faint); }
 
 .mc-telemetry { border-top: 1px solid var(--border); padding-top: 14px; }
 .mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #35c07d; display: inline-block; animation: pulse 1.4s infinite; }
