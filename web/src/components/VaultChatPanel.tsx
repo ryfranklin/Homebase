@@ -76,6 +76,9 @@ function Thinking() {
 // general knowledge. It reuses the same streaming chat engine as before.
 export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
+  // Draft cards whose "Create note" was already clicked (by message id), so the button
+  // disables after one use and can't re-create/overwrite the note.
+  const [createdIds, setCreatedIds] = useState<Set<string>>(() => new Set());
   // Mobile only (CSS-gated <=860px): the chat is a bottom sheet that starts as a
   // collapsed launcher bar above the nav and expands on tap. Ignored on desktop.
   const [collapsed, setCollapsed] = useState(true);
@@ -212,17 +215,28 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
               ) : null}
               {m.error && <div className="message-error">{m.error}</div>}
             </div>
-            {note && onCreateNote && (
-              <div className="pd-draft note-draft">
-                <div className="pd-draft-info">
-                  <strong>Create note</strong>
-                  <span>{note.path}</span>
+            {note && onCreateNote && (() => {
+              const isCreated = createdIds.has(m.id);
+              return (
+                <div className="pd-draft note-draft">
+                  <div className="pd-draft-info">
+                    <strong>{isCreated ? "Note created" : "Create note"}</strong>
+                    <span>{note.path}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="vault-btn primary"
+                    disabled={isCreated}
+                    onClick={() => {
+                      onCreateNote(note.path, note.content);
+                      setCreatedIds((s) => new Set(s).add(m.id));
+                    }}
+                  >
+                    {isCreated ? "Created ✓" : "Create note"}
+                  </button>
                 </div>
-                <button type="button" className="vault-btn primary" onClick={() => onCreateNote(note.path, note.content)}>
-                  Create note
-                </button>
-              </div>
-            )}
+              );
+            })()}
             {m.toolEvents.length > 0 && (
               <div className="tool-events">
                 {m.toolEvents.map((t, i) => (
