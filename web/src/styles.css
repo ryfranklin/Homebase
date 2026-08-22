@@ -528,6 +528,31 @@ button {
   font-size: 0.82em;
 }
 
+/* Mermaid diagrams rendered from ```mermaid fences. The block sits inside
+   react-markdown's default <pre>; strip that chrome so the diagram stands alone. */
+.markdown pre:has(> .hb-mermaid) {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.hb-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.75em;
+}
+.hb-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+.hb-mermaid-loading {
+  color: var(--faint);
+  font-size: 0.8rem;
+  justify-content: flex-start;
+}
+.hb-mermaid-error {
+  display: block; /* fall back to the raw source, styled like a normal code block */
+}
+
 /* Syntax highlighting (highlight.js tokens via rehype-highlight) — a restrained
    palette that fits the near-black theme. */
 .markdown .hljs {
