@@ -314,6 +314,12 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             onClose={() => setChatOpen(false)}
             connectors={connectors}
             onConnect={onConnect}
+            onCreateNote={(path, content) => {
+              // The agent drafted a note; persist it via the normal vault API (one
+              // attributed commit) and open it. Confirm before overwriting an existing note.
+              if (vault.keys.includes(path) && !window.confirm(`"${path}" already exists. Overwrite it?`)) return;
+              void vault.create(path, content);
+            }}
           />
         )}
       </div>

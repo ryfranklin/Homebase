@@ -44,4 +44,25 @@ describe("VaultChatPanel", () => {
     expect(screen.getByText("hi")).toBeInTheDocument();
     expect(screen.getByText("hello there")).toBeInTheDocument();
   });
+
+  it("surfaces a drafted note as a Create note card (not raw JSON) and creates it", () => {
+    const onCreateNote = vi.fn();
+    const block = ["Saved for you.", "", "```homebase-note", JSON.stringify({ path: "ideas/x.md", content: "# X\n\nbody" }), "```"].join("\n");
+    render(
+      <VaultChatPanel
+        messages={[msg("assistant", block)]}
+        streaming={false}
+        onSend={() => {}}
+        scope="vault"
+        onScopeChange={() => {}}
+        onCreateNote={onCreateNote}
+      />,
+    );
+    // The prose shows; the raw block does not; the card offers the path.
+    expect(screen.getByText("Saved for you.")).toBeInTheDocument();
+    expect(screen.queryByText(/homebase-note/)).toBeNull();
+    expect(screen.getByText("ideas/x.md")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create note" }));
+    expect(onCreateNote).toHaveBeenCalledWith("ideas/x.md", "# X\n\nbody");
+  });
 });

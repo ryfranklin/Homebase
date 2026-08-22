@@ -27,7 +27,7 @@ export interface UseVault {
   open: (key: string) => Promise<void>;
   openWikilink: (target: string) => void;
   save: () => Promise<void>;
-  create: (key: string) => Promise<void>;
+  create: (key: string, content?: string) => Promise<void>;
   remove: (key: string) => Promise<void>;
   removeDir: (prefix: string) => Promise<void>;
   search: (q: string) => Promise<void>;
@@ -147,14 +147,17 @@ export function useVault(
   }, [api, note, draft, loadBacklinks]);
 
   const create = useCallback(
-    async (key: string) => {
+    async (key: string, content?: string) => {
       setStatus({ kind: "saving" });
       try {
         const title = key.split("/").pop()!.replace(/\.(md|markdown)$/i, "");
-        await api.put(key, `# ${title}\n\n`);
+        // A blank note opens in edit mode to write; a note created WITH content (e.g. one
+        // the chat agent drafted) opens in read mode so the user reviews the saved result.
+        const seeded = content !== undefined;
+        await api.put(key, seeded ? content : `# ${title}\n\n`);
         await refreshTree();
         await open(key);
-        setEditing(true);
+        setEditing(!seeded);
       } catch (e) {
         fail(e);
       }
