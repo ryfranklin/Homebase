@@ -1803,6 +1803,13 @@ button.fb-row:hover { background: var(--surface); }
 }
 .mc-gate-actions { display: inline-flex; gap: 8px; }
 
+/* In-progress control: cancel a still-running run (neutral, not the gate's amber). */
+.mc-inflight {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; color: var(--muted); font-size: 0.86rem;
+}
+
 /* Gate review: the diff a burn produced, shown before the go/no-go decision. */
 .mc-changes { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; background: var(--surface); }
 .mc-changes-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }

@@ -61,6 +61,21 @@ describe("MissionControl", () => {
     expect(added.className).toContain("mc-diff-add");
   });
 
+  it("cancels an in-flight run and hides Cancel at the gate / when terminal", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const decide = vi.fn(async () => {});
+    const running: Run = { run_id: "r1", status: "running", task_type: "burn", target: "repo", cost_usd: 0.01 };
+    const { rerender } = render(<MissionControl missions={fakeMissions({ selected: running, decide })} />);
+    fireEvent.click(screen.getByRole("button", { name: /Cancel run/ }));
+    expect(decide).toHaveBeenCalledWith("r1", "cancel");
+
+    // No Cancel at the gate (use Reject there) or when terminal.
+    rerender(<MissionControl missions={fakeMissions({ selected: { ...running, status: "awaiting_gate" }, decide })} />);
+    expect(screen.queryByRole("button", { name: /Cancel run/ })).toBeNull();
+    rerender(<MissionControl missions={fakeMissions({ selected: { ...running, status: "done" }, decide })} />);
+    expect(screen.queryByRole("button", { name: /Cancel run/ })).toBeNull();
+  });
+
   it("renders telemetry events for the selected run", () => {
     const selected: Run = { run_id: "r1", status: "running", cost_usd: 0.01 };
     const events: RunEvent[] = [
