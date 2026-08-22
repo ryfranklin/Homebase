@@ -104,6 +104,33 @@ function ResultPanel({ text }: { text: string }) {
   );
 }
 
+// Classify a unified-diff line for coloring: added (+) green, removed (-) red, hunk
+// headers (@@) accented, file headers (diff/index/+++/---) muted, context plain. The
+// +++/--- checks come first so file headers aren't mistaken for added/removed lines.
+function diffLineClass(line: string): string {
+  if (line.startsWith("+++") || line.startsWith("---")) return "mc-diff-meta";
+  if (line.startsWith("@@")) return "mc-diff-hunk";
+  if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("new file") || line.startsWith("deleted file")) return "mc-diff-meta";
+  if (line.startsWith("+")) return "mc-diff-add";
+  if (line.startsWith("-")) return "mc-diff-del";
+  return "";
+}
+
+// The unified diff, colored line by line (added green, removed red).
+function DiffView({ patch, truncated }: { patch: string; truncated?: boolean }) {
+  const lines = patch.split("\n");
+  return (
+    <pre className="mc-diff" aria-label="Unified diff">
+      {lines.map((line, i) => (
+        <span key={i} className={`mc-diff-line ${diffLineClass(line)}`}>
+          {line || " "}
+        </span>
+      ))}
+      {truncated && <span className="mc-diff-line mc-diff-meta">… (diff truncated)</span>}
+    </pre>
+  );
+}
+
 // The diff a burn produced: what the reviewer is actually approving at the gate. Shows
 // the commit message, a per-file +/- summary, and the full unified diff on demand.
 function ChangesPanel({ changes }: { changes: RunChanges }) {
@@ -140,12 +167,7 @@ function ChangesPanel({ changes }: { changes: RunChanges }) {
           <button type="button" className="link-button" onClick={() => setShowPatch((v) => !v)}>
             {showPatch ? "Hide diff" : "View diff"}
           </button>
-          {showPatch && (
-            <pre className="mc-diff">
-              {changes.patch}
-              {changes.truncated ? "\n… (diff truncated)" : ""}
-            </pre>
-          )}
+          {showPatch && <DiffView patch={changes.patch} truncated={changes.truncated} />}
         </div>
       )}
     </div>

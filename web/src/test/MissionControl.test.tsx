@@ -54,9 +54,11 @@ describe("MissionControl", () => {
     expect(screen.getByText("mctf/text.py")).toBeInTheDocument();
     expect(screen.getByText("+6")).toBeInTheDocument();
     expect(screen.getByText(/Review the changes above/)).toBeInTheDocument();
-    // The full unified diff is revealed on demand.
+    // The full unified diff is revealed on demand, with added lines colored green.
     fireEvent.click(screen.getByRole("button", { name: "View diff" }));
-    expect(screen.getByText(/def slugify\(text\)/)).toBeInTheDocument();
+    const added = screen.getByText(/def slugify\(text\)/);
+    expect(added).toBeInTheDocument();
+    expect(added.className).toContain("mc-diff-add");
   });
 
   it("renders telemetry events for the selected run", () => {
