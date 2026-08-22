@@ -143,15 +143,18 @@ resource "aws_bedrock_guardrail" "this" {
   blocked_outputs_messaging = "The response was blocked by the Homebase content guardrail."
 
   content_policy_config {
-    # Prompt-attack detection is input-only (output must be NONE). MEDIUM, not HIGH:
-    # the input here is the user's OWN authenticated chat (single tenant), so HIGH
-    # false-positived benign phrasings like "prompt me through a new journal entry"
-    # (verified: PROMPT_ATTACK HIGH/HIGH BLOCKED it). MEDIUM still catches real
-    # injection while letting normal note-authoring language through. Untrusted content
-    # reaches the model as tool RESULTS, not as this input.
+    # Prompt-attack detection is input-only (output must be NONE). LOW, not HIGH/MEDIUM:
+    # the guarded input is the user's OWN single-tenant content -- their chat turn PLUS
+    # their retrieved vault notes (incl. saved chat transcripts) and the evolving draft
+    # folded into every grounded/authoring call. HIGH then MEDIUM both false-positived
+    # legitimate use (plan revise, and the document-authoring turns) with no reliable
+    # wording fix. LOW still catches blatant injection (e.g. a malicious Slack/email
+    # folded in as a tool result) while letting the user's own prose through. The
+    # content filters (HATE/VIOLENCE/etc.) and the CredentialExfiltration topic are
+    # unchanged, so the meaningful protections remain.
     filters_config {
       type            = "PROMPT_ATTACK"
-      input_strength  = "MEDIUM"
+      input_strength  = "LOW"
       output_strength = "NONE"
     }
     filters_config {
