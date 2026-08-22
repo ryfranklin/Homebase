@@ -9,6 +9,7 @@ export interface UseChatThreads {
   refresh: () => Promise<void>;
   selectThread: (id: string) => Promise<void>;
   newThread: () => void;
+  deleteThread: (id: string) => Promise<void>;
 }
 
 // Orchestrates chat thread memory over useChat: lists saved threads, auto-saves
@@ -79,5 +80,20 @@ export function useChatThreads(
     chat.newThread();
   }, [chat]);
 
-  return { threads, activeId: chat.sessionId, refresh, selectThread, newThread };
+  // Delete a saved thread from the vault. If it's the one open, start a fresh chat so
+  // the transcript isn't left pointing at a deleted note; then refresh the list.
+  const deleteThread = useCallback(
+    async (id: string) => {
+      try {
+        await api.remove(id);
+      } catch {
+        /* already gone / unreachable: fall through to refresh so the list re-syncs */
+      }
+      if (id === chat.sessionId) chat.newThread();
+      await refresh();
+    },
+    [api, chat, refresh],
+  );
+
+  return { threads, activeId: chat.sessionId, refresh, selectThread, newThread, deleteThread };
 }

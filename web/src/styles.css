@@ -2755,6 +2755,14 @@ button.fb-row:hover { background: var(--surface); }
   font: inherit;
   font-size: 0.78rem;
 }
+.vault-chat-threaddelete {
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  color: var(--faint);
+}
+.vault-chat-threaddelete:hover {
+  color: var(--danger, #e06c6c);
+}
 
 /* ---- Evals surface ---- */
 .ev { display: flex; flex-direction: column; height: 100vh; }

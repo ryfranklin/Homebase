@@ -27,6 +27,7 @@ export interface VaultChatPanelProps {
   activeId?: string;
   onSelectThread?: (id: string) => void;
   onNewThread?: () => void;
+  onDeleteThread?: (id: string) => void;
   onClose?: () => void;
   // What's connected, for the empty-state "Connected / Connect" strip.
   connectors?: ConnectorStatuses;
@@ -74,7 +75,7 @@ function Thinking() {
 // A chat panel docked in the Vault surface. The scope toggle chooses whether the
 // agent answers strictly from vault material (KB docs + connectors) or opens up to
 // general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
+export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onDeleteThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   // Draft cards whose "Create note" was already clicked (by message id), so the button
   // disables after one use and can't re-create/overwrite the note.
@@ -133,6 +134,23 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
                 </option>
               ))}
             </select>
+          )}
+          {onDeleteThread && threads.some((t) => t.id === activeId) && (
+            <button
+              type="button"
+              className="link-button vault-chat-threaddelete"
+              title="Delete this chat"
+              aria-label="Delete this chat"
+              onClick={() => {
+                if (!activeId) return;
+                const t = threads.find((x) => x.id === activeId);
+                if (window.confirm(`Delete chat "${t?.title ?? "this chat"}"? This removes it from your vault.`)) {
+                  onDeleteThread(activeId);
+                }
+              }}
+            >
+              Delete
+            </button>
           )}
         </div>
       )}

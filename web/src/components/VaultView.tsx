@@ -350,6 +350,7 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             activeId={threads.activeId}
             onSelectThread={(id) => void threads.selectThread(id)}
             onNewThread={threads.newThread}
+            onDeleteThread={(id) => void threads.deleteThread(id)}
             onClose={() => setChatOpen(false)}
             connectors={connectors}
             onConnect={onConnect}
