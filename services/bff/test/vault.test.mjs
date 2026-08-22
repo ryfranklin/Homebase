@@ -11,6 +11,8 @@ import {
   assertSafeKey,
   normalizeDirPrefix,
   keysUnderPrefix,
+  templateLabel,
+  parseListValue,
 } from "../src/vault.mjs";
 import { handleRequest } from "../src/bff.mjs";
 
@@ -54,6 +56,19 @@ test("buildTree nests folders (dirs first, sorted)", () => {
   );
   const a = tree.find((n) => n.name === "a");
   assert.deepEqual(a.children.map((n) => `${n.type}:${n.name}`), ["dir:sub", "file:y.md"]);
+});
+
+test("templateLabel drops the template suffix and word separators", () => {
+  assert.equal(templateLabel("templates/adr-template.md"), "adr");
+  assert.equal(templateLabel("templates/project design template.md"), "project design");
+  assert.equal(templateLabel("templates/wiki-entity-template.md"), "wiki entity");
+});
+
+test("parseListValue parses bracketed and comma lists", () => {
+  assert.deepEqual(parseListValue("[adr]"), ["adr"]);
+  assert.deepEqual(parseListValue("adr, ai"), ["adr", "ai"]);
+  assert.deepEqual(parseListValue("[]"), []);
+  assert.deepEqual(parseListValue(""), []);
 });
 
 test("assertSafeKey rejects traversal, non-markdown, and sidecars", () => {
@@ -179,6 +194,27 @@ test("get returns content, title, and wikilinks", async () => {
   const note = await vault.get("n.md");
   assert.equal(note.title, "N");
   assert.deepEqual(note.links, ["a", "b"]);
+});
+
+test("templates lists only the templates/ skeletons, excluding CLAUDE.md", async () => {
+  const vault = makeVault({
+    store: fakeStore({
+      "templates/adr-template.md": "---\ntitle: \"ADR-000: {{title}}\"\ntags: [adr]\n---\n# ADR",
+      "templates/wiki-entity-template.md": "---\ntitle: \"{{title}}\"\ntype: entity\ntags: []\n---\n# x",
+      "templates/CLAUDE.md": "# subtree guidance, not a template",
+      "work/real-note.md": "# not a template",
+    }),
+  });
+  const { templates, count } = await vault.templates();
+  assert.equal(count, 2);
+  assert.deepEqual(templates.map((t) => t.path).sort(), ["templates/adr-template.md", "templates/wiki-entity-template.md"]);
+  const adr = templates.find((t) => t.name === "adr-template");
+  assert.equal(adr.label, "adr");
+  assert.deepEqual(adr.tags, ["adr"]);
+  // A placeholder front-matter title falls back to the clean label, not "{{title}}".
+  const entity = templates.find((t) => t.name === "wiki-entity-template");
+  assert.equal(entity.title, "wiki entity");
+  assert.equal(entity.type, "entity");
 });
 
 test("put commits through the worker", async () => {

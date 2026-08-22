@@ -91,6 +91,9 @@ async function handleVault(resource, method, event, body, respond, cors, deps, a
     if (resource === "restore" && method === "POST") {
       return writeJson(respond, cors, 200, await deps.vault.restore(body.key ?? "", body.versionId ?? "", actor));
     }
+    if (resource === "templates" && method === "GET") {
+      return writeJson(respond, cors, 200, await deps.vault.templates());
+    }
     if (resource === "note" && method === "GET") {
       return writeJson(respond, cors, 200, await deps.vault.get(q.key ?? ""));
     }

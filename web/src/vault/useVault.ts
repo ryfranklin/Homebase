@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { makeVaultApi } from "./api";
 import { flattenKeys, resolveWikilink } from "./resolve";
-import type { Backlink, Note, NoteVersion, SearchResult, TreeNode } from "./types";
+import type { Backlink, Note, NoteVersion, SearchResult, TemplateMeta, TreeNode } from "./types";
 
 export type VaultStatus =
   | { kind: "idle" }
@@ -28,6 +28,8 @@ export interface UseVault {
   openWikilink: (target: string) => void;
   save: () => Promise<void>;
   create: (key: string, content?: string) => Promise<void>;
+  listTemplates: () => Promise<TemplateMeta[]>;
+  readTemplate: (path: string) => Promise<string>;
   remove: (key: string) => Promise<void>;
   removeDir: (prefix: string) => Promise<void>;
   search: (q: string) => Promise<void>;
@@ -165,6 +167,11 @@ export function useVault(
     [api, refreshTree, open],
   );
 
+  // Template picker data for the New-document flow. listTemplates is called when the
+  // panel opens; readTemplate fetches a chosen skeleton's body to seed/fill a note.
+  const listTemplates = useCallback(async () => (await api.templates()).templates, [api]);
+  const readTemplate = useCallback(async (path: string) => (await api.get(path)).content, [api]);
+
   const remove = useCallback(
     async (key: string) => {
       try {
@@ -263,6 +270,8 @@ export function useVault(
     openWikilink,
     save,
     create,
+    listTemplates,
+    readTemplate,
     remove,
     removeDir,
     search,

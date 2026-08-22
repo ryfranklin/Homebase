@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import type { UseVault } from "../vault/useVault";
 import type { UseChat } from "../chat/useChat";
 import type { UseChatThreads } from "../chat/useChatThreads";
-import { newNoteKey } from "../vault/resolve";
 import { timeAgo } from "../vault/format";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
 import { VaultHistory } from "./VaultHistory";
 import { VaultChatPanel, type ChatScope } from "./VaultChatPanel";
+import { NewDocPanel } from "./NewDocPanel";
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import type { ModelOption } from "../config";
 import type { ConnectorStatuses } from "../chat/useConnectorStatus";
@@ -37,7 +37,6 @@ export interface VaultViewProps {
 export function VaultView({ vault, chat, threads, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings, connectors, onConnect }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
   // Mobile master-detail (CSS-gated <=860px): the file list and the note are two
   // panes; the list shows by default and opening a note (or a search) reveals the
@@ -69,15 +68,6 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [vault.editing, vault.dirty]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const submitNew = () => {
-    const key = newNoteKey(newName);
-    if (!key) return;
-    setCreating(false);
-    setNewName("");
-    setTerm("");
-    void vault.create(key);
-  };
 
   const onDelete = () => {
     if (!vault.note) return;
@@ -146,20 +136,16 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             </button>
           </div>
           {creating && (
-            <div className="vault-new-row">
-              <input
-                autoFocus
-                className="vault-new-input"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitNew();
-                  if (e.key === "Escape") setCreating(false);
-                }}
-                placeholder="folder/new-note.md"
-                aria-label="New note name"
-              />
-            </div>
+            <NewDocPanel
+              listTemplates={vault.listTemplates}
+              readTemplate={vault.readTemplate}
+              existingKeys={vault.keys}
+              onCreate={(key, content) => {
+                setTerm("");
+                void vault.create(key, content);
+              }}
+              onClose={() => setCreating(false)}
+            />
           )}
           <div className="vault-count">
             {vault.count} {vault.count === 1 ? "note" : "notes"}

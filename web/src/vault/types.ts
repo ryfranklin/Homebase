@@ -38,3 +38,14 @@ export interface Backlink {
   key: string;
   title: string;
 }
+
+// A note skeleton under templates/. Light metadata for the New-document picker;
+// the body is fetched with get(path) when a template is chosen.
+export interface TemplateMeta {
+  path: string;
+  name: string;
+  label: string;
+  title: string;
+  tags: string[];
+  type: string | null;
+}
