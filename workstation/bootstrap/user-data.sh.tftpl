@@ -151,6 +151,11 @@ CREDEOF
     # Clone once onto the persistent volume; later logins skip. The clone survives
     # instance replacement because /workspace is a separate EBS volume.
     vault_dir="/workspace/$(basename "$vault_url" .git)"
+    # Trust the vault working tree regardless of which uid cloned it. /workspace persists
+    # across instance replacement, so the clone owner can differ from the current login user,
+    # and git then refuses every op with "dubious ownership". Add once (idempotent per login).
+    git config --global --get-all safe.directory 2>/dev/null | grep -qxF "$vault_dir" \
+      || git config --global --add safe.directory "$vault_dir"
     if [ -d /workspace ] && [ ! -d "$vault_dir/.git" ]; then
       git clone "$vault_url" "$vault_dir" 2>/dev/null || echo "homebase: vault clone deferred (egress or credentials not ready yet)"
     fi
