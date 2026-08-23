@@ -42,6 +42,12 @@ variable "worker_model" {
   type        = string
 }
 
+variable "worker_max_turns" {
+  description = "Max agent turns a single burn worker may take before it aborts. A TDD CONSTRUCTION burn (read, edit, run tests, iterate) needs real headroom; 60 fits a feature-sized unit while still bounding a runaway loop."
+  type        = number
+  default     = 60
+}
+
 variable "rds_subnet_cidrs" {
   description = "Two free /24 CIDRs in the VPC for the RDS-only private subnets (must be in two different AZs and not overlap any existing subnet). RDS needs a two-AZ subnet group."
   type        = list(string)

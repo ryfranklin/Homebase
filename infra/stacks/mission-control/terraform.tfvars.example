@@ -20,3 +20,7 @@ github_token_secret_name = "homebase/mission-control/github-token"
 
 # Bedrock model / inference profile the coding worker uses.
 worker_model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+# Max agent turns a single burn worker may take (feature TDD burns need headroom).
+# Optional; defaults to 60.
+worker_max_turns = 60
