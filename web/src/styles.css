@@ -16,6 +16,7 @@
   --faint: #6a6a6e;
   --white: #ffffff;
   --danger: #ff5f56;
+  --agent: #8b93d6; /* agent-identity tint (authors/contributors) — distinct from the amber "pending" status */
   --radius: 18px;
   --radius-sm: 12px;
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -2140,7 +2141,7 @@ button.fb-row:hover { background: var(--surface); }
 .fp-head-right { display: inline-flex; align-items: center; gap: 14px; }
 .fp-contribs { display: inline-flex; gap: 6px; }
 .fp-contrib { font-size: 0.76rem; color: var(--muted); }
-.fp-contrib.agent { color: var(--pending); }
+.fp-contrib.agent { color: var(--agent); }
 .fp-contrib.agent::before { content: "◆ "; font-size: 0.6rem; }
 
 .fp-body { flex: 1; display: flex; min-height: 0; }
@@ -2190,8 +2191,8 @@ button.fb-row:hover { background: var(--surface); }
 .ac-id { font-family: var(--font-mono); font-size: 0.76rem; color: var(--faint); }
 .ac-status { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .ac-author { margin-left: auto; font-size: 0.78rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-.ac-author.agent { color: var(--pending); }
-.ac-agent-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pending); }
+.ac-author.agent { color: var(--agent); }
+.ac-agent-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--agent); }
 .ac-statement { font-size: 0.95rem; line-height: 1.55; margin: 0 0 8px; color: var(--text); }
 .ac-rationale { font-size: 0.83rem; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
 .ac-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
