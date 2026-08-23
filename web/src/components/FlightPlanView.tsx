@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { pendingCount, waypointCriteria, waypointPhase, waypointTitle, type FlightPlan, type PlanStatus, type Waypoint } from "../plan/types";
 import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
+import type { Run } from "../missions/types";
 import { AcCard, type GateAction } from "./AcCard";
 import { PlanSources } from "./PlanSources";
 
@@ -173,6 +174,7 @@ export function FlightPlanView({
   onSetTarget,
   onLaunchUnit,
   unitStatus,
+  flights,
   onViewRun,
   onSetUnitCriteria,
   onDelete,
@@ -189,6 +191,9 @@ export function FlightPlanView({
   // The unit's last Mission Control flight + its current status (running / awaiting_gate
   // / failed / applied / ...), so the Route shows that a unit was executed and how it went.
   unitStatus?: (unitTitle: string) => { status: string; runId: string } | undefined;
+  // All Mission Control runs for this plan's target repo (its flights), shown so the plan
+  // surfaces real MC results/status. Present only in the workspace view with a target.
+  flights?: Run[];
   onViewRun?: (runId: string) => void;
   onSetUnitCriteria?: (index: number, criteria: string[]) => void;
   onDelete?: () => void;
@@ -325,6 +330,37 @@ export function FlightPlanView({
                 />
               ))}
             </ol>
+
+            {flights && flights.length > 0 && (
+              <div className="fp-flights">
+                <div className="fp-flights-head">
+                  <span>Flights</span>
+                  <span className="fp-flights-count">
+                    {flights.length} run{flights.length === 1 ? "" : "s"} on this repo
+                  </span>
+                </div>
+                <ul className="fp-flights-list">
+                  {flights.map((r) => {
+                    const gradeNum = r.evaluation?.acceptance?.score;
+                    return (
+                      <li key={r.run_id}>
+                        <button
+                          type="button"
+                          className="fp-flight"
+                          onClick={() => onViewRun?.(r.run_id)}
+                          title="Open this flight in Mission Control"
+                        >
+                          <span className="fp-flight-subject">{r.subject || r.run_id}</span>
+                          <span className={runStatusClass(r.status)}>{r.status.replace(/_/g, " ")}</span>
+                          {typeof gradeNum === "number" && <span className="fp-flight-grade">grade {gradeNum.toFixed(2)}</span>}
+                          {typeof r.cost_usd === "number" && <span className="fp-flight-cost">${r.cost_usd.toFixed(4)}</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </section>
 
           <section id="sec-risks" className="fp-section">
