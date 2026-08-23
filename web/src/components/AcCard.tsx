@@ -1,10 +1,17 @@
 import type { AcceptanceCriterion, AcStatus, Contributor } from "../plan/types";
+import { AC_EXEC_LABEL, type AcExecution } from "../plan/review";
 
 const STATUS_LABEL: Record<AcStatus, string> = {
   proposed: "proposed",
   approved: "approved",
   needs_revision: "needs revision",
   rejected: "rejected",
+};
+
+const EXEC_GLYPH: Record<AcExecution["state"], string> = {
+  accomplished: "✓",
+  in_flight: "●",
+  needs_review: "⚠",
 };
 
 function Author({ who }: { who: Contributor }) {
@@ -22,10 +29,14 @@ export function AcCard({
   ac,
   onGate,
   onOpenSource,
+  execution,
 }: {
   ac: AcceptanceCriterion;
   onGate: (id: string, action: GateAction) => void;
   onOpenSource?: (slug: string) => void;
+  // The AC's Mission Control execution status (distinct from the plan-review status):
+  // did the burn accomplish it, is it still in flight, or does it need human review.
+  execution?: AcExecution;
 }) {
   const gateable = ac.status === "proposed" || ac.status === "needs_revision";
   return (
@@ -33,10 +44,20 @@ export function AcCard({
       <header className="ac-head">
         <span className="ac-id">{ac.id}</span>
         <span className={`ac-status status-${ac.status}`}>{STATUS_LABEL[ac.status]}</span>
+        {execution && (
+          <span className={`ac-exec ${execution.state}`} title="Mission Control verification">
+            {EXEC_GLYPH[execution.state]} {AC_EXEC_LABEL[execution.state]}
+            {typeof execution.score === "number" && ` · ${execution.score.toFixed(2)}`}
+          </span>
+        )}
         <Author who={ac.author} />
       </header>
 
       <p className="ac-statement">{ac.statement}</p>
+
+      {execution?.state === "needs_review" && execution.rationale && (
+        <p className="ac-exec-reason">⚠ {execution.rationale}</p>
+      )}
 
       {ac.rationale && <p className="ac-rationale">{ac.rationale}</p>}
 

@@ -11,9 +11,11 @@ import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
 import { mergeDraftIntoPlan, newPlan, slugify, type PlanDraft } from "./persist";
 import type { PlanStore } from "./store";
-import { advancePlanStatus, waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
+import { advancePlanStatus, waypointCriteria, waypointPhase, waypointTitle, type AcceptanceCriterion, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
-import type { Run } from "../missions/types";
+import type { Run, RunChanges } from "../missions/types";
+import { GuidedReview } from "../components/GuidedReview";
+import { acExecution, reviewRunFor } from "./review";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 import { materializePlan } from "./materialize";
 
@@ -325,6 +327,56 @@ export function FlightPlanner({
     return match ? { status: match.status, runId: match.run_id } : undefined;
   };
 
+  // The run whose verdict the plan's acceptance criteria are graded against, and each
+  // criterion's execution status (accomplished / in flight / needs review) derived from it.
+  const reviewRun = useMemo(() => reviewRunFor(planRuns), [planRuns]);
+  const acExec = useCallback((ac: AcceptanceCriterion) => acExecution(ac, reviewRun), [reviewRun]);
+  // Criteria the burn flagged as needing a human look (or all of them, if a run is paused
+  // at the gate with no per-criterion verdict). These drive the guided review.
+  const flaggedCriteria = useMemo(() => {
+    if (!reviewRun) return [];
+    const flagged = selected?.criteria.filter((c) => acExecution(c, reviewRun)?.state === "needs_review") ?? [];
+    if (flagged.length > 0) return flagged;
+    return reviewRun.status === "awaiting_gate" ? (selected?.criteria ?? []) : [];
+  }, [selected?.criteria, reviewRun]);
+
+  // Guided review: step through the flagged criteria with the burn's diff, then drive the
+  // run's go/no-go gate. Fetch the diff once when the session opens.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewChanges, setReviewChanges] = useState<RunChanges | null>(null);
+  const [loadingChanges, setLoadingChanges] = useState(false);
+  const openReview = () => {
+    if (!missionsApi || !reviewRun) return;
+    setReviewOpen(true);
+    setReviewChanges(null);
+    setLoadingChanges(true);
+    missionsApi
+      .changes(reviewRun.run_id)
+      .then((c) => setReviewChanges(c))
+      .catch(() => setReviewChanges(null))
+      .finally(() => setLoadingChanges(false));
+  };
+  const onReviewDecide = async (decision: "approve" | "reject") => {
+    if (!missionsApi || !reviewRun) return;
+    await missionsApi.decide(reviewRun.run_id, decision);
+    // Reflect the decision: refresh the plan's runs and nudge the plan status forward.
+    const target = selected?.target;
+    if (target) {
+      const t = normRepo(target);
+      missionsApi
+        .list()
+        .then((rs) => setPlanRuns(rs.filter((r) => normRepo(r.target) === t)))
+        .catch(() => {});
+    }
+    if (selected) {
+      mutate(selected.id, (p) => ({
+        ...p,
+        status: advancePlanStatus(p.status, decision === "approve" ? "landed" : "in_review"),
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+  };
+
   const onSetTarget = (target: string) => {
     if (!selected) return;
     mutate(selected.id, (p) => ({ ...p, target: target || undefined, updatedAt: new Date().toISOString() }));
@@ -436,6 +488,9 @@ export function FlightPlanner({
           unitStatus={missionsApi ? unitStatus : undefined}
           flights={missionsApi ? planRuns : undefined}
           onViewRun={missionsApi ? () => onNavigate?.("mission") : undefined}
+          acExecution={missionsApi ? acExec : undefined}
+          onReviewFlight={missionsApi && flaggedCriteria.length > 0 ? openReview : undefined}
+          reviewCount={flaggedCriteria.length}
           onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
           onDelete={store ? () => onDeletePlan(selected) : undefined}
           copilot={
@@ -459,6 +514,17 @@ export function FlightPlanner({
             onClear={onClear}
             onClose={() => setPreflight(false)}
             onMaterialize={canDraft ? onMaterialize : undefined}
+          />
+        )}
+        {reviewOpen && reviewRun && (
+          <GuidedReview
+            run={reviewRun}
+            criteria={flaggedCriteria}
+            execFor={(ac) => acExecution(ac, reviewRun)}
+            changes={reviewChanges}
+            loadingChanges={loadingChanges}
+            onDecide={onReviewDecide}
+            onClose={() => setReviewOpen(false)}
           />
         )}
         {adding && (
