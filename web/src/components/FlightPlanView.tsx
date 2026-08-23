@@ -16,17 +16,29 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
 // A route unit: its title + phase badge + Launch, and (when editable) an expandable
 // editor for the unit's OWN acceptance criteria. Manages only its expand state; the
 // criteria themselves live on the plan and persist through onSetCriteria.
+// Class for a flight's status chip on a route unit (mirrors the Mission deck's colors).
+function runStatusClass(status: string): string {
+  if (status === "awaiting_gate") return "fp-run gate";
+  if (["failed", "scrubbed", "merge_conflict", "push_rejected", "blocked_secrets"].includes(status)) return "fp-run bad";
+  if (status === "applied" || status === "done") return "fp-run good";
+  return "fp-run live";
+}
+
 function RouteUnit({
   wp,
   index,
   target,
   onLaunch,
+  status,
+  onViewRun,
   onSetCriteria,
 }: {
   wp: string | Waypoint;
   index: number;
   target?: string;
   onLaunch?: (wp: string | Waypoint) => void;
+  status?: { status: string; runId: string };
+  onViewRun?: (runId: string) => void;
   onSetCriteria?: (index: number, criteria: string[]) => void;
 }) {
   const phase = waypointPhase(wp);
@@ -41,6 +53,16 @@ function RouteUnit({
           {phase && <span className={`fp-phase ${phase.toLowerCase()}`}>{phase === "INCEPTION" ? "sim" : "burn"}</span>}
         </span>
         <div className="fp-wp-actions">
+          {status && (
+            <button
+              type="button"
+              className={runStatusClass(status.status)}
+              onClick={() => onViewRun?.(status.runId)}
+              title="View this flight in Mission Control"
+            >
+              {status.status.replace(/_/g, " ")}
+            </button>
+          )}
           {onSetCriteria && (
             <button
               type="button"
@@ -150,6 +172,8 @@ export function FlightPlanView({
   onAddSource,
   onSetTarget,
   onLaunchUnit,
+  unitStatus,
+  onViewRun,
   onSetUnitCriteria,
   onDelete,
   copilot,
@@ -162,6 +186,10 @@ export function FlightPlanView({
   onAddSource: () => void;
   onSetTarget?: (target: string) => void;
   onLaunchUnit?: (wp: string | Waypoint) => void;
+  // The unit's last Mission Control flight + its current status (running / awaiting_gate
+  // / failed / applied / ...), so the Route shows that a unit was executed and how it went.
+  unitStatus?: (unitTitle: string) => { status: string; runId: string } | undefined;
+  onViewRun?: (runId: string) => void;
   onSetUnitCriteria?: (index: number, criteria: string[]) => void;
   onDelete?: () => void;
   // The planning copilot, docked beside the plan (side-by-side). Injected by the
@@ -291,6 +319,8 @@ export function FlightPlanView({
                   index={i}
                   target={plan.target}
                   onLaunch={onLaunchUnit}
+                  status={unitStatus?.(waypointTitle(wp))}
+                  onViewRun={onViewRun}
                   onSetCriteria={onSetUnitCriteria}
                 />
               ))}
