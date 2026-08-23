@@ -400,6 +400,7 @@ resource "aws_ecs_task_definition" "this" {
         { name = "MC_SERVICE_SDK", value = "1" },
         { name = "CLAUDE_CODE_USE_BEDROCK", value = "1" },
         { name = "MC_WORKER_MODEL", value = var.worker_model },
+        { name = "MC_WORKER_MAX_TURNS", value = tostring(var.worker_max_turns) },
       ]
       secrets = [
         { name = "MC_API_TOKEN", valueFrom = aws_secretsmanager_secret.api_token.arn },
