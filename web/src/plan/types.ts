@@ -146,3 +146,11 @@ export function readyToClear(plan: FlightPlan): boolean {
   const active = activeCriteria(plan);
   return active.length > 0 && active.every(AC_APPROVED);
 }
+
+// The plan lifecycle, in order, so status only ever ADVANCES to reflect real events
+// (review an AC -> in_review, launch a unit -> in_flight, a run lands -> landed) and
+// never regresses. Returns `target` only when it is strictly ahead of `current`.
+const PLAN_STATUS_ORDER: PlanStatus[] = ["draft", "in_review", "cleared", "in_flight", "landed"];
+export function advancePlanStatus(current: PlanStatus, target: PlanStatus): PlanStatus {
+  return PLAN_STATUS_ORDER.indexOf(target) > PLAN_STATUS_ORDER.indexOf(current) ? target : current;
+}

@@ -11,7 +11,7 @@ import { buildCatalog, type VaultDoc } from "./corpus";
 import { SAMPLE_PLANS } from "./sample";
 import { mergeDraftIntoPlan, newPlan, slugify, type PlanDraft } from "./persist";
 import type { PlanStore } from "./store";
-import { waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
+import { advancePlanStatus, waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 import { materializePlan } from "./materialize";
@@ -141,6 +141,8 @@ export function FlightPlanner({
     mutate(selected.id, (p) => ({
       ...p,
       criteria: p.criteria.map((c) => (c.id === acId ? { ...c, status: GATE_TO_STATUS[action] } : c)),
+      // Reviewing acceptance criteria moves the plan off "draft".
+      status: advancePlanStatus(p.status, "in_review"),
       updatedAt: new Date().toISOString(),
     }));
   };
@@ -255,12 +257,27 @@ export function FlightPlanner({
           .catch(() => [id, "unknown"] as const),
       ),
     ).then((pairs) => {
-      if (live) setRunStatuses((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+      if (!live) return;
+      setRunStatuses((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+      // A recorded run that landed (merged/applied, or a sim done) marks the plan landed.
+      const landed = pairs.some(([, s]) => s === "applied" || s === "done");
+      if (landed && selected && selected.status !== "landed") {
+        mutate(selected.id, (p) => ({ ...p, status: advancePlanStatus(p.status, "landed"), updatedAt: new Date().toISOString() }));
+      }
     });
     return () => {
       live = false;
     };
-  }, [selected?.id, execKey, missionsApi]);
+  }, [selected?.id, execKey, missionsApi]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Retroactive nudge: a plan whose acceptance criteria have been reviewed is not really
+  // a "draft". Advance an opened draft to "in_review" once (covers plans created before
+  // status auto-advanced on review). Runs once per plan open; forward-only.
+  useEffect(() => {
+    if (selected && selected.status === "draft" && selected.criteria.some((c) => c.status !== "proposed")) {
+      mutate(selected.id, (p) => ({ ...p, status: advancePlanStatus(p.status, "in_review"), updatedAt: new Date().toISOString() }));
+    }
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The latest recorded flight for a route unit (by title) + its current status.
   const unitStatus = (title: string): { status: string; runId: string } | undefined => {
@@ -338,6 +355,8 @@ export function FlightPlanner({
         mutate(selected.id, (p) => ({
           ...p,
           executions: [exec, ...(p.executions ?? [])],
+          // A unit is flying: advance the plan to in_flight (never regresses a landed plan).
+          status: advancePlanStatus(p.status, "in_flight"),
           updatedAt: new Date().toISOString(),
         }));
       }
