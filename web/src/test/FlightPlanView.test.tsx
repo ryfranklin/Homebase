@@ -35,6 +35,9 @@ function renderView(onSetUnitCriteria = vi.fn()) {
       onSetUnitCriteria={onSetUnitCriteria}
     />,
   );
+  // The route defaults to the graph overview; the per-unit criteria editor lives in the
+  // list view, so switch to it for these tests.
+  fireEvent.click(screen.getByRole("button", { name: "List" }));
   return onSetUnitCriteria;
 }
 
@@ -77,6 +80,7 @@ describe("per-unit acceptance criteria editor", () => {
     render(
       <FlightPlanView plan={PLAN} catalog={{}} onBack={noop} onGate={noop} onFileClearance={noop} onAddSource={noop} />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "List" }));
     // The per-unit toggle (e.g. "1 criterion ▸") is absent; the section-nav "Criteria"
     // tab is a different control and is not asserted here.
     expect(screen.queryByRole("button", { name: /criterion|acceptance criteria/i })).toBeNull();
