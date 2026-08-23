@@ -13,6 +13,7 @@ import { mergeDraftIntoPlan, newPlan, slugify, type PlanDraft } from "./persist"
 import type { PlanStore } from "./store";
 import { advancePlanStatus, waypointCriteria, waypointPhase, waypointTitle, type AcStatus, type ChatMessage, type Contributor, type FlightPlan, type Waypoint } from "./types";
 import { makeMissionsApi } from "../missions/api";
+import type { Run } from "../missions/types";
 import { searchConfluence, confluenceToVaultDoc } from "./confluence";
 import { materializePlan } from "./materialize";
 
@@ -23,6 +24,17 @@ const GATE_TO_STATUS: Record<GateAction, AcStatus> = {
 };
 
 const DEFAULT_OWNER: Contributor = { id: "you", name: "You", kind: "human" };
+
+// Normalize a git remote for comparison (plan target vs a run's stored portable ref):
+// drop scheme / git@ / .git / trailing slash and lowercase, so equivalent forms match.
+const normRepo = (s?: string | null): string =>
+  (s ?? "")
+    .toLowerCase()
+    .replace(/^git@/, "")
+    .replace(/^https?:\/\//, "")
+    .replace(/:/g, "/")
+    .replace(/\.git$/, "")
+    .replace(/\/+$/, "");
 
 // The Flight Planner: the board, a plan with its review gate + copilot + grounded
 // sources, source ingest, and the pre-flight clearance + Jira materialize preview.
@@ -279,11 +291,38 @@ export function FlightPlanner({
     }
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The latest recorded flight for a route unit (by title) + its current status.
+  // All Mission Control runs against this plan's target repo (its flights), so the plan
+  // shows real MC results/status even for runs not recorded on the plan note (e.g.
+  // launched before the plan started tracking executions, or from the Mission deck).
+  const [planRuns, setPlanRuns] = useState<Run[]>([]);
+  useEffect(() => {
+    const target = selected?.target;
+    if (!missionsApi || !target) {
+      setPlanRuns([]);
+      return;
+    }
+    let live = true;
+    // Match on a NORMALIZED repo ref (strip scheme / git@ / .git / trailing slash), since
+    // Mission Control stores the portable normalized remote, which may not equal the raw
+    // URL typed into the plan. Fetch recent runs and filter client-side.
+    const t = normRepo(target);
+    missionsApi
+      .list()
+      .then((rs) => live && setPlanRuns(rs.filter((r) => normRepo(r.target) === t)))
+      .catch(() => live && setPlanRuns([]));
+    return () => {
+      live = false;
+    };
+  }, [selected?.id, selected?.target, missionsApi]);
+
+  // The latest recorded flight for a route unit (by title) + its current status. Falls
+  // back to a run whose subject matches the unit title (runs launched before executions
+  // were recorded on the plan still light up their unit).
   const unitStatus = (title: string): { status: string; runId: string } | undefined => {
     const exec = (selected?.executions ?? []).find((e) => e.unitTitle === title);
-    if (!exec) return undefined;
-    return { status: runStatuses[exec.runId] ?? "…", runId: exec.runId };
+    if (exec) return { status: runStatuses[exec.runId] ?? "…", runId: exec.runId };
+    const match = planRuns.find((r) => (r.subject ?? "") === title);
+    return match ? { status: match.status, runId: match.run_id } : undefined;
   };
 
   const onSetTarget = (target: string) => {
@@ -395,6 +434,7 @@ export function FlightPlanner({
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
           unitStatus={missionsApi ? unitStatus : undefined}
+          flights={missionsApi ? planRuns : undefined}
           onViewRun={missionsApi ? () => onNavigate?.("mission") : undefined}
           onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
           onDelete={store ? () => onDeletePlan(selected) : undefined}

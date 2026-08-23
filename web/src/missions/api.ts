@@ -28,7 +28,8 @@ export interface MissionsApi {
   // Launch a flight-plan unit: the BFF maps { plan, unit } to a run (task_type from
   // the unit's phase, prompt composed from the plan narrative + approved criteria).
   launchUnit(plan: unknown, unit: unknown): Promise<Run>;
-  list(): Promise<Run[]>;
+  // List runs, optionally scoped to one target repo (so a plan can show its flights).
+  list(opts?: { target?: string }): Promise<Run[]>;
   get(id: string): Promise<Run>;
   // The diff a burn produced (for review at the gate). Empty until the worker commits.
   changes(id: string): Promise<RunChanges>;
@@ -43,7 +44,10 @@ export function makeMissionsApi(apiBaseUrl: string, getToken: () => Promise<stri
     launch: (input) =>
       call<Run>("runs", { method: "POST", body: JSON.stringify({ target: input.target, task_type: input.taskType, prompt: input.prompt }) }),
     launchUnit: (plan, unit) => call<Run>("runs", { method: "POST", body: JSON.stringify({ plan, unit }) }),
-    list: () => call<{ runs?: Run[] } | Run[]>("runs").then((r) => (Array.isArray(r) ? r : (r.runs ?? []))),
+    list: (opts) =>
+      call<{ runs?: Run[] } | Run[]>(opts?.target ? `runs?target=${q(opts.target)}` : "runs").then((r) =>
+        Array.isArray(r) ? r : (r.runs ?? []),
+      ),
     get: (id) => call<Run>(`runs/${q(id)}`),
     changes: (id) => call<RunChanges>(`runs/${q(id)}/changes`),
     decide: (id, decision) => call(`runs/${q(id)}/${decision}`, { method: "POST" }),

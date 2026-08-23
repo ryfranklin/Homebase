@@ -2081,6 +2081,22 @@ button.fb-row:hover { background: var(--surface); }
 .fp-run.live { color: var(--muted); }
 .fp-run:hover { background: var(--surface-2); }
 
+/* Flights panel: the plan's Mission Control runs (its target repo), status + grade. */
+.fp-flights { margin-top: 18px; }
+.fp-flights-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.fp-flights-head > span:first-child { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.fp-flights-count { font-size: 0.72rem; color: var(--faint); font-family: var(--font-mono); }
+.fp-flights-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fp-flight {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+  background: var(--surface); color: var(--text); transition: background 0.2s, border-color 0.2s;
+}
+.fp-flight:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.fp-flight-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.84rem; }
+.fp-flight-grade { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); flex-shrink: 0; }
+.fp-flight-cost { font-family: var(--font-mono); font-size: 0.74rem; color: var(--faint); flex-shrink: 0; }
+
 /* Per-unit acceptance criteria (the unit's definition of done) */
 .fp-crit-toggle {
   flex-shrink: 0; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px;
