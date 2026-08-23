@@ -3061,3 +3061,85 @@ button.fb-row:hover { background: var(--surface); }
   .fp-main, .mc-main, .ev-body, .transcript { padding-left: 14px; padding-right: 14px; }
   .mode-switch button { font-size: 0.64rem; }
 }
+
+/* --- Acceptance-criterion execution status (Mission Control verification) --- */
+/* A distinct badge from the plan-review status: did the burn accomplish the criterion,
+   is it still in flight, or does it need a human look. */
+.ac-exec {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor;
+  font-family: var(--font-mono); white-space: nowrap;
+}
+.ac-exec.accomplished { color: #6ee7a8; }
+.ac-exec.in_flight { color: var(--muted); }
+.ac-exec.needs_review { color: var(--pending); }
+.ac-exec-reason {
+  margin: 6px 0 0; font-size: 0.82rem; color: var(--pending);
+  background: var(--pending-soft); border-radius: 8px; padding: 8px 10px;
+}
+.fp-review-flight {
+  margin-left: auto; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--pending);
+  background: var(--pending-soft); color: var(--pending); cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.fp-review-flight:hover { background: rgba(224, 168, 58, 0.2); }
+
+/* --- Guided review session (step-through of flagged criteria -> gate decision) --- */
+.gr-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.66); padding: 24px;
+}
+.gr-modal {
+  width: min(760px, 100%); max-height: 90vh; display: flex; flex-direction: column;
+  background: var(--bg-soft); border: 1px solid var(--border-strong); border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); overflow: hidden;
+}
+.gr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.gr-title { margin: 0; font-size: 1.02rem; }
+.gr-sub { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); font-family: var(--font-mono); }
+.gr-close { background: none; border: none; color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px; }
+.gr-close:hover { color: var(--text); }
+.gr-progress { display: flex; gap: 6px; padding: 12px 22px 0; }
+.gr-pip { width: 22px; height: 4px; border-radius: 999px; background: var(--surface-3); }
+.gr-pip.current { background: var(--border-strong); }
+.gr-pip.ok { background: #6ee7a8; }
+.gr-pip.fix { background: var(--pending); }
+.gr-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+.gr-step-head { display: flex; align-items: center; gap: 10px; }
+.gr-step-count { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); }
+.gr-step-id { font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); }
+.gr-statement { margin: 10px 0 0; font-size: 0.98rem; line-height: 1.45; }
+.gr-rationale { margin-top: 12px; border-left: 2px solid var(--pending); padding: 4px 0 4px 12px; }
+.gr-rationale-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pending); }
+.gr-rationale p { margin: 4px 0 0; font-size: 0.86rem; color: var(--muted); line-height: 1.45; }
+.gr-diff { margin-top: 16px; }
+.gr-diff-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.gr-diff .mc-diff { margin-top: 8px; max-height: 260px; }
+.gr-verdict { display: flex; gap: 10px; margin-top: 18px; }
+.gr-btn {
+  padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border-strong);
+  background: var(--surface-2); color: var(--text); font-size: 0.86rem; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.gr-btn:hover { background: var(--surface-3); }
+.gr-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.gr-btn.ok.picked, .gr-btn.approve { border-color: #6ee7a8; color: #6ee7a8; }
+.gr-btn.fix.picked, .gr-btn.reject { border-color: #ff8b84; color: #ff8b84; }
+.gr-summary-title { margin: 0 0 12px; font-size: 0.9rem; }
+.gr-summary-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gr-summary-item { display: flex; align-items: baseline; gap: 8px; font-size: 0.86rem; }
+.gr-summary-mark { flex-shrink: 0; }
+.gr-summary-item.ok .gr-summary-mark { color: #6ee7a8; }
+.gr-summary-item.fix .gr-summary-mark { color: var(--pending); }
+.gr-summary-item.pending .gr-summary-mark { color: var(--faint); }
+.gr-summary-id { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); flex-shrink: 0; }
+.gr-summary-stmt { color: var(--text); }
+.gr-reco { margin: 16px 0 0; font-size: 0.86rem; color: var(--muted); }
+.gr-note { margin: 8px 0 0; font-size: 0.8rem; color: var(--faint); }
+.gr-error { margin: 8px 0 0; font-size: 0.82rem; color: #ff8b84; }
+.gr-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--border); }
+.gr-nav { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 7px 14px; font-size: 0.82rem; cursor: pointer; }
+.gr-nav:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+.gr-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+.gr-gate { display: flex; gap: 10px; }

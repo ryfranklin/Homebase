@@ -114,7 +114,7 @@ function ResultPanel({ text }: { text: string }) {
 // Classify a unified-diff line for coloring: added (+) green, removed (-) red, hunk
 // headers (@@) accented, file headers (diff/index/+++/---) muted, context plain. The
 // +++/--- checks come first so file headers aren't mistaken for added/removed lines.
-function diffLineClass(line: string): string {
+export function diffLineClass(line: string): string {
   if (line.startsWith("+++") || line.startsWith("---")) return "mc-diff-meta";
   if (line.startsWith("@@")) return "mc-diff-hunk";
   if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("new file") || line.startsWith("deleted file")) return "mc-diff-meta";
@@ -124,7 +124,7 @@ function diffLineClass(line: string): string {
 }
 
 // The unified diff, colored line by line (added green, removed red).
-function DiffView({ patch, truncated }: { patch: string; truncated?: boolean }) {
+export function DiffView({ patch, truncated }: { patch: string; truncated?: boolean }) {
   const lines = patch.split("\n");
   return (
     <pre className="mc-diff" aria-label="Unified diff">

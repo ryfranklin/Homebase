@@ -4,6 +4,7 @@ import { pendingCount, waypointCriteria, waypointPhase, waypointTitle, type Flig
 import { resolvePlanSources, type VaultDoc } from "../plan/corpus";
 import type { Run } from "../missions/types";
 import { AcCard, type GateAction } from "./AcCard";
+import type { AcExecution } from "../plan/review";
 import { PlanSources } from "./PlanSources";
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
@@ -176,6 +177,9 @@ export function FlightPlanView({
   unitStatus,
   flights,
   onViewRun,
+  acExecution,
+  onReviewFlight,
+  reviewCount,
   onSetUnitCriteria,
   onDelete,
   copilot,
@@ -195,6 +199,13 @@ export function FlightPlanView({
   // surfaces real MC results/status. Present only in the workspace view with a target.
   flights?: Run[];
   onViewRun?: (runId: string) => void;
+  // Each criterion's Mission Control execution status (accomplished / in flight / needs
+  // review), derived from the plan's review run. Absent in the store-less dev preview.
+  acExecution?: (ac: FlightPlan["criteria"][number]) => AcExecution | undefined;
+  // Start the guided review of the criteria a burn flagged; absent when nothing is flagged.
+  onReviewFlight?: () => void;
+  // How many criteria the guided review will step through (shown on its trigger).
+  reviewCount?: number;
   onSetUnitCriteria?: (index: number, criteria: string[]) => void;
   onDelete?: () => void;
   // The planning copilot, docked beside the plan (side-by-side). Injected by the
@@ -281,10 +292,15 @@ export function FlightPlanView({
             <div className="fp-section-head">
               <h2>Acceptance criteria</h2>
               {pend > 0 && <span className="fp-proposed">{pend} awaiting review</span>}
+              {onReviewFlight && (
+                <button type="button" className="fp-review-flight" onClick={onReviewFlight}>
+                  Review flight{reviewCount ? ` (${reviewCount})` : ""}
+                </button>
+              )}
             </div>
             <div className="ac-list">
               {plan.criteria.map((ac) => (
-                <AcCard key={ac.id} ac={ac} onGate={onGate} onOpenSource={openSource} />
+                <AcCard key={ac.id} ac={ac} onGate={onGate} onOpenSource={openSource} execution={acExecution?.(ac)} />
               ))}
             </div>
           </section>
