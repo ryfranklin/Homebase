@@ -70,7 +70,17 @@ export interface FlightPlan {
   risks: string[];
   target?: string; // the git repo Mission Control builds against (for launching units)
   materialized?: Materialization[]; // record of external work created from this plan
+  executions?: PlanExecution[]; // Mission Control runs launched from this plan's units
   updatedAt: string;
+}
+
+// A run launched from this plan (a Mission Control burn/sim), recorded so the plan shows
+// its flights and their outcome. Mirrors `materialized` (a record of external work).
+export interface PlanExecution {
+  runId: string;
+  unitTitle: string;
+  taskType?: string; // "sim" | "burn"
+  launchedAt: string;
 }
 
 // A record of a plan being materialized into an external tracker (Jira epic + stories).

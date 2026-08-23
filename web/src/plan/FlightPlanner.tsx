@@ -237,6 +237,38 @@ export function FlightPlanner({
   const canDraft = !!(apiBaseUrl && getToken);
   const missionsApi = useMemo(() => (apiBaseUrl && getToken ? makeMissionsApi(apiBaseUrl, getToken) : null), [apiBaseUrl, getToken]);
 
+  // Live status of the runs this plan launched, so the Route shows each unit's last
+  // flight and its outcome (running / awaiting gate / failed / applied). Fetched when
+  // the open plan (and its executions) changes; keyed by run id.
+  const [runStatuses, setRunStatuses] = useState<Record<string, string>>({});
+  const execKey = (selected?.executions ?? []).map((e) => e.runId).join(",");
+  useEffect(() => {
+    const execs = selected?.executions ?? [];
+    if (!missionsApi || execs.length === 0) return;
+    let live = true;
+    const ids = [...new Set(execs.map((e) => e.runId))];
+    Promise.all(
+      ids.map((id) =>
+        missionsApi
+          .get(id)
+          .then((r) => [id, r.status] as const)
+          .catch(() => [id, "unknown"] as const),
+      ),
+    ).then((pairs) => {
+      if (live) setRunStatuses((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => {
+      live = false;
+    };
+  }, [selected?.id, execKey, missionsApi]);
+
+  // The latest recorded flight for a route unit (by title) + its current status.
+  const unitStatus = (title: string): { status: string; runId: string } | undefined => {
+    const exec = (selected?.executions ?? []).find((e) => e.unitTitle === title);
+    if (!exec) return undefined;
+    return { status: runStatuses[exec.runId] ?? "…", runId: exec.runId };
+  };
+
   const onSetTarget = (target: string) => {
     if (!selected) return;
     mutate(selected.id, (p) => ({ ...p, target: target || undefined, updatedAt: new Date().toISOString() }));
@@ -289,11 +321,26 @@ export function FlightPlanner({
       criteria: selected.criteria,
     };
     try {
-      await missionsApi.launchUnit(planCtx, {
+      const run = await missionsApi.launchUnit(planCtx, {
         title: waypointTitle(wp),
         phase: waypointPhase(wp),
         criteria: waypointCriteria(wp),
       });
+      // Record the run on the plan so it shows its flights (and their outcome) here,
+      // not only in the Mission deck. Newest first; the plan note persists it.
+      if (run?.run_id) {
+        const exec = {
+          runId: run.run_id,
+          unitTitle: waypointTitle(wp),
+          taskType: run.task_type ?? (waypointPhase(wp) === "INCEPTION" ? "sim" : "burn"),
+          launchedAt: new Date().toISOString(),
+        };
+        mutate(selected.id, (p) => ({
+          ...p,
+          executions: [exec, ...(p.executions ?? [])],
+          updatedAt: new Date().toISOString(),
+        }));
+      }
       onNavigate?.("mission");
     } catch {
       /* the Mission deck surfaces run/launch errors */
@@ -328,6 +375,8 @@ export function FlightPlanner({
           onAddSource={() => setAdding(true)}
           onSetTarget={store ? onSetTarget : undefined}
           onLaunchUnit={missionsApi ? (wp) => void onLaunchUnit(wp) : undefined}
+          unitStatus={missionsApi ? unitStatus : undefined}
+          onViewRun={missionsApi ? () => onNavigate?.("mission") : undefined}
           onSetUnitCriteria={store ? onSetUnitCriteria : undefined}
           onDelete={store ? () => onDeletePlan(selected) : undefined}
           copilot={

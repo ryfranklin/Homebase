@@ -2069,6 +2069,17 @@ button.fb-row:hover { background: var(--surface); }
 }
 .fp-launch:hover { background: var(--surface-2); }
 
+/* A route unit's last Mission Control flight + outcome (click -> Mission deck). */
+.fp-run {
+  flex-shrink: 0; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; background: none;
+}
+.fp-run.good { color: #6ee7a8; }
+.fp-run.bad { color: #ff8b84; }
+.fp-run.gate { color: var(--pending, #d8b34a); }
+.fp-run.live { color: var(--muted); }
+.fp-run:hover { background: var(--surface-2); }
+
 /* Per-unit acceptance criteria (the unit's definition of done) */
 .fp-crit-toggle {
   flex-shrink: 0; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px;
