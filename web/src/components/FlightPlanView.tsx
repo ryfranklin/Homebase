@@ -6,6 +6,7 @@ import type { Run } from "../missions/types";
 import { AcCard, type GateAction } from "./AcCard";
 import type { AcExecution } from "../plan/review";
 import { PlanSources } from "./PlanSources";
+import { PlanGraph } from "./PlanGraph";
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "draft",
@@ -213,6 +214,7 @@ export function FlightPlanView({
   copilot?: React.ReactNode;
 }) {
   const criteriaRef = useRef<HTMLDivElement>(null);
+  const [routeView, setRouteView] = useState<"graph" | "list">("graph");
   const sources = useMemo(() => resolvePlanSources(plan, catalog), [plan, catalog]);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const sections = [
@@ -315,7 +317,19 @@ export function FlightPlanView({
           </section>
 
           <section id="sec-route" className="fp-section">
-            <h2>Route</h2>
+            <div className="fp-section-head">
+              <h2>Route</h2>
+              {plan.route.length > 0 && (
+                <div className="fp-route-toggle" role="group" aria-label="Route view">
+                  <button type="button" className={routeView === "graph" ? "active" : ""} onClick={() => setRouteView("graph")}>
+                    Graph
+                  </button>
+                  <button type="button" className={routeView === "list" ? "active" : ""} onClick={() => setRouteView("list")}>
+                    List
+                  </button>
+                </div>
+              )}
+            </div>
             {onSetTarget && (
               <div className="fp-target">
                 <label>
@@ -332,20 +346,30 @@ export function FlightPlanView({
                 </label>
               </div>
             )}
-            <ol className="fp-route">
-              {plan.route.map((wp, i) => (
-                <RouteUnit
-                  key={i}
-                  wp={wp}
-                  index={i}
-                  target={plan.target}
-                  onLaunch={onLaunchUnit}
-                  status={unitStatus?.(waypointTitle(wp))}
-                  onViewRun={onViewRun}
-                  onSetCriteria={onSetUnitCriteria}
-                />
-              ))}
-            </ol>
+            {routeView === "graph" ? (
+              <PlanGraph
+                route={plan.route}
+                target={plan.target}
+                unitStatus={unitStatus}
+                onLaunchUnit={onLaunchUnit}
+                onViewRun={onViewRun}
+              />
+            ) : (
+              <ol className="fp-route">
+                {plan.route.map((wp, i) => (
+                  <RouteUnit
+                    key={i}
+                    wp={wp}
+                    index={i}
+                    target={plan.target}
+                    onLaunch={onLaunchUnit}
+                    status={unitStatus?.(waypointTitle(wp))}
+                    onViewRun={onViewRun}
+                    onSetCriteria={onSetUnitCriteria}
+                  />
+                ))}
+              </ol>
+            )}
 
             {flights && flights.length > 0 && (
               <div className="fp-flights">
