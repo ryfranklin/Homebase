@@ -107,6 +107,21 @@ test("launchUnit POSTs the mapped run with the bearer token", async () => {
   assert.deepEqual(sent.acceptance_criteria, ["Engineers authenticate via a Cognito JWT."]);
 });
 
+test("raw launch allows a sim but forbids a burn", async () => {
+  const calls = [];
+  const mc = makeMissionControl({ baseUrl: "http://mc:8000", token: "t", fetchImpl: jsonFetch(calls, { ok: true, status: 201, body: { run_id: "r2" } }) });
+  // A read-only sim is allowed through the escape hatch.
+  await mc.launch({ target: "org/repo", task_type: "sim", prompt: "investigate" });
+  assert.equal(JSON.parse(calls[0].init.body).task_type, "sim");
+  // A repo-mutating burn is rejected before any HTTP call: burns must go through a
+  // cleared flight-plan unit (launchUnit), not the client-driven raw path.
+  await assert.rejects(
+    () => mc.launch({ target: "org/repo", task_type: "burn", prompt: "rm -rf" }),
+    (err) => err.code === "raw_burn_forbidden" && err.status === 400,
+  );
+  assert.equal(calls.length, 1); // no second POST happened
+});
+
 test("get / list / changes issue the right GETs", async () => {
   const calls = [];
   const mc = makeMissionControl({ baseUrl: "http://mc:8000", fetchImpl: jsonFetch(calls, { ok: true, status: 200, body: {} }) });

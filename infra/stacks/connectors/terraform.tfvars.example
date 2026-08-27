@@ -27,3 +27,11 @@ atlassian_discovery_url = "<YOUR_ATLASSIAN_OIDC_DISCOVERY_URL>"
 # Shim Lambda ARNs (once deployed from services/connectors). Omit to use derived
 # placeholders for planning.
 connector_shim_lambda_arns = {}
+
+# Web connector (Tavily) — gives the chat agent internet search/fetch. Create the
+# secret BY HAND first (it is an INPUT, never committed), then put its NAME here:
+#   aws secretsmanager create-secret --name homebase-<env>-tavily-api-key \
+#     --secret-string '{"api_key":"tvly-XXXXXXXXXXXXXXXX"}'
+# The value may be the raw key string or a JSON object with an api_key field.
+# Leave empty to disable the web connector.
+tavily_secret_name = "<YOUR_TAVILY_SECRET_NAME>"

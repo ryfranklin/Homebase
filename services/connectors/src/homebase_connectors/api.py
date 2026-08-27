@@ -158,7 +158,9 @@ def _jira_search(params, token):
     qs = urllib.parse.urlencode(
         {
             "jql": params.get("jql", ""),
-            "maxResults": params.get("maxResults", 25),
+            # Cap server-side: the "bounded query" convention lives in the tool
+            # description (advisory to the model), so enforce a hard result ceiling here.
+            "maxResults": _clamp_int(params.get("maxResults"), 25, 1, 100),
             "fields": params.get("fields", "*navigable"),
         }
     )
@@ -204,7 +206,9 @@ def _jira_create_handler(params, token, send):
 
 def _confluence_search(params, token):
     cloud = urllib.parse.quote(params["cloudId"])
-    qs = urllib.parse.urlencode({"cql": params.get("cql", ""), "limit": params.get("limit", 25)})
+    qs = urllib.parse.urlencode(
+        {"cql": params.get("cql", ""), "limit": _clamp_int(params.get("limit"), 25, 1, 100)}
+    )
     return "GET", f"https://api.atlassian.com/ex/confluence/{cloud}/wiki/rest/api/search?{qs}", _bearer(token), None
 
 
@@ -215,6 +219,49 @@ def _confluence_search_handler(params, token, send):
         params["cloudId"] = _atlassian_resolve_cloud_id(token, send)
     method, url, headers, body = _confluence_search(params, token)
     return send(method, url, headers, body)
+
+
+# Web search / fetch (Tavily). No OAuth: `token` is the Tavily API key resolved from
+# Secrets Manager by ApiKeyCredentials. Both builders POST to a PINNED vendor host
+# (api.tavily.com); the model never supplies a host. web.fetch delegates the actual
+# page retrieval to Tavily's server-side /extract, so a model-chosen URL is fetched
+# by Tavily, NOT by this Lambda -- this is the SSRF containment: our Lambda's only
+# egress is to the one vendor host, never to model-controlled internal addresses.
+_TAVILY_SEARCH_URL = "https://api.tavily.com/search"
+_TAVILY_EXTRACT_URL = "https://api.tavily.com/extract"
+_WEB_MAX_RESULTS = 10  # hard server-side cap regardless of what the model requests
+_WEB_MAX_URLS = 5
+
+
+def _clamp_int(value, default, lo, hi):
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, n))
+
+
+def _web_search(params, token):
+    body = json.dumps(
+        {
+            "query": str(params.get("query", ""))[:2000],
+            "max_results": _clamp_int(params.get("max_results"), 5, 1, _WEB_MAX_RESULTS),
+            "search_depth": "advanced" if params.get("search_depth") == "advanced" else "basic",
+            "include_answer": True,
+        }
+    ).encode("utf-8")
+    h = _bearer(token) | {"Content-Type": "application/json"}
+    return "POST", _TAVILY_SEARCH_URL, h, body
+
+
+def _web_fetch(params, token):
+    urls = params.get("urls") or params.get("url") or []
+    if isinstance(urls, str):
+        urls = [urls]
+    urls = [str(u) for u in list(urls)[:_WEB_MAX_URLS] if u]
+    body = json.dumps({"urls": urls}).encode("utf-8")
+    h = _bearer(token) | {"Content-Type": "application/json"}
+    return "POST", _TAVILY_EXTRACT_URL, h, body
 
 
 # Catalog tool name (dot form) -> request builder.
@@ -229,6 +276,8 @@ _BUILDERS = {
     "qbo.read_reports": _qbo_read,
     "qbo.create_invoice": _qbo_create_invoice,
     "jira.create_issue": _jira_create,
+    "web.search": _web_search,
+    "web.fetch": _web_fetch,
 }
 
 

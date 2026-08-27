@@ -8,6 +8,9 @@ export interface ChatMessage {
   toolEvents: string[];
   streaming: boolean;
   error?: string;
+  // Set when a connector the agent used needs (re)authorization. Drives a
+  // non-blocking "Reconnect" affordance; the turn is NOT failed by it.
+  pendingAuth?: { connector?: string; authorizationUrl: string };
 }
 
 // Pure reducer: fold one stream event into an assistant message. Exported so the
@@ -23,6 +26,10 @@ export function applyEvent(message: ChatMessage, event: StreamEvent): ChatMessag
       };
     case "tool_call":
       return { ...message, toolEvents: [...message.toolEvents, event.name ?? "tool_call"] };
+    case "authorization_required":
+      // Record the reconnect need without interrupting the stream; the UI shows a
+      // Reconnect affordance and the app-level status refresh surfaces it in the banner.
+      return { ...message, pendingAuth: { connector: event.connector, authorizationUrl: event.url } };
     case "error":
       return { ...message, error: event.message, streaming: false };
     case "done":

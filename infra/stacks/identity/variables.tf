@@ -108,10 +108,15 @@ variable "google_authorize_scopes" {
 # allow-list, closing open self-signup. The allow-list VALUE is not stored here
 # or anywhere in Terraform: it is a by-hand SSM SecureString (KMS-encrypted) at
 # /<project>/<env>/identity/allowed-signup-emails, which the Lambda reads and
-# decrypts at runtime. false (default) attaches no trigger (open self-signup).
+# decrypts at runtime.
+#
+# SECURE BY DEFAULT (true): the gate is attached, so self-signup is closed unless an
+# email is on the allow-list. This is fail-closed -- a fresh env with an empty list
+# admits NOBODY until the operator adds their email to the SSM SecureString. Set to
+# false only for a deliberately open environment.
 # ---------------------------------------------------------------------------
 variable "enable_signup_allowlist" {
-  description = "Enable the Pre-Sign-Up allow-list gate (native + federated). The allow-list itself is a by-hand SSM SecureString referenced by name; its value never enters Terraform state, plans, or tfvars."
+  description = "Enable the Pre-Sign-Up allow-list gate (native + federated). The allow-list itself is a by-hand SSM SecureString referenced by name; its value never enters Terraform state, plans, or tfvars. Defaults ON (fail-closed)."
   type        = bool
-  default     = false
+  default     = true
 }

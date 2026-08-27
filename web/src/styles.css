@@ -1008,6 +1008,34 @@ button {
   color: var(--text);
 }
 
+/* Reconnect banner: a non-blocking prompt to re-link an expired connector. */
+.connector-banner--needs_auth {
+  border-color: rgba(250, 204, 21, 0.5);
+}
+.connector-banner--needs_auth::before {
+  content: "⟳";
+  color: #facc15;
+  font-weight: 700;
+}
+.connector-reauth-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.connector-banner button.connector-reauth-btn {
+  font-size: 0.82rem;
+  line-height: 1.2;
+  padding: 5px 12px;
+  color: var(--text);
+  background: rgba(250, 204, 21, 0.14);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.connector-banner button.connector-reauth-btn:hover {
+  background: rgba(250, 204, 21, 0.24);
+}
+
 /* ---------- Motion ---------- */
 @keyframes fade-in {
   from {

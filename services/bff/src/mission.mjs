@@ -90,9 +90,19 @@ export function makeMissionControl({ baseUrl, token = null, fetchImpl = fetch })
       return request("POST", "/runs", { body: mapUnitToLaunch(plan, unit) });
     },
     // Launch a raw run (escape hatch / prototype): the caller supplies the MC shape.
+    // SECURITY: this path forwards a client-supplied target + prompt, so it must NOT
+    // be able to trigger a side-effectful, repo-mutating "burn". Burns run only via
+    // launchUnit() -- a CLEARED flight-plan unit that carries the go/no-go gate and
+    // acceptance criteria. The raw escape hatch is therefore limited to read-only sims.
     async launch({ target, task_type, prompt, acceptance_criteria = null, slack_profile = null }) {
+      if (task_type !== "sim") {
+        throw Object.assign(
+          new Error("raw launch supports only task_type 'sim'; a burn must go through a cleared flight-plan unit"),
+          { status: 400, code: "raw_burn_forbidden" },
+        );
+      }
       return request("POST", "/runs", {
-        body: { target, task_type, prompt, acceptance_criteria, slack_profile },
+        body: { target, task_type: "sim", prompt, acceptance_criteria, slack_profile },
       });
     },
     async get(runId) {

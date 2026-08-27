@@ -74,3 +74,21 @@ variable "waf_common_rules_count_only" {
   type        = list(string)
   default     = []
 }
+
+# ---------------------------------------------------------------------------
+# Response security headers (H2 hardening). HSTS / nosniff / frame-DENY /
+# referrer-policy are always emitted (safe, non-breaking). A Content-Security-
+# Policy is OPT-IN via this variable because a wrong CSP can break the SPA (it
+# must permit the Cognito hosted-UI token endpoint in connect-src and inline
+# styles for Markdown/Mermaid). Empty (default) emits no CSP header. A known-good
+# starting point (fill in your hosted-UI origin) is:
+#   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+#   img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self';
+#   frame-ancestors 'none'; form-action 'self' https://<hosted-ui-domain>;
+#   connect-src 'self' https://<hosted-ui-domain>
+# ---------------------------------------------------------------------------
+variable "content_security_policy" {
+  description = "Content-Security-Policy header value for the SPA. Empty emits no CSP (safe default); set a tested value to enforce one. Must allow the Cognito hosted-UI origin in connect-src/form-action."
+  type        = string
+  default     = ""
+}

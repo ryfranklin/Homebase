@@ -131,6 +131,26 @@ resource "aws_cognito_user_pool_client" "spa" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
 
+  # Token lifetimes (previously the Cognito defaults: 1h access/id, 30-DAY refresh).
+  # Short-lived access/id tokens plus a 7-day refresh bound the blast radius of a
+  # leaked token, and refresh-token ROTATION makes each refresh token single-use: a
+  # stolen one is invalidated the moment the legitimate client next refreshes. The SPA
+  # already adopts the rotated refresh_token returned on each refresh (see cognito.ts),
+  # and the 60s grace period tolerates a concurrent double-refresh without a failure.
+  access_token_validity  = 60
+  id_token_validity      = 60
+  refresh_token_validity = 7
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+
+  refresh_token_rotation {
+    feature                    = "ENABLED"
+    retry_grace_period_seconds = 60
+  }
+
   callback_urls = var.callback_urls
   logout_urls   = var.logout_urls
 

@@ -8,6 +8,8 @@ import { useChat } from "./chat/useChat";
 import { useVault } from "./vault/useVault";
 import { useConnectorStatus } from "./chat/useConnectorStatus";
 import { ConnectorBanner } from "./connectors/ConnectorBanner";
+import { ConnectorReauthBanner } from "./connectors/ConnectorReauthBanner";
+import { openConnectorConsent } from "./connectors/openConsent";
 import { useConnectorCallback } from "./connectors/useConnectorCallback";
 import { makeVaultPlanStore } from "./plan/store";
 import { planOwnerFromIdToken } from "./plan/identity";
@@ -105,22 +107,10 @@ export function App() {
 
   const openSettings = () => setSettingsOpen(true);
 
-  // Open a connector's consent in a centered popup so the main app is never reloaded.
-  // The popup relays its ?session_id= back and closes (see useConnectorCallback); if
-  // the browser blocks the popup, fall back to a full-page redirect.
-  const openConnectorConsent = (url: string) => {
-    const w = 520;
-    const h = 700;
-    const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
-    const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
-    const popup = window.open(url, "homebase-connect", `popup,width=${w},height=${h},left=${left},top=${top}`);
-    if (popup) popup.focus();
-    else window.location.assign(url);
-  };
-
   return (
     <>
       <ConnectorBanner status={connector.status} onDismiss={connector.dismiss} />
+      <ConnectorReauthBanner connectors={connStatus.connectors} onReconnect={openConnectorConsent} />
       {settingsOpen && (
         <SettingsPanel apiBaseUrl={config.apiBaseUrl} getToken={auth.getAccessToken} onClose={() => setSettingsOpen(false)} />
       )}

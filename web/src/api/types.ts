@@ -4,6 +4,10 @@ export type StreamEvent =
   | { type: "token"; text: string }
   | { type: "tool_call"; name?: string; [key: string]: unknown }
   | { type: "citation"; source_path: string; score?: number; [key: string]: unknown }
+  // A connector the agent tried to use needs the user to (re)link their account.
+  // Surfaced non-blockingly so the user can reconnect in a separate window without
+  // losing the current chat. `connector` is best-effort (may be absent).
+  | { type: "authorization_required"; url: string; connector?: string }
   | { type: "done" }
   | { type: "error"; message: string };
 

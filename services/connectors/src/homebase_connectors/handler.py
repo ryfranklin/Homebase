@@ -23,7 +23,7 @@ from .api import make_api
 from .catalog import TOOLS
 from .confirmation import ConfirmationContract
 from .gate import UnknownToolError
-from .identity import ConnectorCredentials
+from .identity import ApiKeyCredentials, ConnectorCredentials
 from .lambda_identity import AgentCoreIdentityClient, AuthorizationRequiredError
 from .shim import ConnectorShim
 
@@ -84,10 +84,23 @@ def _serialize(result):
     return {"requires_confirmation": False, "result": result}
 
 
-def build_shim(connector, *, identity=None, api=None):
-    identity = identity if identity is not None else AgentCoreIdentityClient()
+def build_shim(connector, *, identity=None, api=None, credentials=None):
+    """Build a shim for a connector. Credential resolution is chosen by env:
+    an API-key connector (CONNECTOR_API_KEY_SECRET set, no CONNECTOR_PROVIDER_ARN)
+    reads a static vendor key from Secrets Manager; every other connector uses the
+    AgentCore Identity OAuth flow. All of `identity`, `api`, and `credentials` are
+    injectable so tests never touch AWS."""
     api = api if api is not None else make_api()
-    return ConnectorShim(connector, ConnectorCredentials(identity), api)
+    if credentials is None:
+        secret_id = os.environ.get("CONNECTOR_API_KEY_SECRET")
+        if secret_id and not os.environ.get("CONNECTOR_PROVIDER_ARN"):
+            import boto3  # provided by the Lambda runtime; imported lazily for offline tests
+
+            credentials = ApiKeyCredentials(boto3.client("secretsmanager"), secret_id)
+        else:
+            identity = identity if identity is not None else AgentCoreIdentityClient()
+            credentials = ConnectorCredentials(identity)
+    return ConnectorShim(connector, credentials, api)
 
 
 def handle(event, context=None, *, shim=None):

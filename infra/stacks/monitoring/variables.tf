@@ -67,3 +67,15 @@ variable "cloudfront_distribution_id" {
   type        = string
   default     = ""
 }
+
+variable "enable_cloudtrail" {
+  description = "Create a multi-region CloudTrail (management events) to a dedicated KMS-encrypted, locked-down S3 bucket. On by default; disable if the account is already covered by an organization trail."
+  type        = bool
+  default     = true
+}
+
+variable "cloudtrail_retention_days" {
+  description = "Days to retain CloudTrail objects in the log bucket before expiry."
+  type        = number
+  default     = 365
+}
