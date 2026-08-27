@@ -159,9 +159,14 @@ resource "aws_cognito_user_pool_client" "spa" {
     var.enable_google_federation ? ["Google"] : [],
   )
 
+  # Refresh-token rotation (above) is incompatible with the ALLOW_REFRESH_TOKEN_AUTH
+  # explicit flow, and Cognito rejects the pair. That flow only governs the native
+  # InitiateAuth SDK path; the SPA refreshes through the hosted-UI OAuth2 token
+  # endpoint (/oauth2/token, grant_type=refresh_token), which is governed by
+  # allowed_oauth_flows ("code"), not this list, so removing it does not affect the
+  # SPA's silent refresh. SRP is retained for any non-hosted-UI/admin auth path.
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
-    "ALLOW_REFRESH_TOKEN_AUTH",
   ]
 
   prevent_user_existence_errors = "ENABLED"
