@@ -61,6 +61,9 @@ credentials
 # still catch real secret files, and gitleaks scans the content regardless.
 !services/bff/src/secrets.mjs
 !infra/stacks/api/rotation/rotate_origin_secret.py
+# The docs page ABOUT secret handling (rotation vs refresh). It contains no secret
+# values, only placeholders; the broad patterns above still catch real secret files.
+!docs/secrets.md
 *.credentials.json
 secrets.*.yaml
 secrets.*.yml
