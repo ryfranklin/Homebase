@@ -118,3 +118,79 @@ resource "aws_lambda_function" "shim" {
 
   tags = local.common_tags
 }
+
+# ---------------------------------------------------------------------------
+# Web connector shim (Tavily): homebase-<env>-connector-web. A no-OAuth connector,
+# so it does NOT share the OAuth shim role above. It gets a DEDICATED, minimal role
+# with exactly one grant: read the Tavily API-key secret (plus logs). This keeps the
+# internet-facing tool at least privilege -- it cannot reach the AgentCore token
+# flow or any OAuth vault -- and the SSRF blast radius is already contained upstream
+# because web.fetch delegates page retrieval to Tavily's server-side extract (the
+# shim only ever egresses to api.tavily.com). Gated on tavily_secret_name so the
+# connector is absent when no key is configured.
+# ---------------------------------------------------------------------------
+locals {
+  web_enabled = var.tavily_secret_name != ""
+}
+
+data "aws_secretsmanager_secret" "tavily" {
+  count = local.web_enabled ? 1 : 0
+  name  = var.tavily_secret_name
+}
+
+resource "aws_iam_role" "web_shim" {
+  count              = local.web_enabled ? 1 : 0
+  name               = "${local.name_prefix}-connector-web"
+  assume_role_policy = data.aws_iam_policy_document.shim_trust.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "web_shim" {
+  count = local.web_enabled ? 1 : 0
+
+  statement {
+    sid       = "ReadTavilyKey"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["${data.aws_secretsmanager_secret.tavily[0].arn}*"]
+  }
+
+  statement {
+    sid       = "Logs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:${local.partition}:logs:${var.aws_region}:${local.account_id}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "web_shim" {
+  count  = local.web_enabled ? 1 : 0
+  name   = "${local.name_prefix}-connector-web-policy"
+  role   = aws_iam_role.web_shim[0].id
+  policy = data.aws_iam_policy_document.web_shim[0].json
+}
+
+resource "aws_lambda_function" "web_shim" {
+  count = local.web_enabled ? 1 : 0
+
+  function_name    = "${local.name_prefix}-connector-web"
+  role             = aws_iam_role.web_shim[0].arn
+  runtime          = "python3.12"
+  handler          = "homebase_connectors.handler.handler"
+  filename         = data.archive_file.shim.output_path
+  source_code_hash = data.archive_file.shim.output_base64sha256
+  timeout          = 30
+
+  environment {
+    variables = {
+      CONNECTOR = "web"
+      # No CONNECTOR_PROVIDER_ARN: build_shim() sees the API-key secret and no OAuth
+      # provider, so it uses ApiKeyCredentials (Secrets Manager) instead of the
+      # AgentCore Identity token flow.
+      CONNECTOR_API_KEY_SECRET = var.tavily_secret_name
+      HOMEBASE_DEFAULT_TENANT  = var.project_name
+    }
+  }
+
+  tags = local.common_tags
+}

@@ -102,3 +102,15 @@ variable "connector_shim_lambda_arns" {
   type        = map(string)
   default     = {}
 }
+
+# ---------------------------------------------------------------------------
+# Web connector (Tavily): a no-OAuth connector authenticated by a single vendor
+# API key held in Secrets Manager. The secret is created BY HAND (it is an INPUT,
+# never committed); pass its name here from git-ignored tfvars. Leave empty to skip
+# the web connector entirely (the chat agent then has no internet tool).
+# ---------------------------------------------------------------------------
+variable "tavily_secret_name" {
+  description = "Secrets Manager secret NAME holding the Tavily API key (raw string or JSON with an api_key field). Empty disables the web connector."
+  type        = string
+  default     = ""
+}

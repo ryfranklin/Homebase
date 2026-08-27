@@ -42,7 +42,7 @@ class ConnectorClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.call("bogus_tool", {}, "homebase")
 
-    def test_tool_specs_include_the_five_read_tools(self):
+    def test_tool_specs_include_the_read_tools(self):
         client = ConnectorClient(FakeLambda({}), "homebase-prod")
         names = {t["toolSpec"]["name"] for t in client.tool_specs()}
         self.assertEqual(
@@ -54,8 +54,17 @@ class ConnectorClientTests(unittest.TestCase):
                 "gdrive_search_files",
                 "jira_search_issues",
                 "confluence_search",
+                "web_search",
+                "web_fetch",
             },
         )
+
+    def test_web_tools_map_to_the_web_shim(self):
+        for tool in ("web_search", "web_fetch"):
+            lam = FakeLambda({"requires_confirmation": False, "result": {"results": []}})
+            client = ConnectorClient(lam, "homebase-prod")
+            client.call(tool, {"query": "hello"}, "homebase")
+            self.assertEqual(lam.invocations[0][0], "homebase-prod-connector-web")
 
     def test_gdrive_tool_exposes_folder_id_for_folder_listing(self):
         client = ConnectorClient(FakeLambda({}), "homebase-prod")

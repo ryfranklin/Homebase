@@ -17,7 +17,7 @@ WRITE = "write"
 # Identity; it does not reuse any other app's tokens. Jira and Confluence are
 # distinct connectors (separate shims/tools) backed by the same Atlassian OAuth
 # provider, so one Atlassian consent (unioned scopes) covers both.
-CONNECTORS = ("gmail", "gcal", "gdrive", "slack", "quickbooks", "atlassian", "confluence")
+CONNECTORS = ("gmail", "gcal", "gdrive", "slack", "quickbooks", "atlassian", "confluence", "web")
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,11 @@ _TOOL_LIST = [
     Tool("atlassian", "jira.search_issues", READ, ("read:jira-work",), "Search Jira issues"),
     Tool("atlassian", "jira.create_issue", WRITE, ("write:jira-work",), "Create a Jira issue"),
     Tool("confluence", "confluence.search", READ, ("search:confluence", "read:page:confluence", "read:space:confluence"), "Search Confluence pages with a CQL query"),
+    # Web (Tavily): no OAuth, authenticated by a static API key (ApiKeyCredentials).
+    # Read-only by nature; empty scopes and no write tool. Fetching is delegated to
+    # Tavily's server-side extract, so the shim never dereferences a model-supplied URL.
+    Tool("web", "web.search", READ, (), "Search the public web for current information"),
+    Tool("web", "web.fetch", READ, (), "Fetch and extract the readable content of web page URLs"),
 ]
 
 TOOLS = {tool.name: tool for tool in _TOOL_LIST}

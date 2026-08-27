@@ -262,6 +262,42 @@ resource "aws_bedrockagentcore_gateway_target" "connector" {
 }
 
 # ---------------------------------------------------------------------------
+# Web connector Gateway target (Tavily). Exposes the read-only web_search tool over
+# MCP for parity with the OAuth connectors. The chat agent invokes the shim directly
+# (like the others); this target lets any Gateway MCP client reach it too. Gated on
+# tavily_secret_name via local.web_enabled (see shims.tf).
+# ---------------------------------------------------------------------------
+resource "aws_bedrockagentcore_gateway_target" "web" {
+  count = local.web_enabled ? 1 : 0
+
+  gateway_identifier = aws_bedrockagentcore_gateway.this.gateway_id
+  name               = "${local.name_prefix}-web"
+
+  credential_provider_configuration {
+    gateway_iam_role {}
+  }
+
+  target_configuration {
+    mcp {
+      lambda {
+        lambda_arn = aws_lambda_function.web_shim[0].arn
+
+        tool_schema {
+          inline_payload {
+            name        = "web_search"
+            description = "Search the public web for current information (read-only)"
+
+            input_schema {
+              type = "object"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Non-secret identifiers exported to SSM for the agent (P6).
 # ---------------------------------------------------------------------------
 resource "aws_ssm_parameter" "gateway_id" {

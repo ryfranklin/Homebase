@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { activeCriteria, approvedCount, pendingCount, readyToClear, type FlightPlan } from "../plan/types";
 import type { MaterializeResult } from "../plan/materialize";
+import { openConnectorConsent } from "../connectors/openConsent";
 import { MaterializePreview } from "./MaterializePreview";
 
 function Check({ ok, children }: { ok: boolean; children: React.ReactNode }) {
@@ -77,9 +78,15 @@ export function PreflightModal({
         {onMaterialize && (
           <div className="preflight-jira">
             {result?.requires_authorization ? (
-              <a className="vault-btn" href={result.authorization_url ?? "#"}>
+              // Re-consent in a SEPARATE window so the pre-flight modal and plan stay
+              // put; after linking, the user just clicks Materialize again.
+              <button
+                type="button"
+                className="vault-btn"
+                onClick={() => openConnectorConsent(result.authorization_url ?? "")}
+              >
                 Link Atlassian to materialize
-              </a>
+              </button>
             ) : result?.epic ? (
               <div className="preflight-jira-result">
                 Created <strong>{result.epic}</strong>

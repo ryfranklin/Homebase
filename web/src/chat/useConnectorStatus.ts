@@ -32,7 +32,17 @@ export function useConnectorStatus(
   }, [apiBaseUrl]);
 
   useEffect(() => {
-    if (enabled) void refresh();
+    if (!enabled) return;
+    void refresh();
+    // Light poll so a token that expires mid-session surfaces in the reconnect banner
+    // without the user having to trigger a failing call first. Cheap (a status probe),
+    // and paused when the tab is hidden to avoid needless traffic.
+    const POLL_MS = 90_000;
+    const tick = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const id = window.setInterval(tick, POLL_MS);
+    return () => window.clearInterval(id);
   }, [enabled, refresh]);
 
   return { connectors, refresh };

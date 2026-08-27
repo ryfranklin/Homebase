@@ -9,12 +9,15 @@ token or endpoint is hardcoded here.
 from __future__ import annotations
 
 from .gate import WriteGate
-from .identity import ConnectorCredentials
 from .lambda_identity import AuthorizationRequiredError
 
 
 class ConnectorShim:
-    def __init__(self, connector, credentials: ConnectorCredentials, api, gate=None):
+    def __init__(self, connector, credentials, api, gate=None):
+        # `credentials` is any object exposing get_access_token(tenant_id, connector)
+        # -> str: ConnectorCredentials (OAuth) or ApiKeyCredentials (no-OAuth vendor
+        # key). The shim stays credential-agnostic so a new auth shape needs no change
+        # here.
         self._connector = connector
         self._credentials = credentials
         self._api = api
