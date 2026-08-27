@@ -2,10 +2,8 @@
 // on localhost without a real Cognito session. Gated behind import.meta.env.DEV in
 // App, so it is never part of a production build.
 
-import { useState } from "react";
-
 import { FlightPlanner } from "./plan/FlightPlanner";
-import { VaultChatPanel, type ChatScope } from "./components/VaultChatPanel";
+import { VaultChatPanel } from "./components/VaultChatPanel";
 import { EvalsView } from "./components/EvalsView";
 import { DocsView } from "./components/DocsView";
 import { SAMPLE_PAYLOAD, SAMPLE_SUMMARY } from "./evals/api";
@@ -40,7 +38,6 @@ const SAMPLE: ChatMessage[] = [
 ];
 
 function ChatPreview() {
-  const [scope, setScope] = useState<ChatScope>("vault");
   return (
     <div className="vault">
       <div className="vault-body">
@@ -55,8 +52,6 @@ function ChatPreview() {
           streaming={false}
           onSend={() => {}}
           onStop={() => {}}
-          scope={scope}
-          onScopeChange={setScope}
         />
       </div>
     </div>

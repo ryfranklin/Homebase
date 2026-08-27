@@ -19,7 +19,6 @@ export function useChatThreads(
   apiBaseUrl: string,
   getToken: () => Promise<string>,
   chat: UseChat,
-  getScope: () => "vault" | "general",
   enabled: boolean,
   fetchImpl?: typeof fetch,
 ): UseChatThreads {
@@ -53,7 +52,9 @@ export function useChatThreads(
     const id = chat.sessionId;
     void (async () => {
       try {
-        await api.save(id, { scope: getScope(), messages: stored });
+        // Scope is now per-message (slash commands), so the thread carries the default
+        // label rather than a persistent toggle value.
+        await api.save(id, { scope: "general", messages: stored });
         await refresh();
       } catch {
         /* best effort: a failed save should never disrupt the chat */

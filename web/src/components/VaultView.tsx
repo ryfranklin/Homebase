@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { UseVault } from "../vault/useVault";
-import type { UseChat } from "../chat/useChat";
+import type { UseChat, SendOptions } from "../chat/useChat";
 import type { UseChatThreads } from "../chat/useChatThreads";
 import { timeAgo } from "../vault/format";
 import { deriveNoteKey } from "../vault/templates";
@@ -10,7 +10,7 @@ import type { TemplateMeta } from "../vault/types";
 import { Markdown } from "./Markdown";
 import { VaultTree } from "./VaultTree";
 import { VaultHistory } from "./VaultHistory";
-import { VaultChatPanel, type ChatScope } from "./VaultChatPanel";
+import { VaultChatPanel } from "./VaultChatPanel";
 import { NewDocPanel } from "./NewDocPanel";
 import { ModeSwitch, type AppMode } from "./ModeSwitch";
 import type { ModelOption } from "../config";
@@ -21,8 +21,6 @@ export interface VaultViewProps {
   // Chat is docked in the Vault surface (the merged Vault + Chat experience).
   chat: UseChat;
   threads: UseChatThreads;
-  scope: ChatScope;
-  onScopeChange: (scope: ChatScope) => void;
   models?: ModelOption[];
   model?: string;
   onModelChange?: (id: string) => void;
@@ -37,7 +35,7 @@ export interface VaultViewProps {
 // The vault workspace: a sidebar (search + file tree), a note reader/editor, and
 // a Linked-references panel. Notes live in the S3 corpus; saving re-grounds the
 // agent. The visual language matches the near-black chat theme.
-export function VaultView({ vault, chat, threads, scope, onScopeChange, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings, connectors, onConnect }: VaultViewProps) {
+export function VaultView({ vault, chat, threads, models, model, onModelChange, onNavigate, onSignOut, onOpenSettings, connectors, onConnect }: VaultViewProps) {
   const [term, setTerm] = useState("");
   const [creating, setCreating] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
@@ -90,13 +88,14 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
   // Chat send wrapper: in an author session, thread mode "author" + the document as
   // context (the current draft once one exists, else just the target path); otherwise
   // a normal chat turn.
-  const handleSend = (text: string) => {
+  const handleSend = (text: string, opts?: SendOptions) => {
     if (authorPath) {
       const draft = latestDraftContent();
       const ctx = draft ? { path: authorPath, draft } : { path: authorPath };
       void chat.send(text, { mode: "author", authorContext: JSON.stringify(ctx) });
     } else {
-      void chat.send(text);
+      // opts carries any slash-command routing parsed in the chat panel.
+      void chat.send(text, opts);
     }
   };
 
@@ -341,8 +340,6 @@ export function VaultView({ vault, chat, threads, scope, onScopeChange, models, 
             streaming={chat.streaming}
             onSend={handleSend}
             onStop={chat.stop}
-            scope={scope}
-            onScopeChange={onScopeChange}
             models={models}
             model={model}
             onModelChange={onModelChange}
