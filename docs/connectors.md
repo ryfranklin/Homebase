@@ -6,6 +6,10 @@ Identity. The same six systems may exist as Claude.ai integrations elsewhere; Ho
 those tokens, and it does not reuse any Mission Control bot credentials. Every connector has its own
 credentialed path.
 
+A seventh connector, `web` (Tavily), gives the agent live internet access and is the one exception to
+the OAuth model: it is keyed by a single API key, not a per-user token (see "Web search" below). It is
+optional, enabled only when its secret is configured.
+
 This document is the by-hand OAuth setup you perform once, outside the repo. All identifiers below are
 placeholders. Nothing here (client ids, secrets, workspace or app ids, tokens) is committed: client
 ids and secrets go into the git-ignored `infra/stacks/connectors/terraform.tfvars`, and AgentCore
@@ -64,11 +68,39 @@ credentials. It does NOT reuse the Mission Control bot tokens or the Claude.ai S
 3. Note the OIDC discovery URL.
 4. Put the client id, secret, and discovery URL into git-ignored tfvars.
 
+## Web search (Tavily): the no-OAuth connector
+
+The `web` connector gives the agent live internet access as two read-only tools, `web_search` and
+`web_fetch`. Unlike the six above, it is not per-user OAuth: it authenticates Homebase (not a tenant)
+to Tavily with a single API key, so there is no consent step, no per-tenant token, and no re-auth. It
+still follows the same shim/catalog/Gateway pattern; only the credential path differs (an
+`ApiKeyCredentials` that reads the key from Secrets Manager, selected when the shim has an API-key
+secret and no OAuth provider).
+
+SSRF containment: `web_fetch` does NOT dereference a model-supplied URL from the Lambda. Both tools POST
+to the pinned `api.tavily.com` host, and `web_fetch` delegates the actual page retrieval to Tavily's
+server-side `/extract`, so the shim's only egress is to the one vendor host. The web shim also runs on a
+dedicated, minimal IAM role (read the Tavily secret and write logs, nothing else).
+
+Setup (optional; skip to run without web search):
+
+1. Create a Tavily account and API key.
+2. Store it as a Secrets Manager secret by hand (raw string or JSON with an `api_key` field):
+
+   ```bash
+   aws secretsmanager create-secret --name "homebase-<env>-tavily-api-key" \
+     --secret-string '{"api_key":"<YOUR_TAVILY_API_KEY>"}'
+   ```
+
+3. Put the secret NAME into git-ignored tfvars as `tavily_secret_name`. Leaving it empty disables the
+   `web` connector entirely (no shim, no Gateway target).
+
 ## After setup
 
 `terraform -chdir=infra/stacks/connectors apply` registers the Gateway, the credential providers, and
-the read-first targets. The write-confirmation gate is already enforced in code; enabling a write tool
-means adding its scope above and wiring the tool, and it stays gated regardless.
+the read-first targets (including the `web` target when `tavily_secret_name` is set). The
+write-confirmation gate is already enforced in code; enabling a write tool means adding its scope above
+and wiring the tool, and it stays gated regardless.
 
 ## Consent and the finalize step (self-enrollment)
 
@@ -83,6 +115,14 @@ into the durable vault and every later request just restarts consent. The web SP
 `/api/connectors/complete`, which calls `CompleteResourceTokenAuth` with the caller's tenant as the
 AgentCore userId (the same identity the shim uses). After that the token is vaulted and reads work
 headlessly. The BFF role is granted `bedrock-agentcore:CompleteResourceTokenAuth` for this.
+
+Re-consent is non-blocking. When a vaulted token later expires, the shim again returns
+`requires_authorization`. Rather than interrupting the screen, the GUI surfaces this two ways: an
+app-level reconnect banner (driven by `/api/connectors/status` plus a light poll) and a per-turn
+`authorization_required` chat event. In both, "Reconnect" opens the consent in a SEPARATE popup window
+(`openConnectorConsent`); the popup relays its `?session_id=` back and finalizes in place, so the
+current chat or plan is never reloaded. This applies to the six OAuth connectors only; the `web`
+connector has no token and never needs re-auth.
 
 Notes learned in live verification:
 - AgentCore vaults tokens by the EXACT scope set, so a connector must request the same scopes on every

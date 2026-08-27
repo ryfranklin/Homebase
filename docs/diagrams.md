@@ -130,7 +130,8 @@ flowchart TB
       Titan["Titan Embeddings"]
     end
     KB["Knowledge Base"] --> S3V["Amazon S3 Vectors"]
-    Shims["Lambda connector shims x6"]
+    Shims["Lambda connector shims x6<br/>(per-user OAuth)"]
+    WebShim["Web shim (Tavily)<br/>API key · minimal role · optional"]
 
     subgraph state["State & security"]
       S3c["S3 corpus · KMS"]
@@ -142,6 +143,8 @@ flowchart TB
       SSM["SSM · Session Manager / ECS Exec"]
       CW["CloudWatch · logs · alarms"]
       SNS["SNS · budget / alarms"]
+      CT["CloudTrail · multi-region<br/>KMS'd, locked bucket"]
+      FL["VPC flow logs"]
     end
   end
 
@@ -160,6 +163,9 @@ flowchart TB
   Shims --> IDV
   IDV --> SM
   Shims --> Vendors([Vendor APIs])
+  RT -->|"lambda:InvokeFunction"| WebShim
+  WebShim --> SM
+  WebShim --> Tavily([Tavily API · search + extract])
   SSM -.->|"no SSH"| WS
   SSM -.-> CLI
   CW --> SNS
@@ -179,6 +185,7 @@ flowchart LR
     App --> useAuth
     App --> useChat
     App --> ChatView
+    App --> ReauthBanner["ConnectorReauthBanner<br/>(non-blocking, separate-window re-consent)"]
     ChatView --> DocsOverlay
     ChatView --> ConnectorBanner
     useChat --> sseClient
@@ -215,6 +222,7 @@ flowchart LR
   ConnectorClient -- "lambda:InvokeFunction" --> chandler
   RetrievalTool --> KB["Bedrock KB · S3 Vectors"]
   capi --> vendors["Gmail · GCal · Drive · Slack · Jira · Confluence"]
+  capi --> web2["Web search · Tavily (api key, no OAuth)"]
 ```
 
 ---
@@ -295,6 +303,9 @@ flowchart TB
   SH -->|tenant OAuth token| ID[AgentCore Identity vault]
   SH -->|REST| V[Vendor API]
   V -->|records| LOOP
+  LOOP -->|web_search / web_fetch| WSH[Web shim · Tavily]
+  WSH -->|api key from Secrets Manager| WV[Tavily API · server-side extract]
+  WV -->|results| LOOP
   LOOP -->|converse_stream tokens| RT
   RT -->|SSE| BFF
   BFF -->|SSE relay| CF
