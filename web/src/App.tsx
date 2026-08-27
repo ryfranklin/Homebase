@@ -29,7 +29,6 @@ const DocsView = lazy(() => import("./components/DocsView").then((m) => ({ defau
 // Chat is merged into the Vault surface (a docked chat panel), so there is no
 // standalone Chat mode; Evals and Docs are their own surfaces.
 type Mode = "vault" | "plan" | "mission" | "evals" | "docs";
-type ChatScope = "vault" | "general";
 
 export function App() {
   const config = useMemo(() => loadConfig(), []);
@@ -47,20 +46,9 @@ export function App() {
     localStorage.setItem("homebase.model", id);
   }, []);
   const getModel = useCallback(() => modelRef.current || undefined, []);
-  // Chat scope for the Vault chat panel: "vault" (only KB + connectors) by default,
-  // "general" opens the model up. Persisted per browser; a ref backs the getter so
-  // useChat reads the current choice per send without re-creating the hook.
-  const [chatScope, setChatScope] = useState<ChatScope>(
-    () => (localStorage.getItem("homebase.chatScope") === "general" ? "general" : "vault"),
-  );
-  const scopeRef = useRef(chatScope);
-  scopeRef.current = chatScope;
-  const setScope = useCallback((s: ChatScope) => {
-    setChatScope(s);
-    localStorage.setItem("homebase.chatScope", s);
-  }, []);
-  const getScope = useCallback(() => scopeRef.current, []);
-  const chat = useChat(config.apiBaseUrl, auth.getAccessToken, undefined, getModel, getScope);
+  // Chat scope is now per-message via slash commands (/vault, /general, /web); there is
+  // no persistent toggle. With no command the default is the vault (KB + connectors).
+  const chat = useChat(config.apiBaseUrl, auth.getAccessToken, undefined, getModel);
   const vault = useVault(config.apiBaseUrl, auth.getAccessToken, auth.getIdToken, auth.authenticated);
   // Vault-first: Homebase is primarily the knowledge-vault workspace, with the
   // agent chat one click away. Both hooks live here, so switching modes preserves
@@ -68,7 +56,7 @@ export function App() {
   const [mode, setMode] = useState<Mode>("vault");
   // Chat thread memory: lists saved threads and auto-saves the current one to the
   // vault when an exchange completes. Active on the Vault surface (where chat lives).
-  const chatThreads = useChatThreads(config.apiBaseUrl, auth.getAccessToken, chat, getScope, mode === "vault");
+  const chatThreads = useChatThreads(config.apiBaseUrl, auth.getAccessToken, chat, mode === "vault");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Flight plans persist as vault notes. Keep the store identity stable across token
   // refreshes (read the latest token via refs) so the Plan board doesn't reload on
@@ -136,8 +124,6 @@ export function App() {
             vault={vault}
             chat={chat}
             threads={chatThreads}
-            scope={chatScope}
-            onScopeChange={setScope}
             models={config.models}
             model={model}
             onModelChange={selectModel}

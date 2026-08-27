@@ -10,10 +10,19 @@ function nextId(): string {
 }
 
 // Per-send overrides. Author mode drives the guided document-authoring session: each
-// turn carries mode "author" and the evolving document as authorContext (JSON).
+// turn carries mode "author" and the evolving document as authorContext (JSON). The
+// scope/mode/forceWeb overrides also back the chat slash commands (see chat/commands.ts):
+// a single message can route to the vault, general knowledge, the web, or a plan without
+// touching the persistent scope toggle.
 export interface SendOptions {
-  mode?: "author";
+  mode?: "author" | "plan";
+  // Per-message scope override (from a slash command). Unset means the default:
+  // the vault (knowledge base + connectors). /general and /web open the model up.
+  scope?: "vault" | "general";
   authorContext?: string;
+  // When set, the request is phrased to force a web search. The DISPLAYED user message
+  // still shows exactly what was typed; only the payload sent to the agent is prefixed.
+  forceWeb?: boolean;
 }
 
 export interface UseChat {
@@ -52,9 +61,6 @@ export function useChat(
   getToken: () => Promise<string>,
   fetchImpl?: typeof fetch,
   getModel?: () => string | undefined,
-  // getScope returns the chat scope ("vault" | "general"), read fresh per send so
-  // flipping the Vault chat toggle takes effect immediately.
-  getScope?: () => "vault" | "general" | undefined,
 ): UseChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
@@ -87,6 +93,11 @@ export function useChat(
       if (!trimmed || streaming) return;
 
       const assistantId = nextId();
+      // The bubble shows exactly what the user typed. forceWeb (the /web command) only
+      // rephrases the PAYLOAD to make the agent web-search, without changing the display.
+      const requestInput = opts?.forceWeb
+        ? `Search the web to answer this question, then cite the source URLs: ${trimmed}`
+        : trimmed;
       setMessages((prev) => [
         ...prev,
         { id: nextId(), role: "user", text: trimmed, citations: [], toolEvents: [], streaming: false },
@@ -103,10 +114,12 @@ export function useChat(
           apiBaseUrl,
           token,
           {
-            input: trimmed,
+            input: requestInput,
             sessionId: sessionIdRef.current,
             model: getModel?.(),
-            scope: getScope?.(),
+            // Default to the vault (knowledge base + connectors) when no slash command
+            // overrides it; /general and /web open the model up for that one message.
+            scope: opts?.scope ?? "vault",
             ...(opts?.mode ? { mode: opts.mode } : {}),
             ...(opts?.authorContext ? { authorContext: opts.authorContext } : {}),
           },
@@ -125,7 +138,7 @@ export function useChat(
         abortRef.current = null;
       }
     },
-    [apiBaseUrl, getToken, fetchImpl, getModel, getScope, streaming],
+    [apiBaseUrl, getToken, fetchImpl, getModel, streaming],
   );
 
   const stop = useCallback(() => {

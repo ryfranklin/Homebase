@@ -24,8 +24,6 @@ const chatProps = {
     selectThread: async () => {},
     newThread: () => {},
   },
-  scope: "vault" as const,
-  onScopeChange: () => {},
 };
 
 function fakeVault(overrides: Partial<UseVault> = {}): UseVault {

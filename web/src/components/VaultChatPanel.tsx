@@ -7,18 +7,16 @@ import type { ConnectorStatuses } from "../chat/useConnectorStatus";
 import { Citations } from "./Citations";
 import { ChatConnections } from "./ChatConnections";
 import { noteFromMarkdown, stripNoteBlock } from "../vault/noteDraft";
+import type { SendOptions } from "../chat/useChat";
+import { parseChatCommand, matchCommands } from "../chat/commands";
 
 const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
-
-export type ChatScope = "vault" | "general";
 
 export interface VaultChatPanelProps {
   messages: ChatMessage[];
   streaming: boolean;
-  onSend: (input: string) => void;
+  onSend: (input: string, opts?: SendOptions) => void;
   onStop?: () => void;
-  scope: ChatScope;
-  onScopeChange: (scope: ChatScope) => void;
   models?: ModelOption[];
   model?: string;
   onModelChange?: (id: string) => void;
@@ -72,10 +70,10 @@ function Thinking() {
   );
 }
 
-// A chat panel docked in the Vault surface. The scope toggle chooses whether the
-// agent answers strictly from vault material (KB docs + connectors) or opens up to
-// general knowledge. It reuses the same streaming chat engine as before.
-export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onScopeChange, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onDeleteThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
+// A chat panel docked in the Vault surface. Per-message routing is done with slash
+// commands (/web, /vault, /general, /plan); with no command the agent answers
+// grounded-first. It reuses the same streaming chat engine as before.
+export function VaultChatPanel({ messages, streaming, onSend, onStop, models = [], model, onModelChange, threads = [], activeId, onSelectThread, onNewThread, onDeleteThread, onClose, connectors, onConnect, onCreateNote, authoring }: VaultChatPanelProps) {
   const [input, setInput] = useState("");
   // Draft cards whose "Create note" was already clicked (by message id), so the button
   // disables after one use and can't re-create/overwrite the note.
@@ -95,9 +93,16 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || streaming) return;
-    onSend(input);
+    // A leading slash command routes this one message (e.g. /web, /vault); otherwise
+    // the input passes through unchanged.
+    const { text, opts } = parseChatCommand(input);
+    if (!text.trim()) return; // e.g. a bare "/web" with no question yet
+    onSend(text, opts);
     setInput("");
   };
+
+  // Command hint menu: shown while the input is just a slash + partial command name.
+  const commandHints = matchCommands(input);
 
   return (
     <aside className={`vault-chat${collapsed ? " collapsed" : ""}`} aria-label="Chat">
@@ -155,28 +160,6 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
         </div>
       )}
       <div className="vault-chat-head">
-        <div className="scope-toggle" role="tablist" aria-label="Chat scope">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "vault"}
-            className={scope === "vault" ? "scope-active" : undefined}
-            onClick={() => onScopeChange("vault")}
-            title="Answer only from your vault: knowledge base docs + connected accounts"
-          >
-            Vault only
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "general"}
-            className={scope === "general" ? "scope-active" : undefined}
-            onClick={() => onScopeChange("general")}
-            title="Open the model to general knowledge and features"
-          >
-            General
-          </button>
-        </div>
         <div className="vault-chat-head-right">
           <ModelSelector models={models} model={model} onModelChange={onModelChange} />
           {onClose && (
@@ -201,13 +184,11 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
       <main className="vault-chat-transcript" aria-live="polite">
         {messages.length === 0 && !authoring && (
           <div className="vault-chat-empty">
-            <p className="vault-chat-empty-title">
-              {scope === "vault" ? "Ask about your vault." : "Ask anything."}
-            </p>
+            <p className="vault-chat-empty-title">Ask about your vault.</p>
             <p className="vault-chat-empty-sub">
-              {scope === "vault"
-                ? "Answers come only from your knowledge base and connected accounts, with citations."
-                : "General knowledge is on; vault sources are still cited when used."}
+              Answers come from your knowledge base and connected accounts, with citations. Type{" "}
+              <code>/</code> for commands — <code>/web</code> to search the internet,{" "}
+              <code>/general</code> for general knowledge.
             </p>
             {connectors && <ChatConnections connectors={connectors} onConnect={onConnect} />}
           </div>
@@ -272,6 +253,22 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
       </main>
 
       <form className="composer vault-chat-composer" onSubmit={submit}>
+        {commandHints.length > 0 && (
+          <ul className="command-hints" role="listbox" aria-label="Chat commands">
+            {commandHints.map((c) => (
+              <li key={c.name}>
+                <button
+                  type="button"
+                  className="command-hint"
+                  onClick={() => setInput(`/${c.name} `)}
+                >
+                  <span className="command-hint-usage">{c.usage}</span>
+                  <span className="command-hint-desc">{c.description}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="composer-field">
           <textarea
             className="composer-input"
@@ -283,7 +280,7 @@ export function VaultChatPanel({ messages, streaming, onSend, onStop, scope, onS
                 submit(e);
               }
             }}
-            placeholder={authoring ? "Answer, or say “just draft it”…" : scope === "vault" ? "Ask your vault…" : "Message Homebase…"}
+            placeholder={authoring ? "Answer, or say “just draft it”…" : "Message Homebase — type / for commands"}
             rows={1}
             aria-label="Message"
           />
