@@ -1,0 +1,979 @@
+{
+    "failed_checks": [
+        {
+            "file": "/modules/kms/main.tf",
+            "findings": [
+                {
+                    "resource": "module.agent_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.api_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.cli_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.cloudtrail_kms[0].aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.connectors_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.corpus_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.state_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.worker_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "module.workstation_kms.aws_iam_policy_document.default",
+                    "check_ids": [
+                        "CKV_AWS_109",
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/modules/vpc/main.tf",
+            "findings": [
+                {
+                    "resource": "module.vpc.aws_cloudwatch_log_group.flow[0]",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "module.vpc.aws_vpc.this",
+                    "check_ids": [
+                        "CKV2_AWS_12"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/agent/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.agent",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.agent",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.agent_ecr_repository_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.agent_memory_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.agent_runtime_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/api/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.bff",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_iam_policy_document.bff",
+                    "check_ids": [
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "aws_iam_policy_document.rotation",
+                    "check_ids": [
+                        "CKV_AWS_111",
+                        "CKV_AWS_356"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.bff",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.rotation",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function_url.bff",
+                    "check_ids": [
+                        "CKV_AWS_258"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_permission.rotation",
+                    "check_ids": [
+                        "CKV_AWS_364"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.bff_function_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.origin_secret_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/bootstrap/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_s3_bucket.state",
+                    "check_ids": [
+                        "CKV2_AWS_61",
+                        "CKV2_AWS_62",
+                        "CKV_AWS_144",
+                        "CKV_AWS_18"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/connectors/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_ssm_parameter.gateway_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.gateway_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/connectors/shims.tf",
+            "findings": [
+                {
+                    "resource": "aws_lambda_function.shim[\"atlassian\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.shim[\"confluence\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.shim[\"gcal\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.shim[\"gdrive\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.shim[\"gmail\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.shim[\"slack\"]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                },
+                {
+                    "resource": "aws_lambda_function.web_shim",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/eval/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.task",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.this",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_s3_bucket.artifacts",
+                    "check_ids": [
+                        "CKV2_AWS_62",
+                        "CKV_AWS_144",
+                        "CKV_AWS_18",
+                        "CKV_AWS_21"
+                    ]
+                },
+                {
+                    "resource": "aws_s3_bucket_lifecycle_configuration.artifacts",
+                    "check_ids": [
+                        "CKV_AWS_300"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.task",
+                    "check_ids": [
+                        "CKV2_AWS_5",
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.bucket_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.cluster_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.ecr_repository_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.kms_key_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.pricing",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.security_group_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.subnet_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.table_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.task_definition_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/foundation/budget.tf",
+            "findings": [
+                {
+                    "resource": "aws_ssm_parameter.budget_sns_topic_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.kms_key_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/identity/allowlist.tf",
+            "findings": [
+                {
+                    "resource": "aws_lambda_function.presignup[0]",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/identity/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_ssm_parameter.app_client_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.hosted_ui_domain",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.issuer_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.user_pool_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/mission-control/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.exec",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_cloudwatch_log_group.task",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_db_instance.this",
+                    "check_ids": [
+                        "CKV2_AWS_30",
+                        "CKV2_AWS_60",
+                        "CKV_AWS_118",
+                        "CKV_AWS_129",
+                        "CKV_AWS_157",
+                        "CKV_AWS_161",
+                        "CKV_AWS_353"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.this",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_secretsmanager_secret.api_token",
+                    "check_ids": [
+                        "CKV2_AWS_57"
+                    ]
+                },
+                {
+                    "resource": "aws_secretsmanager_secret.db_url",
+                    "check_ids": [
+                        "CKV2_AWS_57"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.cluster_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.github_token_secret_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.mission_token_secret_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.mission_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.service_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/monitoring/cloudtrail.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudtrail.this[0]",
+                    "check_ids": [
+                        "CKV2_AWS_10",
+                        "CKV_AWS_252"
+                    ]
+                },
+                {
+                    "resource": "aws_s3_bucket.trail[0]",
+                    "check_ids": [
+                        "CKV2_AWS_6",
+                        "CKV2_AWS_61",
+                        "CKV2_AWS_62",
+                        "CKV_AWS_144",
+                        "CKV_AWS_145",
+                        "CKV_AWS_18",
+                        "CKV_AWS_21"
+                    ]
+                },
+                {
+                    "resource": "aws_s3_bucket_lifecycle_configuration.trail[0]",
+                    "check_ids": [
+                        "CKV_AWS_300"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/monitoring/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_lambda_function.uptime",
+                    "check_ids": [
+                        "CKV_AWS_115",
+                        "CKV_AWS_116",
+                        "CKV_AWS_117",
+                        "CKV_AWS_173",
+                        "CKV_AWS_272",
+                        "CKV_AWS_50"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/retrieval/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_ssm_parameter.data_source_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.default_search_type",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.embedding_model_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.knowledge_base_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.rerank_model_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/slackbot/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.exec",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_cloudwatch_log_group.task",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.this",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_ecs_task_definition.this",
+                    "check_ids": [
+                        "CKV_AWS_336"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.cluster_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.service_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/ssh-chat/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.exec",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_cloudwatch_log_group.task",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.cli",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_ecs_task_definition.this",
+                    "check_ids": [
+                        "CKV_AWS_336"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.cluster_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.service_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/storage/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_s3_bucket.corpus",
+                    "check_ids": [
+                        "CKV2_AWS_62",
+                        "CKV_AWS_144",
+                        "CKV_AWS_18"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.corpus_bucket_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.corpus_kms_key_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/vault-worker/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudwatch_log_group.exec",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_cloudwatch_log_group.task",
+                    "check_ids": [
+                        "CKV_AWS_338"
+                    ]
+                },
+                {
+                    "resource": "aws_ecr_repository.worker",
+                    "check_ids": [
+                        "CKV_AWS_51"
+                    ]
+                },
+                {
+                    "resource": "aws_instance.nat",
+                    "check_ids": [
+                        "CKV2_AWS_41",
+                        "CKV_AWS_126",
+                        "CKV_AWS_135",
+                        "CKV_AWS_88"
+                    ]
+                },
+                {
+                    "resource": "aws_secretsmanager_secret.worker_secret",
+                    "check_ids": [
+                        "CKV2_AWS_57"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.client",
+                    "check_ids": [
+                        "CKV2_AWS_5",
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.nat",
+                    "check_ids": [
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.worker",
+                    "check_ids": [
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.client_sg_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.cluster_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.private_subnet_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.service_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.worker_secret_arn",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.worker_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_subnet.public",
+                    "check_ids": [
+                        "CKV_AWS_130"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/web/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_cloudfront_distribution.this",
+                    "check_ids": [
+                        "CKV2_AWS_47",
+                        "CKV_AWS_174",
+                        "CKV_AWS_310",
+                        "CKV_AWS_374",
+                        "CKV_AWS_86"
+                    ]
+                },
+                {
+                    "resource": "aws_s3_bucket.static",
+                    "check_ids": [
+                        "CKV2_AWS_61",
+                        "CKV2_AWS_62",
+                        "CKV_AWS_144",
+                        "CKV_AWS_145",
+                        "CKV_AWS_18"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.bff_origin_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.distribution_domain",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.distribution_id",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_wafv2_web_acl.this",
+                    "check_ids": [
+                        "CKV2_AWS_31"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/stacks/workstation/main.tf",
+            "findings": [
+                {
+                    "resource": "aws_instance.nat",
+                    "check_ids": [
+                        "CKV2_AWS_41",
+                        "CKV_AWS_126",
+                        "CKV_AWS_135",
+                        "CKV_AWS_88"
+                    ]
+                },
+                {
+                    "resource": "aws_instance.workstation",
+                    "check_ids": [
+                        "CKV_AWS_126",
+                        "CKV_AWS_135"
+                    ]
+                },
+                {
+                    "resource": "aws_scheduler_schedule.stop[0]",
+                    "check_ids": [
+                        "CKV_AWS_297"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.nat",
+                    "check_ids": [
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_security_group.workstation",
+                    "check_ids": [
+                        "CKV_AWS_382"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.dotfiles_auth_secret_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.dotfiles_repo_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.dotfiles_secret_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.vault_auth_secret_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.vault_git_user_email",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.vault_git_user_name",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_ssm_parameter.vault_repo_url",
+                    "check_ids": [
+                        "CKV2_AWS_34"
+                    ]
+                },
+                {
+                    "resource": "aws_subnet.public",
+                    "check_ids": [
+                        "CKV_AWS_130"
+                    ]
+                }
+            ]
+        }
+    ]
+}

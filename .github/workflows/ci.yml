@@ -50,6 +50,39 @@ jobs:
             echo "No Terraform files yet; skipping fmt check."
           fi
 
+  iac-security:
+    name: iac security scan (checkov, gated on NEW findings vs baseline)
+    runs-on: ubuntu-latest
+    # Scans the Terraform for AWS misconfigurations. Offline, NO cloud credentials.
+    # The repo's split-resource idiom (a bucket plus separate public-access-block /
+    # versioning / encryption resources, often under count/for_each) and several
+    # deliberately-accepted patterns (the intentionally-public SPA bucket on SSE-S3,
+    # the architecturally-required AgentCore IAM wildcards) produce a large set of
+    # known findings. Those are frozen in infra/.checkov.baseline, so this gate is
+    # green today and fails only on NEW misconfigurations a change introduces (for
+    # example a fresh 0.0.0.0/0 security group or an unencrypted new bucket).
+    # To re-triage after intentionally changing infra, refresh the baseline:
+    #   checkov -d infra --framework terraform --create-baseline --soft-fail
+    # and commit infra/.checkov.baseline with the change.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pinned so a new Checkov release cannot turn an unrelated PR red by adding a
+      # check that fires on already-committed infra; bump deliberately.
+      - name: Install Checkov
+        run: python -m pip install --upgrade pip "checkov==3.3.15"
+      - name: Checkov (Terraform) — fail only on findings not in the baseline
+        run: |
+          if [ -d infra ] && find infra -name '*.tf' -print -quit | grep -q .; then
+            checkov -d infra --framework terraform \
+              --baseline infra/.checkov.baseline \
+              --compact --quiet
+          else
+            echo "No Terraform files yet; skipping IaC scan."
+          fi
+
   lint:
     name: language linters (where code exists)
     runs-on: ubuntu-latest
@@ -216,7 +249,7 @@ jobs:
     # keys. Every account-specific value comes from repo Secrets (never a literal);
     # keeping them as Secrets also masks them in the public Actions logs. A first
     # step no-ops the job (stays green) until the deploy Secrets are configured.
-    needs: [secret-scan, terraform-fmt, lint, tests, eval-gate]
+    needs: [secret-scan, terraform-fmt, iac-security, lint, tests, eval-gate]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
