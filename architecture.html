@@ -289,6 +289,7 @@
           <div class="layer"><span class="n">2</span><span><span class="t">Origin shared-secret header</span> <span class="d">— CloudFront injects <code>X-Origin-Secret</code>; the BFF refuses requests without it, so direct-to-origin calls that bypass the WAF are dropped. Rotated via Secrets Manager.</span></span></div>
           <div class="layer"><span class="n">3</span><span><span class="t">In-function Cognito JWT</span> <span class="d">— the BFF validates RS256 against the pool JWKS (issuer, audience, expiry), no API Gateway authorizer.</span></span></div>
           <div class="layer"><span class="n">4</span><span><span class="t">Per-user and per-tenant scoping</span> <span class="d">— identity is taken from the token (<code>sub</code>, <code>custom:tenant_id</code>); a request naming another tenant or user is rejected, not honored.</span></span></div>
+          <div class="layer"><span class="n">5</span><span><span class="t">Response security headers</span> <span class="d">— CloudFront sends HSTS, X-Content-Type-Options, X-Frame-Options DENY, and a strict Referrer-Policy on every response, with an opt-in Content-Security-Policy. Cognito tokens are short-lived with refresh-token rotation.</span></span></div>
         </div>
 
         <h3 style="margin-top:18px">SSH door — the IAM / SSM boundary</h3>
@@ -323,7 +324,7 @@
       <!-- ============ CONNECTORS ============ -->
       <section class="view" id="connectors" role="tabpanel">
         <h2>Connectors: live, read-first, write-gated, never indexed</h2>
-        <p class="sub">Six live integrations. Each is a shim the agent calls as a tool; AgentCore Identity holds a per-user OAuth token. Homebase authenticates each independently.</p>
+        <p class="sub">Six per-user OAuth integrations plus an optional no-OAuth web-search connector. Each is a shim the agent calls as a tool; for the six, AgentCore Identity holds a per-user OAuth token, and Homebase authenticates each independently. When a token later expires, re-consent is non-blocking: the GUI shows a banner and opens consent in a separate window, never reloading the current screen.</p>
 
         <div class="grid2">
           <div class="card"><h3>Gmail <span class="pill read">read-first</span></h3><p>Search messages (read). Send is a gated write.</p></div>
@@ -332,6 +333,7 @@
           <div class="card"><h3>Slack <span class="pill read">read-first</span></h3><p>Read a channel by name or id (read). Post is a gated write. A dedicated Homebase app, own scopes.</p></div>
           <div class="card"><h3>Jira <span class="pill read">read-first</span></h3><p>Search issues with JQL, site id resolved automatically (read). Create issue is a gated write.</p></div>
           <div class="card"><h3>Confluence <span class="pill read">read-first</span></h3><p>Search pages with CQL (read). Shares one Atlassian app with Jira via a unioned scope set.</p></div>
+          <div class="card"><h3>Web search <span class="pill read">read-only</span></h3><p>Live internet via Tavily (<code>web_search</code>, <code>web_fetch</code>). No OAuth: a single API key from Secrets Manager. Fetch is delegated to Tavily's server-side extract (no arbitrary-URL fetch from our Lambda, SSRF-contained), on a dedicated minimal role. Optional (enabled by a secret).</p></div>
         </div>
 
         <h3 style="margin-top:18px">Self-service linking (3LO, once per account)</h3>
@@ -424,9 +426,9 @@
           <div class="card"><h3>Bedrock AgentCore <span class="pill core">agent</span></h3><p>Runtime (agent container), Memory, Gateway (MCP), Identity (OAuth vault). The BFF invokes the Runtime; the agent invokes the connector shim Lambdas.</p></div>
           <div class="card"><h3>Amazon Bedrock <span class="pill core">models</span></h3><p>Claude via a cross-region inference profile, Cohere Rerank, Titan Embeddings. Reached by the Runtime and the Knowledge Base.</p></div>
           <div class="card"><h3>Retrieval store <span class="pill read">read</span></h3><p>Bedrock Knowledge Base over Amazon S3 Vectors (semantic index); rerank at query time.</p></div>
-          <div class="card"><h3>Cognito <span class="pill core">identity</span></h3><p>User pool with Google federation, hosted UI, and a pre-sign-up allow-list Lambda. Tokens verified in the BFF.</p></div>
-          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + rotation + uptime (not VPC-attached). Fargate: chat CLI, vault-worker, mission-control, the Slack bridge, and the on-demand eval benchmark task. EC2: workstation. AgentCore: the agent.</p></div>
-          <div class="card"><h3>Connector shims <span class="pill gate">write-gated</span></h3><p>One Lambda per connector; each resolves the tenant OAuth token from AgentCore Identity and calls the vendor API. Reached by <code>lambda:InvokeFunction</code>.</p></div>
+          <div class="card"><h3>Cognito <span class="pill core">identity</span></h3><p>User pool with Google federation, hosted UI, and a pre-sign-up allow-list Lambda (fail-closed by default). Short-lived access/id tokens with refresh-token rotation; tokens verified in the BFF.</p></div>
+          <div class="card"><h3>Compute <span class="pill core">lambda · fargate · ec2</span></h3><p>Lambda: BFF + six connector shims + the optional web (Tavily) shim + rotation + uptime (not VPC-attached). Fargate: chat CLI, vault-worker, mission-control, the Slack bridge, and the on-demand eval benchmark task. EC2: workstation. AgentCore: the agent.</p></div>
+          <div class="card"><h3>Connector shims <span class="pill gate">write-gated</span></h3><p>One Lambda per connector; each resolves the tenant OAuth token from AgentCore Identity and calls the vendor API. The web shim instead reads a single Tavily API key and runs on a dedicated minimal role. Reached by <code>lambda:InvokeFunction</code>.</p></div>
         </div>
 
         <h3 style="margin-top:18px">State, security and ops</h3>
@@ -435,6 +437,7 @@
           <div class="card"><h3>Secrets &amp; config <span class="pill core">KMS</span></h3><p>KMS CMKs per stack; Secrets Manager for the rotating origin secret, OAuth client secrets, and workstation secrets; SSM Parameter Store for non-secret config (SecureString for the allow-list).</p></div>
           <div class="card"><h3>Access <span class="pill deny">no SSH</span></h3><p>Workstation and CLI are reached only through SSM (Session Manager / ECS Exec) — no key pair, no inbound, no public IP.</p></div>
           <div class="card"><h3>Observability <span class="pill core">CloudWatch</span></h3><p>Encrypted log groups, dashboards, and spend / uptime alarms to an SNS topic; OTEL traces from the agent.</p></div>
+          <div class="card"><h3>Audit <span class="pill core">CloudTrail</span></h3><p>A multi-region CloudTrail (log-file validation on) to a KMS'd, locked-down bucket, plus VPC flow logs for network-level forensics.</p></div>
         </div>
 
         <div class="note">

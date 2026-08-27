@@ -67,6 +67,24 @@ callback_urls = ["https://app.example.invalid/auth/callback"]
 logout_urls   = ["https://app.example.invalid/"]
 ```
 
+## Token lifetimes and refresh-token rotation
+
+The SPA app client sets explicit, short token lifetimes instead of the Cognito defaults (which were 1h
+access/id and a 30-day refresh token): 60-minute access and id tokens and a 7-day refresh token, with
+refresh-token ROTATION enabled (`refresh_token_rotation`). Rotation makes each refresh token single-use
+(the old one is invalidated when the client next refreshes), so a leaked refresh token is short-lived
+and self-revoking. The SPA adopts the rotated `refresh_token` returned on each refresh, and a 60-second
+grace period tolerates a concurrent double-refresh. Together these bound the blast radius of any leaked
+token.
+
+## Sign-up gating (fail-closed)
+
+`enable_signup_allowlist` defaults to `true`: the Pre-Sign-Up Lambda gate is attached, so self-sign-up
+(native and Google-federated) is closed unless the email is on the allow-list. This is fail-closed: a
+fresh environment admits nobody until the operator adds an email to the by-hand SSM SecureString at
+`/<project>/<env>/identity/allowed-signup-emails`. Set it to `false` only for a deliberately open
+environment. The allow-list value never enters Terraform state, plans, or tfvars.
+
 ## After apply
 
 The stack writes non-secret identifiers to SSM Parameter Store as `String`:

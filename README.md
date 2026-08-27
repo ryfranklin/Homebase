@@ -12,9 +12,10 @@ full conventions.
 
 ## Architecture
 
-- Agent runtime on Amazon Bedrock AgentCore, running a tool-use loop over knowledge-base search and
-  the live connectors, streaming its answer token by token, with a Bedrock Guardrail applied to every
-  model (Converse) call so one governance layer protects all doors at the model boundary
+- Agent runtime on Amazon Bedrock AgentCore, running a tool-use loop over knowledge-base search, the
+  live connectors, and optional live web search (Tavily), streaming its answer token by token, with a
+  Bedrock Guardrail applied to every model (Converse) call so one governance layer protects all doors
+  at the model boundary
 - Retrieval via Bedrock Knowledge Base with S3 Vectors, using semantic retrieval plus Bedrock Rerank
   (S3 Vectors is semantic-only; hybrid is the gated OpenSearch Serverless seam, ADR-002)
 - Authentication via Amazon Cognito with Google federation
@@ -29,7 +30,18 @@ full conventions.
 - A separate EC2 workstation reached over SSM (no public SSH)
 - Six live connectors (Gmail, Calendar, Drive, Slack, Jira, Confluence): read-first and write-gated,
   each with per-user OAuth via AgentCore Identity (an AgentCore Gateway also exposes them as MCP tools);
-  the user links an account once through a self-service consent flow in the GUI
+  the user links an account once through a self-service consent flow in the GUI. When a token later
+  expires, the GUI shows a non-blocking banner and re-consent opens in a separate window, so on-screen
+  work is not interrupted
+- An optional web-search connector (Tavily) that gives the agent live internet access as two read
+  tools (`web_search`, `web_fetch`). It follows the same shim/MCP pattern but is keyed by a single
+  Secrets Manager API key rather than per-user OAuth; fetching is delegated to Tavily's server-side
+  extract (the Lambda never dereferences a model-supplied URL, containing SSRF), and it is enabled only
+  when the `tavily_secret_name` input is set
+- Audit and hardening: a multi-region CloudTrail management-plane trail, VPC flow logs, Cognito
+  refresh-token rotation with short-lived access tokens, an allow-list that is fail-closed by default,
+  CloudFront security headers (HSTS, nosniff, frame-DENY) with an opt-in CSP, and a CI IaC security
+  scan (Checkov, gated on new findings)
 - A git-authoritative vault: a Fargate vault worker owns the clone and commits every write, so notes
   and flight plans are versioned and attributed from git; the S3 corpus is the derived KB mirror
 - A Flight Planner where the agent runs an AI-DLC INCEPTION interview to produce reviewed flight plans,
@@ -76,6 +88,7 @@ flowchart TB
 
     subgraph conn["Connectors (live, read-first, write-gated, never indexed)"]
         GW["AgentCore Identity (per-user OAuth)<br/>+ Gateway (MCP)"] --> SIX["Gmail · Calendar · Drive · Slack · Jira · Confluence"]
+        WEB["Web search (Tavily)<br/>API key, no per-user OAuth · optional"]
     end
 
     subgraph exec["Planning &amp; execution"]
@@ -109,7 +122,7 @@ services/       Backend services
   agent/        AgentCore agent runtime
   bff/          Streaming Lambda BFF (Function URL, SSE)
   ingestion/    Knowledge base ingestion pipeline
-  connectors/   Six live connectors (read-first shim Lambdas + catalog)
+  connectors/   Connectors (read-first shim Lambdas + catalog): six per-user OAuth + a no-OAuth web-search (Tavily) shim
   vault-worker/ Fargate service that owns the git vault clone (writes commit to git)
   slackbot/     Slack bridge (slack-bolt Socket Mode service on Fargate, allow-list gated)
 web/            React SPA (Vault · Chat · Plan · Mission surfaces)
