@@ -53,7 +53,8 @@ command that mutates cloud state. The human runs apply.
 - Backend for frontend (BFF) as API Gateway plus Lambda
 - A thin chat CLI running as a Fargate container
 - A separate EC2 workstation reached over SSM (no public SSH)
-- Six connectors exposed as MCP tools via AgentCore Gateway and AgentCore Identity
+- Six per-user OAuth connectors, plus an optional no-OAuth web-search connector (Tavily), exposed as
+  MCP tools via AgentCore Gateway and AgentCore Identity
 - An on-demand evaluation harness that benchmarks many Bedrock models (quality, latency, cost, task
   success) over the Converse API, so model choice per seam is made on evidence
 - All infrastructure defined as Terraform IaC
@@ -79,8 +80,9 @@ the two in sync when the architecture changes.
 ## Working agreements for agents
 
 - Do not create cloud resources. This repository is local scaffolding and code.
-- Do not commit secrets, and do not weaken `.gitignore`, the pre-commit hooks, or the CI secret
-  scan.
+- Do not commit secrets, and do not weaken `.gitignore`, the pre-commit hooks, the CI secret
+  scan, or the CI IaC security scan (Checkov). When you intentionally change infrastructure, refresh
+  `infra/.checkov.baseline` rather than removing the scan or broadening its skips.
 - Prefer inputs (variables, env vars, Secrets Manager, SSM) over literals every time.
 - When adding a new secret or environment value, document it in `.env.example` or the relevant
   `*.tfvars.example` with a clearly fake placeholder.

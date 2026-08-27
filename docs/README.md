@@ -6,7 +6,7 @@ Project documentation for Homebase.
 
 - [RUNBOOK.md](./RUNBOOK.md): end-to-end deploy-and-verify runbook (stack apply order).
 - [retrieval.md](./retrieval.md): semantic + rerank retrieval on S3 Vectors; the eval decision (ADR-002).
-- [connectors.md](./connectors.md): the six live connectors, read-first, write-gated, per-user OAuth.
+- [connectors.md](./connectors.md): the six per-user-OAuth connectors plus the optional no-OAuth web-search (Tavily) connector, all read-first and write-gated.
 - [identity.md](./identity.md): Cognito + Google, JWT claims, tenant/user model.
 - [secrets.md](./secrets.md): secret handling (by-hand secrets, ARNs, never in state).
 - [ssh-access.md](./ssh-access.md) and [workstation.md](./workstation.md): the SSH plane and dev box.

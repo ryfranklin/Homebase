@@ -81,7 +81,7 @@ checks; present only when `HOMEBASE_MISSION_CONTROL_URL` is configured):
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/missions/runs` | Launch a run. Body `{plan, unit}` (mapped) or a raw `{target, task_type, prompt}`. |
+| POST | `/api/missions/runs` | Launch a run. Body `{plan, unit}` (mapped, may be a `burn`) or a raw `{target, task_type, prompt}`. The raw escape hatch is limited to `task_type: "sim"` (read-only): a repo-mutating `burn` must go through a cleared flight-plan unit that carries the go/no-go gate, so a client-supplied target + prompt cannot trigger a side-effectful run. |
 | GET | `/api/missions/runs` | List runs (`?status=&target=&limit=&offset=&order=`). |
 | GET | `/api/missions/runs/{id}` | Run status + cost. |
 | GET | `/api/missions/runs/{id}/changes` | Files changed (after apply). |

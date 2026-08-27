@@ -56,8 +56,8 @@ outputs it consumes (via SSM parameters, or Terraform variables sourced from a p
 | 7 | **web** | CloudFront fronts the BFF Function URL and injects the origin shared-secret header. | SSM: `api/bff_function_url`, `api/origin_secret_arn`; Secrets Manager: origin secret value |
 | 8 | **ssh-chat** | The Fargate CLI invokes the agent runtime from a private subnet. Needs the bedrock-agentcore endpoint. | SSM: `agent/runtime_arn`; vars: `vpc_id`, `private_subnet_ids` (foundation outputs) |
 | 9 | **workstation** | The dev box invokes the agent and needs outbound egress. Adds the VPC's internet gateway + NAT. Needs the bedrock-agentcore endpoint for agent calls. | var: `vpc_id` (foundation output); Secrets Manager: shell secret; SSM: dotfiles URL (created from tfvars) |
-| 10 | **connectors** | AgentCore Gateway authorizes with the same Cognito JWT; needs the bedrock-agentcore endpoint for in-VPC targets. | SSM: `identity/issuer_url`, `identity/app_client_id`; Secrets Manager / tfvars: per-connector client secrets |
-| 11 | **monitoring** | Wires alarms to the P2 budget SNS and dashboards to resources created by earlier stacks. Apply last. | SSM: `foundation/budget_sns_topic_arn`, `foundation/kms_key_arn`; vars: `workstation_instance_id`, `cloudfront_distribution_id` |
+| 10 | **connectors** | AgentCore Gateway authorizes with the same Cognito JWT; needs the bedrock-agentcore endpoint for in-VPC targets. Optional web-search (Tavily) connector when `tavily_secret_name` is set. | SSM: `identity/issuer_url`, `identity/app_client_id`; Secrets Manager / tfvars: per-connector client secrets; Secrets Manager (by hand, optional): Tavily API key |
+| 11 | **monitoring** | Wires alarms to the P2 budget SNS and dashboards to resources created by earlier stacks, and creates the multi-region CloudTrail (`enable_cloudtrail`, default on) with its own KMS'd, locked-down bucket. Apply last. | SSM: `foundation/budget_sns_topic_arn`, `foundation/kms_key_arn`; vars: `workstation_instance_id`, `cloudfront_distribution_id` |
 | 12 | **slackbot** (optional door) | A private Fargate Socket Mode app that invokes the agent from Slack. Independent add-on: apply any time after agent + vault-worker. Needs the shared NAT (outbound WebSocket to Slack). | SSM: `agent/runtime_arn`, `vault-worker/private_subnet_id`; var: `vpc_id`; Secrets Manager (by hand): Slack bot + app tokens; SSM SecureString (by hand): `slackbot/allowed-emails` |
 | 13 | **eval** (optional add-on) | On-demand multi-model benchmark runner (quality, latency, cost, task success over the Bedrock Converse API). Independent add-on: apply any time after vault-worker (reuses its private subnet for Bedrock egress). No standing service or schedule. First apply creates the ECR repo; then run `scripts/deploy-eval.sh` to push the image and re-apply. | SSM: `vault-worker/private_subnet_id`; benchmark models + judge must be enabled in Bedrock |
 
@@ -65,6 +65,10 @@ Dependency summary: foundation before everything; retrieval after storage; agent
 api after agent and identity; web after api; the agent-invoking stacks (agent, ssh-chat, workstation,
 connectors, slackbot) after the `bedrock-agentcore` endpoint exists; monitoring last; slackbot and
 eval are optional add-ons needing only vault-worker (eval) or agent + vault-worker (slackbot).
+
+> Monitoring creates a multi-region CloudTrail by default. If this AWS account is already covered by an
+> AWS Organizations trail, set `enable_cloudtrail = false` in the monitoring tfvars to avoid a duplicate
+> trail (and its per-event charge).
 
 ---
 
@@ -130,6 +134,20 @@ retrieval, then agent (the agent bakes the rerank ARN into its runtime env at ap
 3. **Each client secret → the git-ignored connectors tfvars**, and AgentCore Identity stores it. The
    client ids go into the same git-ignored tfvars. User tokens are held and refreshed by AgentCore
    Identity. See [connectors.md](./connectors.md).
+
+### 2d-bis. Tavily web-search key — optional, before applying connectors (P11)
+
+To give the agent live internet access, create a Tavily API key and store it as a by-hand Secrets
+Manager secret, then set `tavily_secret_name` (the secret NAME) in the connectors tfvars. Leaving it
+empty ships without the `web` connector.
+
+```bash
+aws secretsmanager create-secret --name "homebase-<env>-tavily-api-key" \
+  --secret-string '{"api_key":"<YOUR_TAVILY_API_KEY>"}'
+```
+
+The web shim reads it via a dedicated minimal IAM role; fetches go through Tavily's server-side extract
+(no arbitrary-URL fetch from the Lambda). See [connectors.md](./connectors.md).
 
 ### 2e. Workstation dotfiles + shell secret — before applying workstation (P10)
 
