@@ -171,7 +171,7 @@ export function VaultView({ vault, chat, threads, models, model, onModelChange, 
         </div>
       </header>
 
-      <div className={`vault-body${mobileDetail ? " vault-detail" : ""}`}>
+      <div className={`vault-body${mobileDetail ? " vault-detail" : ""}${chatOpen ? " chat-expanded" : ""}`}>
         <aside className="vault-sidebar">
           <div className="vault-side-top">
             <input
@@ -207,6 +207,7 @@ export function VaultView({ vault, chat, threads, models, model, onModelChange, 
             activeKey={vault.note?.key ?? null}
             onOpen={(k) => {
               setMobileDetail(true);
+              setChatOpen(false); // reading a note reclaims the space the expanded chat used
               void vault.open(k);
             }}
             onDeleteFile={onDeleteFileFromTree}
@@ -231,7 +232,7 @@ export function VaultView({ vault, chat, threads, models, model, onModelChange, 
                 </button>
               </div>
               {vault.results.map((r) => (
-                <button key={r.key} type="button" className="vault-result" onClick={() => { setMobileDetail(true); void vault.open(r.key); }}>
+                <button key={r.key} type="button" className="vault-result" onClick={() => { setMobileDetail(true); setChatOpen(false); void vault.open(r.key); }}>
                   <span className="vault-result-title">{r.title}</span>
                   <span className="vault-result-key">{r.key}</span>
                   <span className="vault-result-snippet">{r.snippet}</span>

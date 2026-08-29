@@ -2777,6 +2777,14 @@ button.fb-row:hover { background: var(--surface); }
   background: var(--bg-soft);
 }
 @media (max-width: 1024px) { .vault-chat { width: 360px; } }
+/* When the chat is open on desktop it takes the note reader's space: the note closes
+   and the chat expands to fill the main area (sidebar + chat). Opening a note (tree or
+   search) closes the chat, and the chat header toggle / × brings the note back. Scoped
+   to desktop so the mobile bottom-sheet master-detail is unaffected. */
+@media (min-width: 861px) {
+  .vault-body.chat-expanded .vault-main { display: none; }
+  .vault-body.chat-expanded .vault-chat { flex: 1 1 auto; width: auto; min-width: 0; }
+}
 .vault-chat-head {
   display: flex;
   align-items: center;
